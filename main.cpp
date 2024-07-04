@@ -7,18 +7,18 @@ using namespace std;
 
 
 // note: assumes a, b are same shape
-int* ElementwiseMul(int* a, int* b, int size)
+float* ElementwiseMul(float* a, float* b, int size)
 {
-    int* out = (int*)malloc(size * sizeof(int));
+    float* out = (float*)malloc(sizeof(float)* size);
     for (int i=0; i<size; i++) {
         out[i] = a[i] * b[i];
     }
     return out;
 }
 
-int* Matmul1d(int* a, int* b, int size)
+float* Matmul(float* a, float* b, int size)
 {
-    int* out = (int*)malloc(sizeof(int));;
+    float* out = (float*)malloc(sizeof(float));;
     for (int i=0; i<size; i++) {
         // de-reference and compute
         *out += a[i] * b[i];
@@ -26,7 +26,7 @@ int* Matmul1d(int* a, int* b, int size)
     return out;
 }
 
-void Print(int* a, int size)
+void Print(float* a, int size)
 {
     for (int i=0; i<size; i++) {
         cout << a[i] << ", ";
@@ -35,20 +35,21 @@ void Print(int* a, int size)
 }
 
 
-float* GenRandomFloat()
+float* GenRandomFloat(int num)
 {
-    float* f_prt = (float*)malloc(sizeof(float));
+    float* f_ptr = (float*)malloc(sizeof(float) * num);
 
-    // https://linux.die.net/man/3/random
-    // returns a pseudo-random int between 0 and RAND_MAX
-    // normalize to: 0 - 1
-    // shift to: -0.5 - 0.5
-    float r = ((float)rand() / RAND_MAX) - 0.5;
+    for (int i=0; i<num; i++)
+    {
+        // https://linux.die.net/man/3/random
+        // returns a pseudo-random int between 0 and RAND_MAX
+        // normalize to: 0 - 1
+        // shift to: -0.5 - 0.5
+        f_ptr[i] = ((float)rand() / RAND_MAX) - 0.5;
+    }
 
-    // write to heap memory
-    *f_prt = r;
 
-    return f_prt;
+    return f_ptr;
 }
 
 
@@ -57,18 +58,18 @@ int main() {
     srand(time(NULL));
     // srand(123);
 
-    float* f = GenRandomFloat();
-    cout << "GenRandomFloat: " << *f << endl;;
+    int size = 5;
 
-    // // todo: make it random numbers
-    // int x[5] = {2, 4, 5, 8, 1};
-    // int w[5] = {2, 2, 2, 2, 2};
+    float* x = GenRandomFloat(size);
+    Print(x, size);
+    float* w = GenRandomFloat(size);
+    Print(w, size);
 
-    // int size = sizeof(x) / sizeof(int);
-    // // cout << size;
+    float* out = ElementwiseMul(x, w, size);
+    Print(out, size);
 
-    // // int* out = ElementwiseMul(x, w, size);
-    // // Print(out, size);
+    float* out1 = Matmul(x, w, size);
+    Print(out1, 1);
 
     // int* out = Matmul1d(x, w, size);
     // cout << *out << endl;
