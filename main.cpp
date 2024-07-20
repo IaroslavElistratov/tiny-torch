@@ -6,6 +6,13 @@
 using namespace std;
 #include <iomanip> // for  input-output manipulation
 
+// #define DEBUG  1
+
+#ifdef DEBUG
+#define print(f_p, s1_i, s2_i, msg) _print(f_p, s1_i, s2_i, msg)
+#else
+#define print(f_p, s1_i, s2_i, msg)
+#endif
 
 // note: assumes a, b are same shape
 float* ElementwiseMul(float* a, float* b, int size)
@@ -160,8 +167,10 @@ float* Transpose(float* x, int s1, int s2)
 }
 
 
-void print(float* a, int s0, int s1)
+void _print(float* a, int s0, int s1, const char* msg)
 {
+    printf("\n%s: ", msg);
+
     for (int i=0, size=s0*s1; i<size; i++) {
         if (i % s1 == 0) cout << endl;
         // easy numpy export:
@@ -224,33 +233,28 @@ int main() {
     // *** INIT ***
 
     float* x = GetRandomFloat(N*M);
-    cout << "x: ";
-    print(x, N, M);
+    print(x, N, M, "x");
 
     float* w1 = GetRandomFloat(M*D);
-    cout << "\nw1: ";
-    print(w1, M, D);
+    print(w1, M, D, "w1");
 
     float* w2 = GetRandomFloat(D*O);
-    cout << "\nw2: ";
-    print(w2, D, O);
+    print(w2, D, O, "w2");
+
 
     // *** FWD ***
 
     // x(N, M) @ w1(M, D) = out1(N, D)
     float* out1 = Matmul(x, w1, N, M, D);
-    cout << "\nmatmul_1: ";
-    print(out1, N, D);
+    print(out1, N, D, "matmul_1");
 
     // out2(N, D)
     float* out2 = Relu(out1, N*D);
-    cout << "\nrelu: ";
-    print(out2, N, D);
+    print(out2, N, D, "relu");
 
     // out2(N, D) @ w2(D, O) = out3(N, O)
     float* out3 = Matmul(out2, w2, N, D, O);
-    cout << "\nmatmul_2: ";
-    print(out3, N, O);
+    print(out3, N, O, "matmul_2");
 
     // loss
     float* y = BroadcastScalar(0.5, N*O); // dummy label
@@ -266,7 +270,7 @@ int main() {
     // mse bwd
 
     // question-now: non deterministic order of args?
-    //  - dL_dpow, dL_dneg, dL_w2, dL_out2
+    //  - dL_dpow, dL_dneg, dL_dw2, dL_out2
     float* dL_dneg = ElementwiseMul(BroadcastScalar(2.0, N*O), BroadcastScalar(dL_dL, N*O), N*O);
     float* dL_dout3 = ElementwiseMul(BroadcastScalar(1.0, N*O), dL_dneg, N*O);
 
@@ -275,12 +279,11 @@ int main() {
     // dL_dout3(N, O)
     // out2(N, D)
     // w2(D, O)
-    //   so: out2.T(D, N) @ dL_dout3(N, O) = dL_w2(D, O)
+    //   so: out2.T(D, N) @ dL_dout3(N, O) = dL_dw2(D, O)
     //   I went from the ouput shape (D, O) -- this has to be the same bc
     // note: Transpose inputs dims **before** transpose
-    float* dL_w2 = Matmul(Transpose(out2, N, D), dL_dout3, D, N, O);
-    cout << "\ndL_w2: ";
-    print(dL_w2, D, O);
+    float* dL_dw2 = Matmul(Transpose(out2, N, D), dL_dout3, D, N, O);
+    print(dL_dw2, D, O, "dL_dw2");
 
     // out2(N, D)
     //   so: dL_dout3(N, O) @ w2.T(O, D) = dL_out2(N, D)
@@ -301,8 +304,7 @@ int main() {
     // w1(M, D)
     //   so: x.T(M, N) @ dL_dout1(N, D) = dL_dw1(M, D)
     float* dL_dw1 = Matmul(Transpose(x, N, M), dL_dout1, M, N, D);
-    cout << "\ndL_dw1: ";
-    print(dL_dw1, M, D);
+    print(dL_dw1, M, D, "dL_dw1");
 
     // todo: write to file
     return 0;
