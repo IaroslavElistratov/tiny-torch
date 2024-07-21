@@ -264,15 +264,28 @@ int main() {
     // *** BWD ***
 
     // note: below derivatives try to follow this order -- local * upstream
+    // question-now: non deterministic order of args?
+    //  - dL_dpow, dL_dneg, dL_dw2, dL_out2
 
     float dL_dL = 1.0;
+    // float dL_dsum = 1.0;
 
     // mse bwd
 
-    // question-now: non deterministic order of args?
-    //  - dL_dpow, dL_dneg, dL_dw2, dL_out2
-    float* dL_dneg = ElementwiseMul(BroadcastScalar(2.0, N*O), BroadcastScalar(dL_dL, N*O), N*O);
-    float* dL_dout3 = ElementwiseMul(BroadcastScalar(1.0, N*O), dL_dneg, N*O);
+    // "reduce_sum" bwd
+    float* dL_dpow = BroadcastScalar(dL_dL, N*O);
+
+    // "**2" bwd
+    // todo: avoid recomputing this during backward
+    float* diff = (float*)malloc(sizeof(float) * N*O);
+    for (int i=0; i<N*O; i++) {
+        diff[i] = y[i] - out3[i];
+    }
+    float* local_dpow = ElementwiseMul(BroadcastScalar(2.0, N*O), diff, N*O);
+    float* dL_dneg = ElementwiseMul(local_dpow, dL_dpow, N*O);
+
+    // "-" bwd
+    float* dL_dout3 = ElementwiseMul(BroadcastScalar(-1.0, N*O), dL_dneg, N*O);
 
     // matmul 2 bwd
 
@@ -283,7 +296,7 @@ int main() {
     //   I went from the ouput shape (D, O) -- this has to be the same bc
     // note: Transpose inputs dims **before** transpose
     float* dL_dw2 = Matmul(Transpose(out2, N, D), dL_dout3, D, N, O);
-    print(dL_dw2, D, O, "dL_dw2");
+    _print(dL_dw2, D, O, "dL_dw2");
 
     // out2(N, D)
     //   so: dL_dout3(N, O) @ w2.T(O, D) = dL_out2(N, D)
@@ -304,7 +317,7 @@ int main() {
     // w1(M, D)
     //   so: x.T(M, N) @ dL_dout1(N, D) = dL_dw1(M, D)
     float* dL_dw1 = Matmul(Transpose(x, N, M), dL_dout1, M, N, D);
-    print(dL_dw1, M, D, "dL_dw1");
+    _print(dL_dw1, M, D, "dL_dw1");
 
     // todo: write to file
     return 0;
