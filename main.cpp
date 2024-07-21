@@ -6,7 +6,10 @@
 using namespace std;
 #include <iomanip> // for  input-output manipulation
 
+# define NUM_EP 5
+# define LR 0.02
 // #define DEBUG  1
+
 
 #ifdef DEBUG
 #define print(f_p, s1_i, s2_i, msg) _print(f_p, s1_i, s2_i, msg)
@@ -220,28 +223,18 @@ float* BroadcastScalar(float scalar, int size)
     return f_ptr;
 }
 
-int main() {
-    // random num generator init, must be called once
-    // srand(time(NULL));
-    srand(123);
 
-    int N = 16;
-    int M = 2;
-    int D = 4;
-    int O = 1;
+void sgd(float* w, float* grad_w, int size)
+{
+    for (int i=0; i<size; i++) {
+        w[i] -= grad_w[i] * LR;
+    }
+}
 
-    // *** INIT ***
-
-    float* x = GetRandomFloat(N*M);
-    print(x, N, M, "x");
-
-    float* w1 = GetRandomFloat(M*D);
-    print(w1, M, D, "w1");
-
-    float* w2 = GetRandomFloat(D*O);
-    print(w2, D, O, "w2");
-
-
+float train_step(
+    float* x, float* w1, float* w2,
+    int N, int M, int D, int O)
+{
     // *** FWD ***
 
     // x(N, M) @ w1(M, D) = out1(N, D)
@@ -259,7 +252,7 @@ int main() {
     // loss
     float* y = BroadcastScalar(0.5, N*O); // dummy label
     float loss = mse(out3, y, N*O);
-    cout << "loss :" << loss << endl;
+    // cout << "loss :" << loss << endl;
 
     // *** BWD ***
 
@@ -318,6 +311,45 @@ int main() {
     //   so: x.T(M, N) @ dL_dout1(N, D) = dL_dw1(M, D)
     float* dL_dw1 = Matmul(Transpose(x, N, M), dL_dout1, M, N, D);
     _print(dL_dw1, M, D, "dL_dw1");
+
+    // *** Optim Step ***
+    sgd(w1, dL_dw1, M*D);
+    sgd(w2, dL_dw2, D*O);
+
+    return loss;
+}
+
+
+int main() {
+    // random num generator init, must be called once
+    // srand(time(NULL));
+    srand(123);
+
+    int N = 16;
+    int M = 2;
+    int D = 4;
+    int O = 1;
+
+    // *** Init ***
+    float* x = GetRandomFloat(N*M);
+    print(x, N, M, "x");
+
+    float* w1 = GetRandomFloat(M*D);
+    print(w1, M, D, "w1");
+
+    float* w2 = GetRandomFloat(D*O);
+    print(w2, D, O, "w2");
+
+    // *** Train Step ***
+    for (int ep_idx=0; ep_idx<NUM_EP; ep_idx++) {
+        float loss = train_step(
+            x, w1, w2,
+            N, M, D, O);
+        cout << "\nep: " << ep_idx << "; loss: " << loss << endl;
+
+        print(w1, M, D, "w1");
+        print(w2, D, O, "w2");
+    }
 
     // todo: write to file
     return 0;
