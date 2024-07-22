@@ -12,17 +12,62 @@ using namespace std;
 
 
 #ifdef DEBUG
-#define print(f_p, s1_i, s2_i, msg) _print(f_p, s1_i, s2_i, msg)
+#define print(f_p, msg) _print(f_p, msg)
 #else
-#define print(f_p, s1_i, s2_i, msg)
+#define print(f_p, msg)
 #endif
 
-// note: assumes a, b are same shape
-float* ElementwiseMul(float* a, float* b, int size)
+struct tensor {
+    float* data;
+    int shape[2];
+    // to avoid
+    //  int size = x->shape[0] * x->shape[1];
+    int size;
+};
+
+// forward declaration
+float* GetRandomFloat(int num);
+
+tensor* Tensor(int s1, int s2)
 {
-    float* out = (float*)malloc(sizeof(float)* size);
-    for (int i=0; i<size; i++) {
-        out[i] = a[i] * b[i];
+    tensor* t = (tensor*)malloc(sizeof(tensor));
+
+    t->size = s1*s2;
+
+    t->shape[0] = s1;
+    t->shape[1] = s2;
+
+    t->data = GetRandomFloat(s1*s2);
+
+    return t;
+}
+
+/*
+for convince to avoid:
+    int N = x->shape[0], M = x->shape[1];
+    tensor* out = Tensor(N, D);
+*/
+tensor* TensorLike(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1];
+    return Tensor(s1, s2);
+}
+
+tensor* TensorLikeFill(tensor* t, float value)
+{
+    tensor* t_new = TensorLike(t);
+    for (int i=0; i<t_new->size; i++)
+        t_new->data[i] = value;
+    return t_new;
+}
+
+
+tensor* ElementwiseMul(tensor* a, tensor* b)
+{
+    // todo: here and in all ops, assert same size
+    tensor* out = TensorLike(a);
+    for (int i=0; i<out->size; i++) {
+        out->data[i] = a->data[i] * b->data[i];
     }
     return out;
 }
@@ -35,12 +80,13 @@ int index(int x, int y, int x_max) {
 
 
 // todo: add tests -- https://github.com/tensorflow/tensorflow/commit/6f4a0e96d853d1d8fe05a8dd8f7ba0cd0fb0e79b#diff-65511a88d2951377144d77a2de94c0f597c4664189d3d5ac730e653560b64f31R259-R342
-float* Matmul(float* x, float* w,
-        int N, int M, int D)
+tensor* Matmul(tensor* x, tensor* w)
 {
+    int N = x->shape[0], M = x->shape[1];
+    int D = w->shape[1];
     // (N, M) @ (M, D) = (N, D)
-    float* out = (float*)malloc(sizeof(float) * N * D);
-
+    // todo: add a way to create empty tensor -- bc currently my Tensor constructor also fills it tens w random values
+    tensor* out = Tensor(N, D);
 
     for (int n=0; n<N; n++) {
         for (int d=0; d<D; d++) {
@@ -48,11 +94,11 @@ float* Matmul(float* x, float* w,
             for (int m=0; m<M; m++){
                 // cout << "x_idx: " << n*M+m << endl;
                 // cout << "y_idx: " << m*D+d << endl;
-                sum += x[n*M+m] * w[m*D+d];
+                sum += x->data[n*M+m] * w->data[m*D+d];
                 // cout << endl;
             }
             // cout << "sum: " << sum << endl;
-            out[n*D+d] = sum;
+            out->data[n*D+d] = sum;
         // cout << endl;
         }
     }
@@ -77,21 +123,21 @@ float* Matmul(float* x, float* w,
     out2[1] = 0.123;
     print(ReluBackward(out2, N*D), N, D);
 */
-float* Relu(float* x, int size)
+tensor* Relu(tensor* x)
 {
-    float* out = (float*)malloc(sizeof(float) * size);
-    for (int i=0; i<size; i++) {
-        out[i] = x[i] > 0.0 ? x[i] : 0.0;
+    tensor* out = TensorLike(x);
+    for (int i=0; i<out->size; i++) {
+        out->data[i] = x->data[i] > 0.0 ? x->data[i] : 0.0;
         // mask[i] = x[i] > 0.0 ? 1.0 : 0.0;
     }
     return out;
 }
 
-float* GetReluMask(float* x, int size)
+tensor* GetReluMask(tensor* x)
 {
-    float* out = (float*)malloc(sizeof(float) * size);
-    for (int i=0; i<size; i++) {
-        out[i] = x[i] > 0.0 ? 1.0 : 0.0;
+    tensor* out = TensorLike(x);
+    for (int i=0; i<out->size; i++) {
+        out->data[i] = x->data[i] > 0.0 ? 1.0 : 0.0;
     }
     return out;
 }
@@ -109,11 +155,11 @@ float pow(float x, int exp)
 }
 
 // note: use capital letters for functions that allocate heap mem, use lowercase otherwise
-float mse(float* x, float* y, int size)
+float mse(tensor* x, tensor* y)
 {
     float diff, out = 0;
-    for (int i=0; i<size; i++) {
-        diff = y[i] - x[i];
+    for (int i=0; i<x->size; i++) {
+        diff = y->data[i] - x->data[i];
         out += pow(diff, 2);
     }
     return out;
@@ -139,14 +185,15 @@ float mse(float* x, float* y, int size)
 
 // todo-low: use "const int" for s1, s2?
 // [S1, S2] -> [S2, S1]
-float* Transpose(float* x, int s1, int s2)
+tensor* Transpose(tensor* x)
 {
+    int s1 = x->shape[0], s2 = x->shape[1];
     // [S1, S2]
     //   - to go to next row, need to skip S2 elements
     //   - to go to next column, need to skip 1
     int stride_next_row = s2, stride_next_col = 1;
 
-    float* f_ptr = (float*)malloc(sizeof(float) * s1*s2);
+    tensor* out = Tensor(s2, s1);
 
     // basically need indexing pattern to access elements of array
     // next idx is different inside-a-row vs when switching to next row
@@ -161,29 +208,29 @@ float* Transpose(float* x, int s1, int s2)
 
             int idx_trans = (s1_transposed * stride_next_col) + (s2_transposed * stride_next_row);
             // cout << "idx_orig: " << idx_orig
-            f_ptr[idx_orig++] = x[idx_trans];
+            out->data[idx_orig++] = x->data[idx_trans];
             // cout << "; idx_trans: " << idx_trans << endl;
         }
     }
 
-    return f_ptr;
+    return out;
 }
 
 
-void _print(float* a, int s0, int s1, const char* msg)
+void _print(tensor* t, const char* msg)
 {
     printf("\n%s: ", msg);
 
-    for (int i=0, size=s0*s1; i<size; i++) {
-        if (i % s1 == 0) cout << endl;
+    for (int i=0, row_len = t->shape[1]; i<t->size; i++) {
+        if (i % row_len == 0) cout << endl;
         // easy numpy export:
-        // if (i % s1 == 0) cout << "], " << endl << "[";
+        // if (i % row_len == 0) cout << "], " << endl << "[";
 
         // todo: use right justified, and print only 4 points of precision
-        // cout << " " << setw(5) << right << a[i] << ", ";
+        // cout << " " << setw(5) << right << t->data[i] << ", ";
 
         // %6.1f describes number at least six characters wide, with 1 digit after the decimal point
-        printf("%8.4f, ", a[i]);
+        printf("%8.4f, ", t->data[i]);
     }
     cout << endl;
 }
@@ -207,51 +254,32 @@ float* GetRandomFloat(int num)
     return f_ptr;
 }
 
-// float* Zeros(int size)
-// {
-//     float* out = (float*)malloc(sizeof(float) * size);
-//     for (int i=0; i<size; i++)
-//         out[i] = 0.0;
-//     return out;
-// }
-
-float* BroadcastScalar(float scalar, int size)
+void sgd(tensor* w, tensor* grad_w)
 {
-    float* f_ptr = (float*)malloc(sizeof(float) * size);
-    for (int i=0; i<size; i++)
-        f_ptr[i] = scalar;
-    return f_ptr;
-}
-
-
-void sgd(float* w, float* grad_w, int size)
-{
-    for (int i=0; i<size; i++) {
-        w[i] -= grad_w[i] * LR;
+    for (int i=0; i<w->size; i++) {
+        w->data[i] -= grad_w->data[i] * LR;
     }
 }
 
-float train_step(
-    float* x, float* w1, float* w2,
-    int N, int M, int D, int O)
+float train_step(tensor* x, tensor* w1, tensor* w2)
 {
     // *** FWD ***
 
     // x(N, M) @ w1(M, D) = out1(N, D)
-    float* out1 = Matmul(x, w1, N, M, D);
-    print(out1, N, D, "matmul_1");
+    tensor* out1 = Matmul(x, w1);
+    print(out1, "matmul_1");
 
     // out2(N, D)
-    float* out2 = Relu(out1, N*D);
-    print(out2, N, D, "relu");
+    tensor* out2 = Relu(out1);
+    print(out2, "relu");
 
     // out2(N, D) @ w2(D, O) = out3(N, O)
-    float* out3 = Matmul(out2, w2, N, D, O);
-    print(out3, N, O, "matmul_2");
+    tensor* out3 = Matmul(out2, w2);
+    print(out3, "matmul_2");
 
     // loss
-    float* y = BroadcastScalar(0.5, N*O); // dummy label
-    float loss = mse(out3, y, N*O);
+    tensor* y = TensorLikeFill(out3, 0.5); // dummy label
+    float loss = mse(out3, y);
     // cout << "loss :" << loss << endl;
 
     // *** BWD ***
@@ -266,19 +294,19 @@ float train_step(
     // mse bwd
 
     // "reduce_sum" bwd
-    float* dL_dpow = BroadcastScalar(dL_dL, N*O);
+    tensor* dL_dpow = TensorLikeFill(y, dL_dL);
 
     // "**2" bwd
     // todo: avoid recomputing this during backward
-    float* diff = (float*)malloc(sizeof(float) * N*O);
-    for (int i=0; i<N*O; i++) {
-        diff[i] = y[i] - out3[i];
+    tensor* diff = TensorLike(y);
+    for (int i=0; i<diff->size; i++) {
+        diff->data[i] = y->data[i] - out3->data[i];
     }
-    float* local_dpow = ElementwiseMul(BroadcastScalar(2.0, N*O), diff, N*O);
-    float* dL_dneg = ElementwiseMul(local_dpow, dL_dpow, N*O);
+    tensor* local_dpow = ElementwiseMul(TensorLikeFill(diff, 2.0), diff);
+    tensor* dL_dneg = ElementwiseMul(local_dpow, dL_dpow);
 
     // "-" bwd
-    float* dL_dout3 = ElementwiseMul(BroadcastScalar(-1.0, N*O), dL_dneg, N*O);
+    tensor* dL_dout3 = ElementwiseMul(TensorLikeFill(dL_dneg, -1.0), dL_dneg);
 
     // matmul 2 bwd
 
@@ -287,21 +315,20 @@ float train_step(
     // w2(D, O)
     //   so: out2.T(D, N) @ dL_dout3(N, O) = dL_dw2(D, O)
     //   I went from the ouput shape (D, O) -- this has to be the same bc
-    // note: Transpose inputs dims **before** transpose
-    float* dL_dw2 = Matmul(Transpose(out2, N, D), dL_dout3, D, N, O);
-    _print(dL_dw2, D, O, "dL_dw2");
+    tensor* dL_dw2 = Matmul(Transpose(out2), dL_dout3);
+    _print(dL_dw2, "dL_dw2");
 
     // out2(N, D)
     //   so: dL_dout3(N, O) @ w2.T(O, D) = dL_out2(N, D)
-    float* dL_out2 = Matmul(dL_dout3, Transpose(w2, D, O), N, O, D);
+    tensor* dL_out2 = Matmul(dL_dout3, Transpose(w2));
 
     // relu bwd
 
     // note: this is kind of gradient checkpointing;
     //  ofc can avoid by making original relu ouput the mask
     //  -- but I found recomputing is a bit cleaner to explain
-    float* relu_mask = GetReluMask(out1, N*D);
-    float* dL_dout1 = ElementwiseMul(relu_mask, dL_out2, N*D);
+    tensor* relu_mask = GetReluMask(out1);
+    tensor* dL_dout1 = ElementwiseMul(relu_mask, dL_out2);
 
     // matmul 1 bwd
 
@@ -309,12 +336,12 @@ float train_step(
     // x(N, M)
     // w1(M, D)
     //   so: x.T(M, N) @ dL_dout1(N, D) = dL_dw1(M, D)
-    float* dL_dw1 = Matmul(Transpose(x, N, M), dL_dout1, M, N, D);
-    _print(dL_dw1, M, D, "dL_dw1");
+    tensor* dL_dw1 = Matmul(Transpose(x), dL_dout1);
+    _print(dL_dw1, "dL_dw1");
 
     // *** Optim Step ***
-    sgd(w1, dL_dw1, M*D);
-    sgd(w2, dL_dw2, D*O);
+    sgd(w1, dL_dw1);
+    sgd(w2, dL_dw2);
 
     return loss;
 }
@@ -331,24 +358,22 @@ int main() {
     int O = 1;
 
     // *** Init ***
-    float* x = GetRandomFloat(N*M);
-    print(x, N, M, "x");
+    tensor* x = Tensor(N, M);
+    print(x, "x");
 
-    float* w1 = GetRandomFloat(M*D);
-    print(w1, M, D, "w1");
+    tensor* w1 = Tensor(M, D);
+    print(w1, "w1");
 
-    float* w2 = GetRandomFloat(D*O);
-    print(w2, D, O, "w2");
+    tensor* w2 = Tensor(D, O);
+    print(w2, "w2");
 
     // *** Train Step ***
     for (int ep_idx=0; ep_idx<NUM_EP; ep_idx++) {
-        float loss = train_step(
-            x, w1, w2,
-            N, M, D, O);
+        float loss = train_step(x, w1, w2);
         cout << "\nep: " << ep_idx << "; loss: " << loss << endl;
 
-        print(w1, M, D, "w1");
-        print(w2, D, O, "w2");
+        print(w1, "w1");
+        print(w2, "w2");
     }
 
     // todo: write to file
