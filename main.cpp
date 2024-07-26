@@ -152,7 +152,7 @@ int _main() {
 int main() {
     srand(123);
 
-    cout << sizeof(tensor) << endl;
+    cout << "sizeof(tensor): " << sizeof(tensor) << endl << endl;
 
     // only used for shape inference
     tensor* _ = Tensor(1, 1);
@@ -169,31 +169,32 @@ int main() {
     tensor* e = mul(c, d);
     e->name = 'e';
 
-    cout << e->data[0] << endl;
+    cout << "out: " << e->data[0] << endl;
 
     // bwd
-    e->grad = 1.0;
+    e->grad = (float*)malloc(sizeof(float) * e->size);
+    *e->grad = 1.0;
+
     deque <tensor*> ready;
     ready.push_front(e);
     while (ready.size() > 0) {
         tensor* t = ready.back(); ready.pop_back();
         // each input of this op will have this as an upstream grad
-        float upstream = t->grad;
+        float* upstream = t->grad;
         for (int i=0; i<t->num_inputs; i++){
             tensor* inp = t->inputs[i];
             // cout << inp->name << "'s inp->grad is: " << inp->grad << endl;
 
             // "inp->grad" already stores local grad (added during forward in ops);
             // note also, already does +=
-            inp->grad = inp->grad * upstream;
+            *inp->grad = (*inp->grad) * (*upstream);
 
-            cout << inp->name << "'s grad is: " << inp->grad << endl;
-            cout << endl;
+            cout << inp->name << "'s grad is: " << *inp->grad << endl;
 
             ready.push_front(inp);
         }
     }
-    cout << a->grad << endl;
+    cout << *a->grad << endl;
 
     return 0;
 }

@@ -12,7 +12,8 @@ struct tensor {
     //  int size = x->shape[0] * x->shape[1];
     int size;
 
-    float grad;
+    // for autograd engine
+    float* grad;
     int num_inputs;
     tensor* inputs[MAX_INPUTS];
     char name;

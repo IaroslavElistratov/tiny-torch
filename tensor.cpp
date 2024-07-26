@@ -32,7 +32,9 @@ tensor* Tensor(int s1, int s2)
 
     t->data = GetRandomFloat(s1*s2);
 
-    t->grad = 0.0;
+    // for autograd engine
+    // cout << t->grad << endl;
+    t->grad = NULL;
     t->num_inputs = -1;
 
     return t;

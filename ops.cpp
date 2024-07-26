@@ -16,13 +16,27 @@ tensor* mul_kernel(tensor* a, tensor* b) {
 
 tensor* add(tensor* a, tensor* b) {
     tensor* t = add_kernel(a, b);
+    // todo: this can be further abstracted -- creating a binary_op function
     // fill the additional info on out tensor
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
+    // todo: check bool tensor->requires_grad before allocating buffers
     // store local in grad in the grad field
-    a->grad = 1.0;
-    b->grad = 1.0;
+    //    1. allocate buffer - grad wrt tensor has shape of the tensor
+    // todo-high: previously led to err where in the main loop grad on
+    //    the last node was set to start backprop loop "*e->grad = 1.0;"
+    //    but bc buffer for grad is only allocated inside an Op, but e is never
+    //    used by an op (e is last node in the computational graph) -- "*e->grad = 1.0;"
+    //    is illegal as it the buffer hasn't ben allocated
+    //       - one way to fix is allocate grad buff for all tensors in Tensor constructor
+    //       - however, I do like that grad buff[s] are lazily created only when tensor is used.
+    //         Which amounts to creating it here (in ops).
+    a->grad = (float*)malloc(sizeof(float) * t->size);
+    b->grad = (float*)malloc(sizeof(float) * t->size);
+    //    2. store
+    *a->grad = 1.0;
+    *b->grad = 1.0;
     return t;
 }
 
@@ -34,8 +48,10 @@ tensor* mul(tensor* a, tensor* b) {
     t->inputs[0] = a;
     t->inputs[1] = b;
     // store local in grad in the grad field
-    a->grad = b->data[0];
-    b->grad = a->data[0];
+    a->grad = (float*)malloc(sizeof(float) * t->size);
+    b->grad = (float*)malloc(sizeof(float) * t->size);
+    *a->grad = b->data[0];
+    *b->grad = a->data[0];
     return t;
 }
 
