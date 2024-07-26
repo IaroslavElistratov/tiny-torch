@@ -1,5 +1,47 @@
 #include "nn.h"
 
+//@@@@@@ testing backdrop engine @@@@@@
+
+// **** kernels *****
+
+tensor* add_kernel(tensor* a, tensor* b) {
+    return TensorLikeFill(a, a->data[0]+b->data[0]);
+}
+
+tensor* mul_kernel(tensor* a, tensor* b) {
+    return TensorLikeFill(a, a->data[0]*b->data[0]);
+}
+
+// **** operations ****
+
+tensor* add(tensor* a, tensor* b) {
+    tensor* t = add_kernel(a, b);
+    // fill the additional info on out tensor
+    t->num_inputs = 2;
+    t->inputs[0] = a;
+    t->inputs[1] = b;
+    // store local in grad in the grad field
+    a->grad = 1.0;
+    b->grad = 1.0;
+    return t;
+}
+
+
+tensor* mul(tensor* a, tensor* b) {
+    tensor* t = mul_kernel(a, b);
+    // fill the additional info on out tensor
+    t->num_inputs = 2;
+    t->inputs[0] = a;
+    t->inputs[1] = b;
+    // store local in grad in the grad field
+    a->grad = b->data[0];
+    b->grad = a->data[0];
+    return t;
+}
+
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
 tensor* ElementwiseMul(tensor* a, tensor* b)
 {
     // todo: here and in all ops, assert same size

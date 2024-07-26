@@ -112,7 +112,7 @@ float train_step(tensor* x, tensor* w1, tensor* w2)
 }
 
 
-int main() {
+int _main() {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -142,5 +142,58 @@ int main() {
     }
 
     // todo: write to file
+    return 0;
+}
+
+
+#include <deque> // deque from standard template library (STL)
+
+
+int main() {
+    srand(123);
+
+    cout << sizeof(tensor) << endl;
+
+    // only used for shape inference
+    tensor* _ = Tensor(1, 1);
+
+    tensor* a = TensorLikeFill(_, 2.0);
+    a->name = 'a';
+    tensor* b = TensorLikeFill(_, 2.0);
+    b->name = 'b';
+    tensor* c = add(a, b);
+    c->name = 'c';
+
+    tensor* d = TensorLikeFill(_, 3.0);
+    d->name = 'd';
+    tensor* e = mul(c, d);
+    e->name = 'e';
+
+    cout << e->data[0] << endl;
+
+    // bwd
+    e->grad = 1.0;
+    deque <tensor*> ready;
+    ready.push_front(e);
+    while (ready.size() > 0) {
+        tensor* t = ready.back(); ready.pop_back();
+        // each input of this op will have this as an upstream grad
+        float upstream = t->grad;
+        for (int i=0; i<t->num_inputs; i++){
+            tensor* inp = t->inputs[i];
+            // cout << inp->name << "'s inp->grad is: " << inp->grad << endl;
+
+            // "inp->grad" already stores local grad (added during forward in ops);
+            // note also, already does +=
+            inp->grad = inp->grad * upstream;
+
+            cout << inp->name << "'s grad is: " << inp->grad << endl;
+            cout << endl;
+
+            ready.push_front(inp);
+        }
+    }
+    cout << a->grad << endl;
+
     return 0;
 }
