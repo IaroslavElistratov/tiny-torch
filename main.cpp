@@ -172,15 +172,25 @@ int main() {
     tensor* e = mul(c, d);
     e->name = 'e';
 
+    // e(2,2) @ f(2,5) = (2,5)
+    tensor* f = Tensor(2, 5);
+    f->name = 'f';
+    print(f, "f");
+
+    tensor* g = matmul(e, f);
+    g->name = 'g';
+
     // tensor* loss = e;
 
     // mse
-    tensor* y = TensorLikeFill(e, 0.0);
-    tensor* loss = reduce_sum(pow(sub(y, e), 2));
+    tensor* y = TensorLikeFill(g, 0.0);
+    tensor* loss = reduce_sum(pow(sub(y, g), 2));
 
     cout << "loss: " << loss->data[0] << endl;
 
     // bwd
+
+    // todo: in autograd, don't overwrite grad instead do +=
 
     // todo: allocating grad buff[s] in ops previously led to err where, grad on
     //  the last node was set to start backprop loop "*e->grad = 1.0;"
@@ -195,26 +205,32 @@ int main() {
     //  of the op before it -- bc when chaining grads in the
     //  loop below with mul_k, it's assumed that shapes (of
     //  upstream and local) are the same
-    // todo-high: memory leak
-    loss->grad = TensorLikeFill(loss->inputs[0], 1.0)->data;
+    loss->grad = FloatLikeFill(loss->inputs[0], 1.0);
 
     deque <tensor*> ready;
     ready.push_front(loss);
     while (ready.size() > 0) {
         tensor* t = ready.back(); ready.pop_back();
+
+        printf("%s", t->op_name);
+        // cout << "[autograd] " << t->op_name << endl;
+
         // each input of this op will have this as an upstream grad
         float* upstream = t->grad;
+
+        // step once for the op -- propagates grad wrt all inputs of the op
+        t->grad_fn(upstream, t);
+
         for (int i=0; i<t->num_inputs; i++){
             tensor* inp = t->inputs[i];
-            // cout << inp->name << "'s inp->grad is: " << inp->grad << endl;
-
-            // "inp->grad" already stores local grad (added during forward in ops);
-            // note also, already does +=
-            mul_k(inp->grad, upstream, inp->grad, inp->size);
+            // leaf tensors have no grad_fn, so don't push them on the queue
+            // bc for each value pop'ed from the queue at later iterations,
+            // this value's grad_fn will be called
+            if (!inp->is_leaf) {
+                ready.push_front(inp);
+            }
 
             print_kernel(inp->grad, inp->size, inp->shape[1], &inp->name);
-
-            ready.push_front(inp);
         }
     }
 

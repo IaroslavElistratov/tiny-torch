@@ -2,12 +2,21 @@
 
 //@@@@@@ testing backdrop engine @@@@@@
 
+
+
 // **** kernels *****
 //   - operate on floats
 //   - have output buffer provided as input
 //      - return void
 
 // note: naming convention: assume "_elementwise", by default -- and ask to specify otherwise (if not elementwise) -- e.g. reduce_, matrix_, etc
+
+void strcp(char* src, char* dst, int size){
+    for (int i=0; i<size; i++) {
+        dst[i] = src[i];
+        cout << src[i] << endl;
+    }
+}
 
 void copy_arr(float* src, float* dst, int size) {
     for (int i=0; i<size; i++)
@@ -19,7 +28,6 @@ float _pow(float x, int exp) {
         x *= x;
     return x;
 }
-
 
 //    binary elementwise
 
@@ -38,6 +46,22 @@ void mul_k(float* a, float* b, float* out, int size){
         out[i] = a[i] * b[i];
 }
 
+// binary
+
+void matmul_k(float* a, float* b, float* out, int N, int M, int D){
+    // (N, M) @ (M, D) = (N, D)
+    for (int n=0; n<N; n++){
+        for (int d=0; d<D; d++){
+            float sum = 0;
+            for (int m=0; m<M; m++){
+                // n*M, because for each "n" you skip "M" values
+                sum += a[n*M + m] * b[m*D + d];
+            }
+            out[n*D + d] = sum;
+        }
+    }
+}
+
 //    unary elementwise
 
 void pow_k(float* a, int b, float* out, int size){
@@ -52,12 +76,12 @@ void reduce_sum_k(float* a, float* out, int size) {
 
 
 
-
-
 // **** primitives *****
 //   - operate on tensors (call into kernels)
 //   - allocate ouput buff
 //      - return new tensor
+
+//    binary elementwise
 
 tensor* add_p(tensor* a, tensor* b) {
     tensor* t = TensorLike(a);
@@ -77,12 +101,24 @@ tensor* sub_p(tensor* a, tensor* b) {
     return t;
 }
 
+//    binary not-elementwise
+
+tensor* matmul_p(tensor* a, tensor* b)
+{
+    int N = a->shape[0], M = a->shape[1];
+    int D = b->shape[1];
+    tensor* out = Tensor(N, D);
+    matmul_k(a->data, b->data, out->data, N, M, D);
+    return out;
+}
+
+//    unary
+
 tensor* pow_p(tensor* a, int exponent) {
     tensor* t = TensorLikeFill(a, 0.0);
     pow_k(a->data, exponent, t->data, t->size);
     return t;
 }
-
 
 tensor* reduce_sum_p(tensor* a) {
     // reduce to scalar
@@ -91,95 +127,235 @@ tensor* reduce_sum_p(tensor* a) {
     return t;
 }
 
+
+
 // **** operations ****
 //   - user-facing, unlike other abstractions
 //   - call primitives, in addition, record data for the autograd:
 //   - allocating grad buffers
 //   - write local derivatives, for each input
 
+//    binary elementwise
+
+void add_bwd(float* upstream, tensor* out) {
+    // out is an ouput of the op, it's used to
+    // retrieve pointers to inputs tensors
+    tensor* a = out->inputs[0];
+    tensor* b = out->inputs[1];
+
+    // store local grad in the grad field
+    // (note also allocates buff)
+    a->grad = FloatLikeFill(a, 1.0);
+    b->grad = FloatLikeFill(b, 1.0);
+
+    // downstream = local * upstream
+
+    // note also, already does +=
+    //   inp->grad = (inp->grad) * (upstream);
+    mul_k(a->grad, upstream, a->grad, a->size);
+    mul_k(b->grad, upstream, b->grad, b->size);
+
+}
+
 tensor* add(tensor* a, tensor* b) {
     tensor* t = add_p(a, b);
+    t->is_leaf = false;
+    // todo-low: check bool tensor->requires_grad before doing steps below, including allocating buffers
+
     // todo: this can be further abstracted -- creating a binary_op function
     // todo: and even further abstracted -- creating a binary_elementwise_op function
+
     // fill the additional info on out tensor
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
-    // todo: check bool tensor->requires_grad before allocating buffers
 
-    // store local in grad in the grad field
-    //    1. allocate buffer - grad wrt tensor has shape of the tensor
-    //    2. store
-    // todo-high: memory leak -- bc tensor ouput of TensorLikeFill
-    // won't be used anymore (only one of its members will)
-    a->grad = TensorLikeFill(a, 1.0)->data;
-    b->grad = TensorLikeFill(b, 1.0)->data;
+    char op_name[] = "add";
+    strcp(t->op_name, op_name, strlen(op_name));
+
+    t->grad_fn = add_bwd;
     return t;
 }
 
+
+void sub_bwd(float* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    tensor* b = out->inputs[1];
+
+    // local
+    a->grad = FloatLikeFill(a, 1.0);
+    b->grad = FloatLikeFill(b, -1.0);
+
+    // downstream = local * upstream
+    mul_k(a->grad, upstream, a->grad, a->size);
+    mul_k(b->grad, upstream, b->grad, b->size);
+}
 
 tensor* sub(tensor* a, tensor* b) {
     tensor* t = sub_p(a, b);
-    // fill the additional info on out tensor
+    t->is_leaf = false;
+
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
-    // store local in grad in the grad field
-    //    1. allocate buffer - grad wrt tensor has shape of the tensor
-    //    2. store
-    // todo-high: memory leak -- bc tensor ouput of TensorLikeFill
-    // won't be used anymore (only one of its members will)
-    a->grad = TensorLikeFill(a, 1.0)->data;
-    b->grad = TensorLikeFill(b, -1.0)->data;
+
+    t->grad_fn = sub_bwd;
     return t;
 }
 
 
+void mul_bwd(float* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    tensor* b = out->inputs[1];
+
+    // todo: don't need malloc here? Bc a->data, b->data
+    //  already malloc'ed -- can just save a pointer to them?
+
+    // local
+    //   1. alloc memory
+    a->grad = EmptyFloatLike(a);
+    b->grad = EmptyFloatLike(b);
+    //   2. copy over
+    copy_arr(b->data, a->grad, a->size);
+    copy_arr(a->data, b->grad, b->size);
+
+    // downstream = local * upstream
+    mul_k(a->grad, upstream, a->grad, a->size);
+    mul_k(b->grad, upstream, b->grad, b->size);
+}
+
 tensor* mul(tensor* a, tensor* b) {
     tensor* t = mul_p(a, b);
-    // fill the additional info on out tensor
+    t->is_leaf = false;
+
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
-    // store local in grad in the grad field
-    // todo-high: don't need malloc here? Bc a->data, b->data
-    //  already malloc'ed -- can just save a pointer them?
-    a->grad = (float*)malloc(sizeof(float) * a->size);
-    b->grad = (float*)malloc(sizeof(float) * b->size);
-    copy_arr(b->data, a->grad, a->size);
-    copy_arr(a->data, b->grad, b->size);
+
+    t->grad_fn = mul_bwd;
+    return t;
+}
+
+
+//    binary not-elementwise
+
+void transpose_k(float* x, float* out, int s1, int s2);
+
+void matmul_bwd(float* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    tensor* b = out->inputs[1];
+    int N = a->shape[0], M = a->shape[1];
+    int D = b->shape[1];
+
+    // 1. local
+
+    // Even though you gonna store e.g. a transpose in a->grad (and not a itself)
+    //  it does not make sense to allocate like below because the dims are logical but
+    //  mem is contiguous anyway -- so for both of the constructors below obviously same memory will be allocated
+    //    EmptyFloat(a->shape[1], a->shape[0]);   // reversed shapes to store Transpose
+    //    EmptyFloatLike(a);
+
+    // note: should allocate a_buff not with a.size but w b.size
+    // note: using this intermidiate variable instead of directly
+    //  allocating "a->grad = EmptyFloatLike(b)", because the final
+    //  a->grad is of shape a not of shape b. It would be incorrect
+    //  to "a->grad = EmptyFloatLike(b)". So I keep these temporary
+    //  variables (local_a, local_b) and de-allocate them after
+    //  computing actual a->grad
+    float* local_a = EmptyFloatLike(b);
+    float* local_b = EmptyFloatLike(a);
+
+    // upstream(M, D)   // same as t.shape
+    //   a - ?
+    //      a(M, N), so a_grad(M, N)
+    //      upstream(M, D) @ b.t(D, N) = a_grad(M, N)
+    //   b - ?
+    //      b(N, D), so b_grad(N, D)
+    //      a.t(N, M) @ upstream(M, D) = b_grad(N, D)
+
+    // signature: transpose_k(float* x, float* out, int s1, int s2)
+    transpose_k(b->data, local_a, N, D); // (N, D) -> (D, N)
+    transpose_k(a->data, local_b, M, N); // (M, N) -> (N, M)
+
+    // 2. wire local with upstream
+    a->grad = EmptyFloatLike(a);
+    b->grad = EmptyFloatLike(b);
+    // upstream(M, D) @ b.t(D, N) = a_grad(M, N)
+    matmul_k(upstream, local_a, a->grad, M, D, N);
+    // a.t(N, M) @ upstream(M, D) = b_grad(N, D)
+    matmul_k(local_b, upstream, b->grad, N, M, D);
+
+    // note:
+    free(local_a), free(local_b);
+}
+
+tensor* matmul(tensor* a, tensor* b){
+    // e.g.: a(M, N) @ b(N, D) = t(M, D)
+    tensor* t = matmul_p(a, b);
+    t->is_leaf = false;
+
+    t->num_inputs = 2;
+    t->inputs[0] = a;
+    t->inputs[1] = b;
+
+    t->grad_fn = matmul_bwd;
     return t;
 }
 
 
 //  unary
 
+void pow_bwd(float* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    // 1. local
+    // store local in grad in the grad field
+    a->grad = FloatLikeFill(a, 2.0);
+    // todo-now: maybe to solve problems of needing kernles for floats, just make grad be a tensor itself (not float)?
+    //    bc "ElementwiseMul(TensorLikeFill(a, 2.0), a);" is much better than below
+    mul_k(a->grad, a->data, a->grad, a->size);
+    // 2. wire local with upstream
+    mul_k(a->grad, upstream, a->grad, a->size);
+}
+
 tensor* pow(tensor* a, int exponent) {
     tensor* t = pow_p(a, exponent);
-    // fill the additional info on out tensor
+    t->is_leaf = false;
+
     //  comment: note by "inputs" I mean tensor inputs (INPUTS which I'll use compute grads wrt to)
     //  so here even if this op has two inputs, it really has one, for the purpose of the autograd
     t->num_inputs = 1;
     t->inputs[0] = a;
-    // store local in grad in the grad field
-    a->grad = (float*)malloc(sizeof(float) * a->size);
-    // todo-now: maybe to solve problems of needing kernles for floats, just make grad be a tensor itself (not float)?
-    //    bc "ElementwiseMul(TensorLikeFill(a, 2.0), a);" is much better than below
-    // todo-high: memory leak
-    mul_k(TensorLikeFill(a, 2.0)->data, a->data, a->grad, a->size);
+
+    t->grad_fn = pow_bwd;
     return t;
+}
+
+
+void reduce_sum_bwd(float* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    // 1. local
+    a->grad = FloatLikeFill(a, 1.0);
+    // 2. wire local with upstream
+    mul_k(a->grad, upstream, a->grad, a->size);
 }
 
 tensor* reduce_sum(tensor* a) {
     tensor* t = reduce_sum_p(a);
+    t->is_leaf = false;
     // fill the additional info on out tensor
     t->num_inputs = 1;
     t->inputs[0] = a;
-    a->grad = (float*)malloc(sizeof(float) * a->size);
-    // todo-high: memory leak
-    a->grad = TensorLikeFill(a, 1.0)->data;
+    char op_name[] = "reduce_sum";  // {a,b,c,\0}
+    // use strlen given arr is \0 terminated
+    strcp(t->op_name, op_name, strlen(op_name));
+
+    t->grad_fn = reduce_sum_bwd;
     return t;
 }
+
+
+
+
 
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -331,3 +507,20 @@ tensor* Transpose(tensor* x)
 
     return out;
 }
+
+// note: s1, s2 -- are before Transpose
+// todo: re-implement form scratch (this and its Op, and its Primine)
+void transpose_k(float* x, float* out, int s1, int s2)
+{
+    int stride_next_row = s2, stride_next_col = 1;
+    int idx_orig = 0;
+
+    for (int s1_transposed=0; s1_transposed < s2; s1_transposed++){
+        for (int s2_transposed=0; s2_transposed < s1; s2_transposed++){
+
+            int idx_trans = (s1_transposed * stride_next_col) + (s2_transposed * stride_next_row);
+            out[idx_orig++] = x[idx_trans];
+        }
+    }
+}
+

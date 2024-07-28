@@ -21,6 +21,8 @@ float* GetRandomFloat(int num)
     return f_ptr;
 }
 
+// todo: add EmptyTensor, EmptyTensorLike, make TensorLikeFill use EmptyTensorLike (instead of TensorLike)
+
 tensor* Tensor(int s1, int s2)
 {
     tensor* t = (tensor*)malloc(sizeof(tensor));
@@ -32,8 +34,14 @@ tensor* Tensor(int s1, int s2)
 
     t->data = GetRandomFloat(s1*s2);
 
+    // true by defult, modified in an op impl if that tensor was produced by an op
+    t-> is_leaf = true;
+    t->op_name = (char*)malloc(sizeof(char) * 12);
+    t->name = '-';
+
     // for autograd engine
     // cout << t->grad << endl;
+    t->grad_fn = NULL;
     t->grad = NULL;
     t->num_inputs = -1;
 
@@ -62,6 +70,7 @@ tensor* TensorLikeFill(tensor* t, float value)
 }
 
 
+// todo: this ScalarFill seems to specific -- think of smt more general
 // todo: add constructor for empty tensors -- kind of like TensorLikeFill(, 0.0)
 tensor* TensorScalarFill(float value)
 {
@@ -73,6 +82,30 @@ tensor* TensorScalarFill(float value)
     return t;
 }
 
+// constructors that take in tensor and return float
+
+float* EmptyFloat(int s1, int s2)
+{
+    return (float*)malloc(sizeof(float) * s1*s2);
+}
+
+// used when only tensor->data is needed, and avoids
+// memory leak unlike the below -- bc tensor output
+// of TensorLikeFill won't be used anymore (only one
+// of its members will)
+//  a->grad = TensorLikeFill(a, 1.0)->data;
+float* EmptyFloatLike(tensor* t)
+{
+    return EmptyFloat(t->shape[0], t->shape[1]);
+}
+
+float* FloatLikeFill(tensor* t, int value)
+{
+    float* f_new = EmptyFloatLike(t);
+    for (int i=0; i<t->size; i++)
+        f_new[i] = value;
+    return f_new;
+}
 
 // Zeros(1, 1)
 // Ones(1, 1)
