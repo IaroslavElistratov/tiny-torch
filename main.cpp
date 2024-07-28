@@ -205,7 +205,7 @@ int main() {
     //  of the op before it -- bc when chaining grads in the
     //  loop below with mul_k, it's assumed that shapes (of
     //  upstream and local) are the same
-    loss->grad = FloatLikeFill(loss->inputs[0], 1.0);
+    loss->grad = TensorLikeFill(loss->inputs[0], 1.0);
 
     deque <tensor*> ready;
     ready.push_front(loss);
@@ -216,7 +216,7 @@ int main() {
         // cout << "[autograd] " << t->op_name << endl;
 
         // each input of this op will have this as an upstream grad
-        float* upstream = t->grad;
+        tensor* upstream = t->grad;
 
         // step once for the op -- propagates grad wrt all inputs of the op
         t->grad_fn(upstream, t);
@@ -230,7 +230,7 @@ int main() {
                 ready.push_front(inp);
             }
 
-            print_kernel(inp->grad, inp->size, inp->shape[1], &inp->name);
+            print(inp->grad, &inp->name);
         }
     }
 

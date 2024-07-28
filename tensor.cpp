@@ -3,10 +3,8 @@
 
 #include "nn.h"
 
-float* GetRandomFloat(int num)
+void GetRandomFloat(float* dst, int num)
 {
-    float* f_ptr = (float*)malloc(sizeof(float) * num);
-
     for (int i=0; i<num; i++)
     {
         // https://linux.die.net/man/3/random
@@ -14,16 +12,13 @@ float* GetRandomFloat(int num)
         // normalize to: 0 - 1
         // shift to: -0.5 - 0.5
         // todo: maybe wrongly truncating to 0 due to int division? No bc C promotes args?
-        f_ptr[i] = ((float)rand() / RAND_MAX) - 0.5;
+        dst[i] = ((float)rand() / RAND_MAX) - 0.5;
     }
-
-
-    return f_ptr;
 }
 
 // todo: add EmptyTensor, EmptyTensorLike, make TensorLikeFill use EmptyTensorLike (instead of TensorLike)
 
-tensor* Tensor(int s1, int s2)
+tensor* EmptyTensor(int s1, int s2)
 {
     tensor* t = (tensor*)malloc(sizeof(tensor));
 
@@ -32,7 +27,7 @@ tensor* Tensor(int s1, int s2)
     t->shape[0] = s1;
     t->shape[1] = s2;
 
-    t->data = GetRandomFloat(s1*s2);
+    t->data = (float*)malloc(sizeof(float) * t->size);
 
     // true by defult, modified in an op impl if that tensor was produced by an op
     t-> is_leaf = true;
@@ -47,6 +42,20 @@ tensor* Tensor(int s1, int s2)
 
     return t;
 }
+
+tensor* EmptyTensorLike(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1];
+    return EmptyTensor(s1, s2);
+}
+
+tensor* Tensor(int s1, int s2)
+{
+    tensor* t = EmptyTensor(s1, s2);
+    GetRandomFloat(t->data, t->size);
+    return t;
+}
+
 
 /*
 for convince to avoid:

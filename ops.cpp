@@ -3,22 +3,14 @@
 //@@@@@@ testing backdrop engine @@@@@@
 
 
-
-// **** kernels *****
-//   - operate on floats
-//   - have output buffer provided as input
-//      - return void
-
-// note: naming convention: assume "_elementwise", by default -- and ask to specify otherwise (if not elementwise) -- e.g. reduce_, matrix_, etc
-
-void strcp(char* src, char* dst, int size){
+void _strcp(char* src, char* dst, int size){
     for (int i=0; i<size; i++) {
         dst[i] = src[i];
         cout << src[i] << endl;
     }
 }
 
-void copy_arr(float* src, float* dst, int size) {
+void _copy_arr(float* src, float* dst, int size) {
     for (int i=0; i<size; i++)
         dst[i] = src[i];
 }
@@ -29,102 +21,76 @@ float _pow(float x, int exp) {
     return x;
 }
 
+// note: naming convention: assume "_elementwise", by default -- and ask to specify otherwise (if not elementwise) -- e.g. reduce_, matrix_, etc
+
+// **** kernels *****
+//   - operate on tensors
+//   - allocate ouput buff
+//      - return new tensor
+
 //    binary elementwise
 
-void add_k(float* a, float* b, float* out, int size){
-    for (int i=0; i<size; i++)
-        out[i] = a[i] + b[i];
+// todo: use "cost tensor*" instead of "tensor"
+tensor* add_k(tensor* a, tensor* b) {
+    tensor* out = TensorLike(a);
+    for (int i=0; i<out->size; i++)
+        out->data[i] = a->data[i] + b->data[i];
+    return out;
 }
 
-void sub_k(float* a, float* b, float* out, int size){
-    for (int i=0; i<size; i++)
-        out[i] = a[i] - b[i];
+tensor* sub_k(tensor* a, tensor* b) {
+    tensor* out = TensorLike(a);
+    for (int i=0; i<out->size; i++)
+        out->data[i] = a->data[i] - b->data[i];
+    return out;
 }
 
-void mul_k(float* a, float* b, float* out, int size){
-    for (int i=0; i<size; i++)
-        out[i] = a[i] * b[i];
+tensor* mul_k(tensor* a, tensor* b) {
+    tensor* out = TensorLike(a);
+    for (int i=0; i<out->size; i++)
+        out->data[i] = a->data[i] * b->data[i];
+    return out;
 }
 
-// binary
 
-void matmul_k(float* a, float* b, float* out, int N, int M, int D){
+
+//    binary not-elementwise
+
+tensor* matmul_k(tensor* a, tensor* b)
+{
+    int N = a->shape[0], M = a->shape[1];
+    int D = b->shape[1];
+    tensor* out = Tensor(N, D);
+
     // (N, M) @ (M, D) = (N, D)
     for (int n=0; n<N; n++){
         for (int d=0; d<D; d++){
             float sum = 0;
             for (int m=0; m<M; m++){
                 // n*M, because for each "n" you skip "M" values
-                sum += a[n*M + m] * b[m*D + d];
+                sum += a->data[n*M + m] * b->data[m*D + d];
             }
-            out[n*D + d] = sum;
+            out->data[n*D + d] = sum;
         }
     }
-}
-
-//    unary elementwise
-
-void pow_k(float* a, int b, float* out, int size){
-    for (int i=0; i<size; i++)
-        out[i] = _pow(a[i], b);
-}
-
-void reduce_sum_k(float* a, float* out, int size) {
-    for (int i=0; i<size; i++)
-        *out += a[i];
-}
-
-
-
-// **** primitives *****
-//   - operate on tensors (call into kernels)
-//   - allocate ouput buff
-//      - return new tensor
-
-//    binary elementwise
-
-tensor* add_p(tensor* a, tensor* b) {
-    tensor* t = TensorLike(a);
-    add_k(a->data, b->data, t->data, a->size);
-    return t;
-}
-
-tensor* mul_p(tensor* a, tensor* b) {
-    tensor* t = TensorLike(a);
-    mul_k(a->data, b->data, t->data, a->size);
-    return t;
-}
-
-tensor* sub_p(tensor* a, tensor* b) {
-    tensor* t = TensorLike(a);
-    sub_k(a->data, b->data, t->data, a->size);
-    return t;
-}
-
-//    binary not-elementwise
-
-tensor* matmul_p(tensor* a, tensor* b)
-{
-    int N = a->shape[0], M = a->shape[1];
-    int D = b->shape[1];
-    tensor* out = Tensor(N, D);
-    matmul_k(a->data, b->data, out->data, N, M, D);
     return out;
 }
 
 //    unary
 
-tensor* pow_p(tensor* a, int exponent) {
-    tensor* t = TensorLikeFill(a, 0.0);
-    pow_k(a->data, exponent, t->data, t->size);
-    return t;
+tensor* pow_k(tensor* a, int exponent) {
+    tensor* out = TensorLikeFill(a, 0.0);
+    for (int i=0; i<out->size; i++)
+        out->data[i] = _pow(a->data[i], exponent);
+    return out;
 }
 
-tensor* reduce_sum_p(tensor* a) {
+tensor* reduce_sum_k(tensor* a) {
     // reduce to scalar
-    tensor* t = TensorScalarFill(0.0);
-    reduce_sum_k(a->data, t->data, a->size);
-    return t;
+    tensor* out = TensorScalarFill(0.0);
+    for (int i=0; i<a->size; i++)
+        out->data[0] += a->data[i];
+    return out;
 }
 
 
@@ -137,28 +103,30 @@ tensor* reduce_sum_p(tensor* a) {
 
 //    binary elementwise
 
-void add_bwd(float* upstream, tensor* out) {
+void add_bwd(tensor* upstream, tensor* out) {
     // out is an ouput of the op, it's used to
     // retrieve pointers to inputs tensors
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
 
-    // store local grad in the grad field
-    // (note also allocates buff)
-    a->grad = FloatLikeFill(a, 1.0);
-    b->grad = FloatLikeFill(b, 1.0);
+    // local grad (note also allocates buff)
+    tensor* a_local = TensorLikeFill(a, 1.0);
+    tensor* b_local = TensorLikeFill(b, 1.0);
 
     // downstream = local * upstream
 
     // note also, already does +=
     //   inp->grad = (inp->grad) * (upstream);
-    mul_k(a->grad, upstream, a->grad, a->size);
-    mul_k(b->grad, upstream, b->grad, b->size);
+    a->grad = mul_k(a_local, upstream);
+    b->grad = mul_k(b_local, upstream);
 
+    // todo-now: is it a correct way to de-alloc a struct?
+    //  - and all other ops below
+    // free(a_local), free(b_local);
 }
 
 tensor* add(tensor* a, tensor* b) {
-    tensor* t = add_p(a, b);
+    tensor* t = add_k(a, b);
     t->is_leaf = false;
     // todo-low: check bool tensor->requires_grad before doing steps below, including allocating buffers
 
@@ -171,67 +139,64 @@ tensor* add(tensor* a, tensor* b) {
     t->inputs[1] = b;
 
     char op_name[] = "add";
-    strcp(t->op_name, op_name, strlen(op_name));
+    _strcp(t->op_name, op_name, strlen(op_name));
 
     t->grad_fn = add_bwd;
     return t;
 }
 
 
-void sub_bwd(float* upstream, tensor* out) {
+void sub_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
 
     // local
-    a->grad = FloatLikeFill(a, 1.0);
-    b->grad = FloatLikeFill(b, -1.0);
+    tensor* a_local = TensorLikeFill(a, 1.0);
+    tensor* b_local = TensorLikeFill(b, -1.0);
 
     // downstream = local * upstream
-    mul_k(a->grad, upstream, a->grad, a->size);
-    mul_k(b->grad, upstream, b->grad, b->size);
+    a->grad = mul_k(a_local, upstream);
+    b->grad = mul_k(b_local, upstream);
+
+    // free(a_local), free(b_local);
 }
 
 tensor* sub(tensor* a, tensor* b) {
-    tensor* t = sub_p(a, b);
+    tensor* t = sub_k(a, b);
     t->is_leaf = false;
-
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
-
     t->grad_fn = sub_bwd;
     return t;
 }
 
 
-void mul_bwd(float* upstream, tensor* out) {
+void mul_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
 
     // todo: don't need malloc here? Bc a->data, b->data
     //  already malloc'ed -- can just save a pointer to them?
 
+    // note: no need to alloc buff for intermidiates, bc mul_k
+    //  does not mutate its inputs
+
     // local
-    //   1. alloc memory
-    a->grad = EmptyFloatLike(a);
-    b->grad = EmptyFloatLike(b);
-    //   2. copy over
-    copy_arr(b->data, a->grad, a->size);
-    copy_arr(a->data, b->grad, b->size);
+    tensor* a_local = b;
+    tensor* b_local = a;
 
     // downstream = local * upstream
-    mul_k(a->grad, upstream, a->grad, a->size);
-    mul_k(b->grad, upstream, b->grad, b->size);
+    a->grad = mul_k(a_local, upstream);
+    b->grad = mul_k(b_local, upstream);
 }
 
 tensor* mul(tensor* a, tensor* b) {
-    tensor* t = mul_p(a, b);
+    tensor* t = mul_k(a, b);
     t->is_leaf = false;
-
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
-
     t->grad_fn = mul_bwd;
     return t;
 }
@@ -239,13 +204,11 @@ tensor* mul(tensor* a, tensor* b) {
 
 //    binary not-elementwise
 
-void transpose_k(float* x, float* out, int s1, int s2);
+tensor* Transpose(tensor* x);
 
-void matmul_bwd(float* upstream, tensor* out) {
+void matmul_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
-    int N = a->shape[0], M = a->shape[1];
-    int D = b->shape[1];
 
     // 1. local
 
@@ -262,8 +225,6 @@ void matmul_bwd(float* upstream, tensor* out) {
     //  to "a->grad = EmptyFloatLike(b)". So I keep these temporary
     //  variables (local_a, local_b) and de-allocate them after
     //  computing actual a->grad
-    float* local_a = EmptyFloatLike(b);
-    float* local_b = EmptyFloatLike(a);
 
     // upstream(M, D)   // same as t.shape
     //   a - ?
@@ -273,31 +234,27 @@ void matmul_bwd(float* upstream, tensor* out) {
     //      b(N, D), so b_grad(N, D)
     //      a.t(N, M) @ upstream(M, D) = b_grad(N, D)
 
-    // signature: transpose_k(float* x, float* out, int s1, int s2)
-    transpose_k(b->data, local_a, N, D); // (N, D) -> (D, N)
-    transpose_k(a->data, local_b, M, N); // (M, N) -> (N, M)
+    // todo-now: re-impl transpose as kernel and op, and replace below w transpose_k
+    tensor* local_a = Transpose(b); // (N, D) -> (D, N)
+    tensor* local_b = Transpose(a); // (M, N) -> (N, M)
 
     // 2. wire local with upstream
-    a->grad = EmptyFloatLike(a);
-    b->grad = EmptyFloatLike(b);
     // upstream(M, D) @ b.t(D, N) = a_grad(M, N)
-    matmul_k(upstream, local_a, a->grad, M, D, N);
+    a->grad = matmul_k(upstream, local_a);
     // a.t(N, M) @ upstream(M, D) = b_grad(N, D)
-    matmul_k(local_b, upstream, b->grad, N, M, D);
+    b->grad = matmul_k(local_b, upstream);
 
     // note:
-    free(local_a), free(local_b);
+    // free(local_a), free(local_b);
 }
 
 tensor* matmul(tensor* a, tensor* b){
     // e.g.: a(M, N) @ b(N, D) = t(M, D)
-    tensor* t = matmul_p(a, b);
+    tensor* t = matmul_k(a, b);
     t->is_leaf = false;
-
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
-
     t->grad_fn = matmul_bwd;
     return t;
 }
@@ -305,49 +262,48 @@ tensor* matmul(tensor* a, tensor* b){
 
 //  unary
 
-void pow_bwd(float* upstream, tensor* out) {
+void pow_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     // 1. local
     // store local in grad in the grad field
-    a->grad = FloatLikeFill(a, 2.0);
-    // todo-now: maybe to solve problems of needing kernles for floats, just make grad be a tensor itself (not float)?
-    //    bc "ElementwiseMul(TensorLikeFill(a, 2.0), a);" is much better than below
-    mul_k(a->grad, a->data, a->grad, a->size);
+    // todo-low: mem leak
+    tensor* local = mul_k(TensorLikeFill(a, 2.0), a);
     // 2. wire local with upstream
-    mul_k(a->grad, upstream, a->grad, a->size);
+    a->grad = mul_k(local, upstream);
+    // free(local);
 }
 
 tensor* pow(tensor* a, int exponent) {
-    tensor* t = pow_p(a, exponent);
+    tensor* t = pow_k(a, exponent);
     t->is_leaf = false;
-
     //  comment: note by "inputs" I mean tensor inputs (INPUTS which I'll use compute grads wrt to)
     //  so here even if this op has two inputs, it really has one, for the purpose of the autograd
     t->num_inputs = 1;
     t->inputs[0] = a;
-
     t->grad_fn = pow_bwd;
     return t;
 }
 
 
-void reduce_sum_bwd(float* upstream, tensor* out) {
+void reduce_sum_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     // 1. local
-    a->grad = FloatLikeFill(a, 1.0);
+    tensor* local = TensorLikeFill(a, 1.0);
     // 2. wire local with upstream
-    mul_k(a->grad, upstream, a->grad, a->size);
+    a->grad = mul_k(local, upstream);
+    // free(local);
 }
 
 tensor* reduce_sum(tensor* a) {
-    tensor* t = reduce_sum_p(a);
+    tensor* t = reduce_sum_k(a);
     t->is_leaf = false;
-    // fill the additional info on out tensor
+
     t->num_inputs = 1;
     t->inputs[0] = a;
+
     char op_name[] = "reduce_sum";  // {a,b,c,\0}
     // use strlen given arr is \0 terminated
-    strcp(t->op_name, op_name, strlen(op_name));
+    _strcp(t->op_name, op_name, strlen(op_name));
 
     t->grad_fn = reduce_sum_bwd;
     return t;
@@ -507,20 +463,3 @@ tensor* Transpose(tensor* x)
 
     return out;
 }
-
-// note: s1, s2 -- are before Transpose
-// todo: re-implement form scratch (this and its Op, and its Primine)
-void transpose_k(float* x, float* out, int s1, int s2)
-{
-    int stride_next_row = s2, stride_next_col = 1;
-    int idx_orig = 0;
-
-    for (int s1_transposed=0; s1_transposed < s2; s1_transposed++){
-        for (int s2_transposed=0; s2_transposed < s1; s2_transposed++){
-
-            int idx_trans = (s1_transposed * stride_next_col) + (s2_transposed * stride_next_row);
-            out[idx_orig++] = x[idx_trans];
-        }
-    }
-}
-

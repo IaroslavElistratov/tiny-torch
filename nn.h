@@ -15,14 +15,16 @@ struct tensor {
     bool is_leaf;
 
     // for autograd engine
-    void (*grad_fn)(float* upstream, tensor* out);
-    float* grad;
+    void (*grad_fn)(tensor* upstream, tensor* out);
+    tensor* grad;
     int num_inputs;
     tensor* inputs[MAX_INPUTS];
     char name;
     char* op_name;
 };
 
+tensor* EmptyTensor(int s1, int s2);
+tensor* EmptyTensorLike(tensor* t);
 tensor* Tensor(int s1, int s2);
 tensor* TensorLike(tensor* t);
 tensor* TensorLikeFill(tensor* t, float value);
