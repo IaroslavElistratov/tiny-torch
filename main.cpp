@@ -11,7 +11,7 @@ using namespace std;
 
 # define NUM_EP 5
 # define LR 0.02
-// #define DEBUG  1
+#define DEBUG  1
 
 #ifdef DEBUG
 #define print(f_p, msg) _print(f_p, msg)
@@ -155,28 +155,51 @@ int main() {
     cout << "sizeof(tensor): " << sizeof(tensor) << endl << endl;
 
     // only used for shape inference
-    tensor* _ = Tensor(1, 1);
+    tensor* _ = Tensor(2, 2);
 
     tensor* a = TensorLikeFill(_, 2.0);
     a->name = 'a';
+    print(a, &a->name);
     tensor* b = TensorLikeFill(_, 2.0);
     b->name = 'b';
+    print(b, &b->name);
     tensor* c = add(a, b);
     c->name = 'c';
+    print(c, &c->name);
 
     tensor* d = TensorLikeFill(_, 3.0);
     d->name = 'd';
     tensor* e = mul(c, d);
     e->name = 'e';
 
-    cout << "out: " << e->data[0] << endl;
+    // tensor* loss = e;
+
+    // mse
+    tensor* y = TensorLikeFill(e, 0.0);
+    tensor* loss = reduce_sum(pow(sub(y, e), 2));
+
+    cout << "loss: " << loss->data[0] << endl;
 
     // bwd
-    e->grad = (float*)malloc(sizeof(float) * e->size);
-    *e->grad = 1.0;
+
+    // todo: allocating grad buff[s] in ops previously led to err where, grad on
+    //  the last node was set to start backprop loop "*e->grad = 1.0;"
+    //  but bc buffer for grad is only allocated inside an Op, but e is never
+    //  used by an op (e is last node in the computational graph) -- "*e->grad = 1.0;"
+    //  is illegal as it the buffer hasn't ben allocated
+    //   - one way to fix is allocate grad buff for all tensors in Tensor constructor
+    //   - however, I do like that grad buff[s] are lazily created only when tensor is used.
+    //     Which amounts to creating it here (in ops).
+
+    // need to explicitly broadcast loss to the output shape
+    //  of the op before it -- bc when chaining grads in the
+    //  loop below with mul_k, it's assumed that shapes (of
+    //  upstream and local) are the same
+    // todo-high: memory leak
+    loss->grad = TensorLikeFill(loss->inputs[0], 1.0)->data;
 
     deque <tensor*> ready;
-    ready.push_front(e);
+    ready.push_front(loss);
     while (ready.size() > 0) {
         tensor* t = ready.back(); ready.pop_back();
         // each input of this op will have this as an upstream grad
@@ -187,14 +210,13 @@ int main() {
 
             // "inp->grad" already stores local grad (added during forward in ops);
             // note also, already does +=
-            *inp->grad = (*inp->grad) * (*upstream);
+            mul_k(inp->grad, upstream, inp->grad, inp->size);
 
-            cout << inp->name << "'s grad is: " << *inp->grad << endl;
+            print_kernel(inp->grad, inp->size, inp->shape[1], &inp->name);
 
             ready.push_front(inp);
         }
     }
-    cout << *a->grad << endl;
 
     return 0;
 }

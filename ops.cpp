@@ -3,55 +3,181 @@
 //@@@@@@ testing backdrop engine @@@@@@
 
 // **** kernels *****
+//   - operate on floats
+//   - have output buffer provided as input
+//      - return void
 
-tensor* add_kernel(tensor* a, tensor* b) {
-    return TensorLikeFill(a, a->data[0]+b->data[0]);
+// note: naming convention: assume "_elementwise", by default -- and ask to specify otherwise (if not elementwise) -- e.g. reduce_, matrix_, etc
+
+void copy_arr(float* src, float* dst, int size) {
+    for (int i=0; i<size; i++)
+        dst[i] = src[i];
 }
 
-tensor* mul_kernel(tensor* a, tensor* b) {
-    return TensorLikeFill(a, a->data[0]*b->data[0]);
+float _pow(float x, int exp) {
+    for (int i=0; i<exp; i++)
+        x *= x;
+    return x;
+}
+
+
+//    binary elementwise
+
+void add_k(float* a, float* b, float* out, int size){
+    for (int i=0; i<size; i++)
+        out[i] = a[i] + b[i];
+}
+
+void sub_k(float* a, float* b, float* out, int size){
+    for (int i=0; i<size; i++)
+        out[i] = a[i] - b[i];
+}
+
+void mul_k(float* a, float* b, float* out, int size){
+    for (int i=0; i<size; i++)
+        out[i] = a[i] * b[i];
+}
+
+//    unary elementwise
+
+void pow_k(float* a, int b, float* out, int size){
+    for (int i=0; i<size; i++)
+        out[i] = _pow(a[i], b);
+}
+
+void reduce_sum_k(float* a, float* out, int size) {
+    for (int i=0; i<size; i++)
+        *out += a[i];
+}
+
+
+
+
+
+// **** primitives *****
+//   - operate on tensors (call into kernels)
+//   - allocate ouput buff
+//      - return new tensor
+
+tensor* add_p(tensor* a, tensor* b) {
+    tensor* t = TensorLike(a);
+    add_k(a->data, b->data, t->data, a->size);
+    return t;
+}
+
+tensor* mul_p(tensor* a, tensor* b) {
+    tensor* t = TensorLike(a);
+    mul_k(a->data, b->data, t->data, a->size);
+    return t;
+}
+
+tensor* sub_p(tensor* a, tensor* b) {
+    tensor* t = TensorLike(a);
+    sub_k(a->data, b->data, t->data, a->size);
+    return t;
+}
+
+tensor* pow_p(tensor* a, int exponent) {
+    tensor* t = TensorLikeFill(a, 0.0);
+    pow_k(a->data, exponent, t->data, t->size);
+    return t;
+}
+
+
+tensor* reduce_sum_p(tensor* a) {
+    // reduce to scalar
+    tensor* t = TensorScalarFill(0.0);
+    reduce_sum_k(a->data, t->data, a->size);
+    return t;
 }
 
 // **** operations ****
+//   - user-facing, unlike other abstractions
+//   - call primitives, in addition, record data for the autograd:
+//   - allocating grad buffers
+//   - write local derivatives, for each input
 
 tensor* add(tensor* a, tensor* b) {
-    tensor* t = add_kernel(a, b);
+    tensor* t = add_p(a, b);
     // todo: this can be further abstracted -- creating a binary_op function
+    // todo: and even further abstracted -- creating a binary_elementwise_op function
     // fill the additional info on out tensor
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
     // todo: check bool tensor->requires_grad before allocating buffers
+
     // store local in grad in the grad field
     //    1. allocate buffer - grad wrt tensor has shape of the tensor
-    // todo-high: previously led to err where in the main loop grad on
-    //    the last node was set to start backprop loop "*e->grad = 1.0;"
-    //    but bc buffer for grad is only allocated inside an Op, but e is never
-    //    used by an op (e is last node in the computational graph) -- "*e->grad = 1.0;"
-    //    is illegal as it the buffer hasn't ben allocated
-    //       - one way to fix is allocate grad buff for all tensors in Tensor constructor
-    //       - however, I do like that grad buff[s] are lazily created only when tensor is used.
-    //         Which amounts to creating it here (in ops).
-    a->grad = (float*)malloc(sizeof(float) * t->size);
-    b->grad = (float*)malloc(sizeof(float) * t->size);
     //    2. store
-    *a->grad = 1.0;
-    *b->grad = 1.0;
+    // todo-high: memory leak -- bc tensor ouput of TensorLikeFill
+    // won't be used anymore (only one of its members will)
+    a->grad = TensorLikeFill(a, 1.0)->data;
+    b->grad = TensorLikeFill(b, 1.0)->data;
     return t;
 }
 
 
-tensor* mul(tensor* a, tensor* b) {
-    tensor* t = mul_kernel(a, b);
+tensor* sub(tensor* a, tensor* b) {
+    tensor* t = sub_p(a, b);
     // fill the additional info on out tensor
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
     // store local in grad in the grad field
-    a->grad = (float*)malloc(sizeof(float) * t->size);
-    b->grad = (float*)malloc(sizeof(float) * t->size);
-    *a->grad = b->data[0];
-    *b->grad = a->data[0];
+    //    1. allocate buffer - grad wrt tensor has shape of the tensor
+    //    2. store
+    // todo-high: memory leak -- bc tensor ouput of TensorLikeFill
+    // won't be used anymore (only one of its members will)
+    a->grad = TensorLikeFill(a, 1.0)->data;
+    b->grad = TensorLikeFill(b, -1.0)->data;
+    return t;
+}
+
+
+tensor* mul(tensor* a, tensor* b) {
+    tensor* t = mul_p(a, b);
+    // fill the additional info on out tensor
+    t->num_inputs = 2;
+    t->inputs[0] = a;
+    t->inputs[1] = b;
+    // store local in grad in the grad field
+    // todo-high: don't need malloc here? Bc a->data, b->data
+    //  already malloc'ed -- can just save a pointer them?
+    a->grad = (float*)malloc(sizeof(float) * a->size);
+    b->grad = (float*)malloc(sizeof(float) * b->size);
+    copy_arr(b->data, a->grad, a->size);
+    copy_arr(a->data, b->grad, b->size);
+    return t;
+}
+
+
+//  unary
+
+tensor* pow(tensor* a, int exponent) {
+    tensor* t = pow_p(a, exponent);
+    // fill the additional info on out tensor
+    //  comment: note by "inputs" I mean tensor inputs (INPUTS which I'll use compute grads wrt to)
+    //  so here even if this op has two inputs, it really has one, for the purpose of the autograd
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    // store local in grad in the grad field
+    a->grad = (float*)malloc(sizeof(float) * a->size);
+    // todo-now: maybe to solve problems of needing kernles for floats, just make grad be a tensor itself (not float)?
+    //    bc "ElementwiseMul(TensorLikeFill(a, 2.0), a);" is much better than below
+    // todo-high: memory leak
+    mul_k(TensorLikeFill(a, 2.0)->data, a->data, a->grad, a->size);
+    return t;
+}
+
+tensor* reduce_sum(tensor* a) {
+    tensor* t = reduce_sum_p(a);
+    // fill the additional info on out tensor
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    a->grad = (float*)malloc(sizeof(float) * a->size);
+    // todo-high: memory leak
+    a->grad = TensorLikeFill(a, 1.0)->data;
     return t;
 }
 

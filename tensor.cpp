@@ -53,11 +53,30 @@ tensor* TensorLike(tensor* t)
 
 tensor* TensorLikeFill(tensor* t, float value)
 {
+    // todo: wasteful to init w random value using GetRandomFloat
+    //  and then overwrite them anyway
     tensor* t_new = TensorLike(t);
     for (int i=0; i<t_new->size; i++)
         t_new->data[i] = value;
     return t_new;
 }
+
+
+// todo: add constructor for empty tensors -- kind of like TensorLikeFill(, 0.0)
+tensor* TensorScalarFill(float value)
+{
+    // todo: wasteful to init w random value using GetRandomFloat
+    //  and then overwrite them anyway
+    tensor* t = Tensor(1, 1);
+    // needed bc Tensor initializes to random value
+    t->data[0] = value;
+    return t;
+}
+
+
+// Zeros(1, 1)
+// Ones(1, 1)
+
 
 // x_max is number columns to get to next row
 int index(int x, int y, int x_max) {
