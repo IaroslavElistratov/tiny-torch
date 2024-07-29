@@ -1,7 +1,5 @@
 #include "nn.h"
 
-//@@@@@@ testing backdrop engine @@@@@@
-
 
 void _strcp(char* src, char* dst, int size){
     for (int i=0; i<size; i++) {
@@ -22,6 +20,8 @@ float _pow(float x, int exp) {
 }
 
 // note: naming convention: assume "_elementwise", by default -- and ask to specify otherwise (if not elementwise) -- e.g. reduce_, matrix_, etc
+// todo: ? use capital letters for functions that allocate heap mem, use lowercase otherwise
+// note: below derivatives try to follow this order -- local * upstream
 
 // **** kernels *****
 //   - operate on tensors
@@ -33,6 +33,7 @@ float _pow(float x, int exp) {
 // todo: use "cost tensor*" instead of "tensor"
 tensor* add_k(tensor* a, tensor* b) {
     tensor* out = TensorLike(a);
+    // todo: here and in all ops, assert same size
     for (int i=0; i<out->size; i++)
         out->data[i] = a->data[i] + b->data[i];
     return out;
@@ -52,8 +53,6 @@ tensor* mul_k(tensor* a, tensor* b) {
     return out;
 }
 
-
-
 //    binary not-elementwise
 
 tensor* matmul_k(tensor* a, tensor* b)
@@ -69,8 +68,11 @@ tensor* matmul_k(tensor* a, tensor* b)
             for (int m=0; m<M; m++){
                 // n*M, because for each "n" you skip "M" values
                 sum += a->data[n*M + m] * b->data[m*D + d];
+                // index(n, m, n), index(m, d, m)
+                // index(n, m, M), index(m, d, D)
             }
             out->data[n*D + d] = sum;
+            // index(n, d, D)
         }
     }
     return out;
@@ -93,7 +95,41 @@ tensor* reduce_sum_k(tensor* a) {
     return out;
 }
 
+tensor* relu_k(tensor* a) {
+    tensor* out = TensorLike(a);
+    for (int i=0; i<out->size; i++)
+        out->data[i] = a->data[i] > 0.0 ? a->data[i] : 0.0;
+    return out;
+}
 
+tensor* transpose_k(tensor* x) {
+    int s1 = x->shape[0], s2 = x->shape[1];
+    // [S1, S2] -> [S2, S1]
+    //   - to go to next row, need to skip S2 elements
+    //   - to go to next column, need to skip 1
+    int stride_next_row = s2, stride_next_col = 1;
+
+    tensor* out = Tensor(s2, s1);
+
+    // basically need indexing pattern to access elements of array
+    // next idx is different inside-a-row vs when switching to next row
+    //    when within a row -- next idx is "curr_idx + stride_col"
+    //    when switching to new row -- "first idx (of curr row) + stride_row"
+
+    int idx_orig = 0;
+
+    // these two loops are only needed to continently provide -- ranges over s2, s1
+    for (int s1_transposed=0; s1_transposed < s2; s1_transposed++){
+        for (int s2_transposed=0; s2_transposed < s1; s2_transposed++){
+
+            int idx_trans = (s1_transposed * stride_next_col) + (s2_transposed * stride_next_row);
+            // cout << "idx_orig: " << idx_orig
+            out->data[idx_orig++] = x->data[idx_trans];
+            // cout << "; idx_trans: " << idx_trans << endl;
+        }
+    }
+    return out;
+}
 
 // **** operations ****
 //   - user-facing, unlike other abstractions
@@ -204,7 +240,6 @@ tensor* mul(tensor* a, tensor* b) {
 
 //    binary not-elementwise
 
-tensor* Transpose(tensor* x);
 
 void matmul_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
@@ -234,9 +269,8 @@ void matmul_bwd(tensor* upstream, tensor* out) {
     //      b(N, D), so b_grad(N, D)
     //      a.t(N, M) @ upstream(M, D) = b_grad(N, D)
 
-    // todo-now: re-impl transpose as kernel and op, and replace below w transpose_k
-    tensor* local_a = Transpose(b); // (N, D) -> (D, N)
-    tensor* local_b = Transpose(a); // (M, N) -> (N, M)
+    tensor* local_a = transpose_k(b); // (N, D) -> (D, N)
+    tensor* local_b = transpose_k(a); // (M, N) -> (N, M)
 
     // 2. wire local with upstream
     // upstream(M, D) @ b.t(D, N) = a_grad(M, N)
@@ -310,156 +344,43 @@ tensor* reduce_sum(tensor* a) {
 }
 
 
-
-
-
-
-//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-tensor* ElementwiseMul(tensor* a, tensor* b)
-{
-    // todo: here and in all ops, assert same size
-    tensor* out = TensorLike(a);
-    for (int i=0; i<out->size; i++) {
-        out->data[i] = a->data[i] * b->data[i];
+void relu_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    // local
+    // todo: avoid re-computing
+    //  this is kind of gradient checkpointing;
+    //  ofc can avoid by making original relu ouput the mask
+    //  -- but I found recomputing is a bit cleaner to explain
+    tensor* local = TensorLike(a);
+    for (int i=0; i<local->size; i++) {
+        local->data[i] = a->data[i] > 0.0 ? 1.0 : 0.0;
     }
-    return out;
+    // downstream = local * upstream
+    a->grad = mul_k(local, upstream);
+    // free(local);
+}
+
+tensor* relu(tensor* a) {
+    tensor* t = relu_k(a);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->grad_fn = relu_bwd;
+    return t;
 }
 
 
-// todo: add tests -- https://github.com/tensorflow/tensorflow/commit/6f4a0e96d853d1d8fe05a8dd8f7ba0cd0fb0e79b#diff-65511a88d2951377144d77a2de94c0f597c4664189d3d5ac730e653560b64f31R259-R342
-tensor* Matmul(tensor* x, tensor* w)
-{
-    int N = x->shape[0], M = x->shape[1];
-    int D = w->shape[1];
-    // (N, M) @ (M, D) = (N, D)
-    // todo: add a way to create empty tensor -- bc currently my Tensor constructor also fills it tens w random values
-    tensor* out = Tensor(N, D);
-
-    for (int n=0; n<N; n++) {
-        for (int d=0; d<D; d++) {
-            float sum = 0;
-            for (int m=0; m<M; m++){
-                // cout << "x_idx: " << n*M+m << endl;
-                // cout << "y_idx: " << m*D+d << endl;
-                sum += x->data[n*M+m] * w->data[m*D+d];
-                // cout << endl;
-            }
-            // cout << "sum: " << sum << endl;
-            out->data[n*D+d] = sum;
-        // cout << endl;
-        }
-    }
-
-    // for (int n=0; n<N; n++) {
-    //     for (int d=0; d<D; d++) {
-    //         float sum = 0;
-    //         for (int m=0; m<M; m++){
-    //             // cout << "x_idx: " << index(n, m, n) << endl;
-    //             // cout << "y_idx: " << index(m, d, m) << endl;
-    //             sum += x[index(n, m, M)] * w[index(m, d, D)];
-    //         }
-    //         out[index(n, d, D)] = sum;
-    //     }
-    // }
-
-    return out;
+// todo: bwd formula
+void transpose_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    a->grad = transpose_k(upstream);
 }
 
-// todo: add tests
-/*
-    out2[1] = 0.123;
-    print(ReluBackward(out2, N*D), N, D);
-*/
-tensor* Relu(tensor* x)
-{
-    tensor* out = TensorLike(x);
-    for (int i=0; i<out->size; i++) {
-        out->data[i] = x->data[i] > 0.0 ? x->data[i] : 0.0;
-        // mask[i] = x[i] > 0.0 ? 1.0 : 0.0;
-    }
-    return out;
-}
-
-tensor* GetReluMask(tensor* x)
-{
-    tensor* out = TensorLike(x);
-    for (int i=0; i<out->size; i++) {
-        out->data[i] = x->data[i] > 0.0 ? 1.0 : 0.0;
-    }
-    return out;
-}
-
-
-/* pow tests
-    cout << "pow(2, 2): " << pow(2, 2) << endl;
-    cout << "pow(2, 2): " << pow(4, 8) << endl;
-*/
-float pow(float x, int exp)
-{
-    for (int i=0; i<exp; i++)
-        x *= x;
-    return x;
-}
-
-// note: use capital letters for functions that allocate heap mem, use lowercase otherwise
-float mse(tensor* x, tensor* y)
-{
-    float diff, out = 0;
-    for (int i=0; i<x->size; i++) {
-        diff = y->data[i] - x->data[i];
-        out += pow(diff, 2);
-    }
-    return out;
-}
-
-
-/* Transpose tests
-    float arr[] = {0., 1., 2., 3.};
-    cout << "\narr: ";
-    Print(arr, 2, 2);
-    float* arr_T = Transpose(arr, 2, 2);
-    cout << "\ntransposed: ";
-    Print(arr_T, 2, 2);
-
-    float arr[] = {0., 1., 2.,
-                    3., 4., 5.};
-    cout << "\narr: ";
-    Print(arr, 2, 3);
-    float* arr_T = Transpose(arr, 2, 3);
-    cout << "\ntransposed: ";
-    Print(arr_T, 3, 2);
-*/
-
-// todo-low: use "const int" for s1, s2?
-// [S1, S2] -> [S2, S1]
-tensor* Transpose(tensor* x)
-{
-    int s1 = x->shape[0], s2 = x->shape[1];
-    // [S1, S2]
-    //   - to go to next row, need to skip S2 elements
-    //   - to go to next column, need to skip 1
-    int stride_next_row = s2, stride_next_col = 1;
-
-    tensor* out = Tensor(s2, s1);
-
-    // basically need indexing pattern to access elements of array
-    // next idx is different inside-a-row vs when switching to next row
-    //    when within a row -- next idx is "curr_idx + stride_col"
-    //    when switching to new row -- "first idx (of curr row) + stride_row"
-
-    int idx_orig = 0;
-
-    // these two loops are only needed to continently provide -- ranges over s2, s1
-    for (int s1_transposed=0; s1_transposed < s2; s1_transposed++){
-        for (int s2_transposed=0; s2_transposed < s1; s2_transposed++){
-
-            int idx_trans = (s1_transposed * stride_next_col) + (s2_transposed * stride_next_row);
-            // cout << "idx_orig: " << idx_orig
-            out->data[idx_orig++] = x->data[idx_trans];
-            // cout << "; idx_trans: " << idx_trans << endl;
-        }
-    }
-
-    return out;
+tensor* transpose(tensor* a) {
+    tensor* t = transpose_k(a);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->grad_fn = transpose_bwd;
+    return t;
 }

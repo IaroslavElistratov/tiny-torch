@@ -31,84 +31,31 @@ float train_step(tensor* x, tensor* w1, tensor* w2)
     // *** FWD ***
 
     // x(N, M) @ w1(M, D) = out1(N, D)
-    tensor* out1 = Matmul(x, w1);
+    tensor* out1 = matmul(x, w1);
     print(out1, "matmul_1");
 
     // out2(N, D)
-    tensor* out2 = Relu(out1);
+    tensor* out2 = relu(out1);
     print(out2, "relu");
 
     // out2(N, D) @ w2(D, O) = out3(N, O)
-    tensor* out3 = Matmul(out2, w2);
+    tensor* out3 = matmul(out2, w2);
     print(out3, "matmul_2");
 
     // loss
     tensor* y = TensorLikeFill(out3, 0.5); // dummy label
-    float loss = mse(out3, y);
+    tensor* loss = reduce_sum(pow(sub(y, out3), 2));
     // cout << "loss :" << loss << endl;
 
-    // *** BWD ***
-
-    // note: below derivatives try to follow this order -- local * upstream
-    // question-now: non deterministic order of args?
-    //  - dL_dpow, dL_dneg, dL_dw2, dL_out2
-
+    // todo: non deterministic order of args?
     float dL_dL = 1.0;
-    // float dL_dsum = 1.0;
 
-    // mse bwd
-
-    // "reduce_sum" bwd
-    tensor* dL_dpow = TensorLikeFill(y, dL_dL);
-
-    // "**2" bwd
-    // todo: avoid recomputing this during backward
-    tensor* diff = TensorLike(y);
-    for (int i=0; i<diff->size; i++) {
-        diff->data[i] = y->data[i] - out3->data[i];
-    }
-    tensor* local_dpow = ElementwiseMul(TensorLikeFill(diff, 2.0), diff);
-    tensor* dL_dneg = ElementwiseMul(local_dpow, dL_dpow);
-
-    // "-" bwd
-    tensor* dL_dout3 = ElementwiseMul(TensorLikeFill(dL_dneg, -1.0), dL_dneg);
-
-    // matmul 2 bwd
-
-    // dL_dout3(N, O)
-    // out2(N, D)
-    // w2(D, O)
-    //   so: out2.T(D, N) @ dL_dout3(N, O) = dL_dw2(D, O)
-    //   I went from the ouput shape (D, O) -- this has to be the same bc
-    tensor* dL_dw2 = Matmul(Transpose(out2), dL_dout3);
-    _print(dL_dw2, "dL_dw2");
-
-    // out2(N, D)
-    //   so: dL_dout3(N, O) @ w2.T(O, D) = dL_out2(N, D)
-    tensor* dL_out2 = Matmul(dL_dout3, Transpose(w2));
-
-    // relu bwd
-
-    // note: this is kind of gradient checkpointing;
-    //  ofc can avoid by making original relu ouput the mask
-    //  -- but I found recomputing is a bit cleaner to explain
-    tensor* relu_mask = GetReluMask(out1);
-    tensor* dL_dout1 = ElementwiseMul(relu_mask, dL_out2);
-
-    // matmul 1 bwd
-
-    // dL_dout1(N, D)
-    // x(N, M)
-    // w1(M, D)
-    //   so: x.T(M, N) @ dL_dout1(N, D) = dL_dw1(M, D)
-    tensor* dL_dw1 = Matmul(Transpose(x), dL_dout1);
-    _print(dL_dw1, "dL_dw1");
 
     // *** Optim Step ***
-    sgd(w1, dL_dw1);
-    sgd(w2, dL_dw2);
+    // sgd(w1, w->grad->data);
+    // sgd(w2, w2->grad->data);
 
-    return loss;
+    return loss->data[0];
 }
 
 
@@ -233,6 +180,5 @@ int main() {
             print(inp->grad, &inp->name);
         }
     }
-
     return 0;
 }
