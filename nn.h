@@ -21,6 +21,8 @@ struct tensor {
     tensor* inputs[MAX_INPUTS];
     char name;
     char* op_name;
+
+    void (*backward)(tensor* t);
 };
 
 tensor* EmptyTensor(int s1, int s2);

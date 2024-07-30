@@ -45,15 +45,16 @@ float train_step(tensor* x, tensor* w1, tensor* w2)
     // loss
     tensor* y = TensorLikeFill(out3, 0.5); // dummy label
     tensor* loss = reduce_sum(pow(sub(y, out3), 2));
-    // cout << "loss :" << loss << endl;
+    cout << "loss :" << loss->data[0] << endl;
 
     // todo: non deterministic order of args?
-    float dL_dL = 1.0;
 
+    // *** Backward ***
+    loss->backward(loss);
 
     // *** Optim Step ***
-    // sgd(w1, w->grad->data);
-    // sgd(w2, w2->grad->data);
+    sgd(w1, w1->grad);
+    sgd(w2, w2->grad);
 
     return loss->data[0];
 }
@@ -93,9 +94,6 @@ int _main() {
 }
 
 
-#include <deque> // deque from standard template library (STL)
-
-
 int main() {
     srand(123);
 
@@ -127,58 +125,12 @@ int main() {
     tensor* g = matmul(e, f);
     g->name = 'g';
 
-    // tensor* loss = e;
-
     // mse
     tensor* y = TensorLikeFill(g, 0.0);
     tensor* loss = reduce_sum(pow(sub(y, g), 2));
 
     cout << "loss: " << loss->data[0] << endl;
 
-    // bwd
-
-    // todo: in autograd, don't overwrite grad instead do +=
-
-    // todo: allocating grad buff[s] in ops previously led to err where, grad on
-    //  the last node was set to start backprop loop "*e->grad = 1.0;"
-    //  but bc buffer for grad is only allocated inside an Op, but e is never
-    //  used by an op (e is last node in the computational graph) -- "*e->grad = 1.0;"
-    //  is illegal as it the buffer hasn't ben allocated
-    //   - one way to fix is allocate grad buff for all tensors in Tensor constructor
-    //   - however, I do like that grad buff[s] are lazily created only when tensor is used.
-    //     Which amounts to creating it here (in ops).
-
-    // need to explicitly broadcast loss to the output shape
-    //  of the op before it -- bc when chaining grads in the
-    //  loop below with mul_k, it's assumed that shapes (of
-    //  upstream and local) are the same
-    loss->grad = TensorLikeFill(loss->inputs[0], 1.0);
-
-    deque <tensor*> ready;
-    ready.push_front(loss);
-    while (ready.size() > 0) {
-        tensor* t = ready.back(); ready.pop_back();
-
-        printf("%s", t->op_name);
-        // cout << "[autograd] " << t->op_name << endl;
-
-        // each input of this op will have this as an upstream grad
-        tensor* upstream = t->grad;
-
-        // step once for the op -- propagates grad wrt all inputs of the op
-        t->grad_fn(upstream, t);
-
-        for (int i=0; i<t->num_inputs; i++){
-            tensor* inp = t->inputs[i];
-            // leaf tensors have no grad_fn, so don't push them on the queue
-            // bc for each value pop'ed from the queue at later iterations,
-            // this value's grad_fn will be called
-            if (!inp->is_leaf) {
-                ready.push_front(inp);
-            }
-
-            print(inp->grad, &inp->name);
-        }
-    }
+    loss->backward(loss);
     return 0;
 }

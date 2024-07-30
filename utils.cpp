@@ -3,7 +3,7 @@
 
 #include "nn.h"
 
-void _print(tensor* t, char* msg)
+void _print(tensor* t, const char* msg)
 {
     printf("\n%s: ", msg);
 

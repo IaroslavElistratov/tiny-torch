@@ -2,6 +2,8 @@
 // using namespace std;
 
 #include "nn.h"
+#include "autograd.cpp"
+
 
 void GetRandomFloat(float* dst, int num)
 {
@@ -39,6 +41,13 @@ tensor* EmptyTensor(int s1, int s2)
     t->grad_fn = NULL;
     t->grad = NULL;
     t->num_inputs = -1;
+
+    // autograd engine
+    // note: it makes more sense to set this in ops, because
+    // there I set all other autograd attributes on tensors.
+    // But it would be repetitive to set the same attr
+    // (t->backward) in every op, so set it here
+    t->backward = backward;
 
     return t;
 }

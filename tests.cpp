@@ -27,3 +27,9 @@
     cout << "pow(2, 2): " << pow(2, 2) << endl;
     cout << "pow(2, 2): " << pow(4, 8) << endl;
 */
+
+/* autograd
+    tensor* a = Tensor(2, 2);
+    a->backward(a);
+    // >>> [autograd engine] Error: tensor has no grad_fn
+*/
