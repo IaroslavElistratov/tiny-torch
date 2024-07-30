@@ -7,7 +7,7 @@ void _print(tensor* t, const char* msg)
 {
     printf("\n%s: ", msg);
 
-    for (int i=0, row_len = t->shape[1]; i<t->size; i++) {
+    for (int i=0, row_len=t->shape[1]; i<t->size; i++) {
         if (i % row_len == 0) cout << endl;
         // easy numpy export:
         // if (i % row_len == 0) cout << "], " << endl << "[";
