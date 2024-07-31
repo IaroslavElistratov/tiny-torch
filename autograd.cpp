@@ -2,8 +2,8 @@
 
 #include "nn.h"
 
-#define print(f_p, msg) _print(f_p, msg)
-void _print(tensor* t, const char* msg);
+#define print(f_p) _print(f_p)
+void _print(tensor* t);
 
 void backward(tensor* loss){
 
@@ -35,8 +35,9 @@ void backward(tensor* loss){
     while (ready.size() > 0) {
         tensor* t = ready.back(); ready.pop_back();
 
-        printf("%s", t->op_name);
-        // cout << "[autograd] " << t->op_name << endl;
+        const char* op_name = OP_NAMES[t->op_type];
+        printf("%s", op_name);
+        // cout << "[autograd] " << op_name << endl;
 
         // each input of this op will have this as an upstream grad
         tensor* upstream = t->grad;
@@ -58,7 +59,8 @@ void backward(tensor* loss){
                 ready.push_front(inp);
             }
 
-            print(inp->grad, &inp->name);
+            printf("\n%s's grad", inp->name);
+            print(inp->grad);
         }
     }
 }

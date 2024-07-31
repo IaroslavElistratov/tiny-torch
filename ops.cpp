@@ -173,10 +173,7 @@ tensor* add(tensor* a, tensor* b) {
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
-
-    char op_name[] = "add";
-    _strcp(t->op_name, op_name, strlen(op_name));
-
+    t->op_type = 0;
     t->grad_fn = add_bwd;
     return t;
 }
@@ -203,6 +200,7 @@ tensor* sub(tensor* a, tensor* b) {
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
+    t->op_type = 1;
     t->grad_fn = sub_bwd;
     return t;
 }
@@ -233,6 +231,7 @@ tensor* mul(tensor* a, tensor* b) {
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
+    t->op_type = 2;
     t->grad_fn = mul_bwd;
     return t;
 }
@@ -289,6 +288,7 @@ tensor* matmul(tensor* a, tensor* b){
     t->num_inputs = 2;
     t->inputs[0] = a;
     t->inputs[1] = b;
+    t->op_type = 3;
     t->grad_fn = matmul_bwd;
     return t;
 }
@@ -314,6 +314,7 @@ tensor* pow(tensor* a, int exponent) {
     //  so here even if this op has two inputs, it really has one, for the purpose of the autograd
     t->num_inputs = 1;
     t->inputs[0] = a;
+    t->op_type = 4;
     t->grad_fn = pow_bwd;
     return t;
 }
@@ -331,14 +332,9 @@ void reduce_sum_bwd(tensor* upstream, tensor* out) {
 tensor* reduce_sum(tensor* a) {
     tensor* t = reduce_sum_k(a);
     t->is_leaf = false;
-
     t->num_inputs = 1;
     t->inputs[0] = a;
-
-    char op_name[] = "reduce_sum";  // {a,b,c,\0}
-    // use strlen given arr is \0 terminated
-    _strcp(t->op_name, op_name, strlen(op_name));
-
+    t->op_type = 5;
     t->grad_fn = reduce_sum_bwd;
     return t;
 }
@@ -365,6 +361,7 @@ tensor* relu(tensor* a) {
     t->is_leaf = false;
     t->num_inputs = 1;
     t->inputs[0] = a;
+    t->op_type = 6;
     t->grad_fn = relu_bwd;
     return t;
 }
@@ -381,6 +378,7 @@ tensor* transpose(tensor* a) {
     t->is_leaf = false;
     t->num_inputs = 1;
     t->inputs[0] = a;
+    t->op_type = 7;
     t->grad_fn = transpose_bwd;
     return t;
 }
