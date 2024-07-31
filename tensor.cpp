@@ -4,6 +4,7 @@
 #include "nn.h"
 #include "autograd.cpp"
 
+char* random_chars(int num);
 
 void GetRandomFloat(float* dst, int num)
 {
@@ -25,24 +26,20 @@ tensor* EmptyTensor(int s1, int s2)
     tensor* t = (tensor*)malloc(sizeof(tensor));
 
     t->size = s1*s2;
-
     t->shape[0] = s1;
     t->shape[1] = s2;
 
     t->data = (float*)malloc(sizeof(float) * t->size);
 
-    // true by defult, modified in an op impl if that tensor was produced by an op
-    t-> is_leaf = true;
-    t->op_name = (char*)malloc(sizeof(char) * 12);
-    t->name = '-';
+    // for autograd engine:
 
-    // for autograd engine
-    // cout << t->grad << endl;
+    // true by default, modified in an op impl if that tensor was produced by an op
+    t->is_leaf = true;
+    t->num_inputs = -1;
+    t->name = random_chars(MAX_TENSOR_NAME);
+
     t->grad_fn = NULL;
     t->grad = NULL;
-    t->num_inputs = -1;
-
-    // autograd engine
     // note: it makes more sense to set this in ops, because
     // there I set all other autograd attributes on tensors.
     // But it would be repetitive to set the same attr

@@ -1,5 +1,5 @@
 // todo: add tests -- https://github.com/tensorflow/tensorflow/commit/6f4a0e96d853d1d8fe05a8dd8f7ba0cd0fb0e79b#diff-65511a88d2951377144d77a2de94c0f597c4664189d3d5ac730e653560b64f31R259-R342
-
+//  - https://github.com/rui314/8cc/blob/b480958396f159d3794f0d4883172b21438a8597/test/typeof.c#L23
 
 /*
     out2[1] = 0.123;

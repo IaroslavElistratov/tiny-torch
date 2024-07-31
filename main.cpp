@@ -9,8 +9,8 @@ using namespace std;
 #include "utils.cpp"
 
 
-# define NUM_EP 5
-# define LR 0.02
+#define NUM_EP 2
+#define LR 0.02
 #define DEBUG  1
 
 #ifdef DEBUG
@@ -56,11 +56,13 @@ float train_step(tensor* x, tensor* w1, tensor* w2)
     sgd(w1, w1->grad);
     sgd(w2, w2->grad);
 
+    graphviz(loss);
+
     return loss->data[0];
 }
 
 
-int _main() {
+int main() {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -94,7 +96,7 @@ int _main() {
 }
 
 
-int main() {
+int _main() {
     srand(123);
 
     cout << "sizeof(tensor): " << sizeof(tensor) << endl << endl;
@@ -103,27 +105,29 @@ int main() {
     tensor* _ = Tensor(2, 2);
 
     tensor* a = TensorLikeFill(_, 2.0);
-    a->name = 'a';
-    print(a, &a->name);
+    // a->name = 'a';
+    print(a, a->name);
+
     tensor* b = TensorLikeFill(_, 2.0);
-    b->name = 'b';
-    print(b, &b->name);
+    // b->name = 'b';
+    print(b, b->name);
+
     tensor* c = add(a, b);
-    c->name = 'c';
-    print(c, &c->name);
+    // c->name = 'c';
+    print(c, c->name);
 
     tensor* d = TensorLikeFill(_, 3.0);
-    d->name = 'd';
+    // d->name = 'd';
     tensor* e = mul(c, d);
-    e->name = 'e';
+    // e->name = 'e';
 
     // e(2,2) @ f(2,5) = (2,5)
     tensor* f = Tensor(2, 5);
-    f->name = 'f';
+    // f->name = 'f';
     print(f, "f");
 
     tensor* g = matmul(e, f);
-    g->name = 'g';
+    // g->name = 'g';
 
     // mse
     tensor* y = TensorLikeFill(g, 0.0);
@@ -132,5 +136,6 @@ int main() {
     cout << "loss: " << loss->data[0] << endl;
 
     loss->backward(loss);
+    graphviz(loss);
     return 0;
 }
