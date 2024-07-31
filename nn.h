@@ -3,7 +3,7 @@
 #define NN_H_INCLUDED
 
 #define MAX_INPUTS 2
-#define MAX_TENSOR_NAME 3 // unique for each tensor
+#define MAX_TENSOR_NAME 10 // unique for each tensor
 
 // todo: avoid needing to manually sync increment op_type, NUM_OPS, VIS_COLORS when adding a new op
 //  - use graphviz's pastel19 or set312 color scheme ?

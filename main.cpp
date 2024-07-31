@@ -14,16 +14,15 @@ using namespace std;
 #define DEBUG  1
 
 #ifdef DEBUG
-#define print(f_p, msg) _print(f_p, msg)
+#define print(f_p) _print(f_p)
 #else
-#define print(f_p, msg)
+#define print(f_p)
 #endif
 
 void sgd(tensor* w, tensor* grad_w)
 {
-    for (int i=0; i<w->size; i++) {
+    for (int i=0; i<w->size; i++)
         w->data[i] -= grad_w->data[i] * LR;
-    }
 }
 
 float train_step(tensor* x, tensor* w1, tensor* w2)
@@ -32,15 +31,15 @@ float train_step(tensor* x, tensor* w1, tensor* w2)
 
     // x(N, M) @ w1(M, D) = out1(N, D)
     tensor* out1 = matmul(x, w1);
-    print(out1, "matmul_1");
+    set_name(out1, "matmul_1"); print(out1);
 
     // out2(N, D)
     tensor* out2 = relu(out1);
-    print(out2, "relu");
+    set_name(out2, "relu"); print(out2);
 
     // out2(N, D) @ w2(D, O) = out3(N, O)
     tensor* out3 = matmul(out2, w2);
-    print(out3, "matmul_2");
+    set_name(out3, "matmul_2"); print(out3);
 
     // loss
     tensor* y = TensorLikeFill(out3, 0.5); // dummy label
@@ -74,21 +73,21 @@ int main() {
 
     // *** Init ***
     tensor* x = Tensor(N, M);
-    print(x, "x");
+    set_name(x, "x"); print(x);
 
     tensor* w1 = Tensor(M, D);
-    print(w1, "w1");
+    set_name(w1, "w1"); print(w1);
 
     tensor* w2 = Tensor(D, O);
-    print(w2, "w2");
+    set_name(w2, "w2"); print(w2);
 
     // *** Train Step ***
     for (int ep_idx=0; ep_idx<NUM_EP; ep_idx++) {
         float loss = train_step(x, w1, w2);
         cout << "\nep: " << ep_idx << "; loss: " << loss << endl;
 
-        print(w1, "w1");
-        print(w2, "w2");
+        print(w1);
+        print(w2);
     }
 
     // todo: write to file
@@ -105,29 +104,26 @@ int _main() {
     tensor* _ = Tensor(2, 2);
 
     tensor* a = TensorLikeFill(_, 2.0);
-    // a->name = 'a';
-    print(a, a->name);
+    set_name(a, "a"); print(a);
 
     tensor* b = TensorLikeFill(_, 2.0);
-    // b->name = 'b';
-    print(b, b->name);
+    set_name(b, "b"); print(b);
 
     tensor* c = add(a, b);
-    // c->name = 'c';
-    print(c, c->name);
+    set_name(c, "c"); print(c);
 
     tensor* d = TensorLikeFill(_, 3.0);
-    // d->name = 'd';
+    set_name(d, "d"); print(d);
+
     tensor* e = mul(c, d);
-    // e->name = 'e';
+    set_name(e, "e"); print(e);
 
     // e(2,2) @ f(2,5) = (2,5)
     tensor* f = Tensor(2, 5);
-    // f->name = 'f';
-    print(f, "f");
+    set_name(f, "f"); print(f);
 
     tensor* g = matmul(e, f);
-    // g->name = 'g';
+    set_name(g, "g"); print(g);
 
     // mse
     tensor* y = TensorLikeFill(g, 0.0);

@@ -3,9 +3,9 @@
 
 #include "nn.h"
 
-void _print(tensor* t, const char* msg)
+void _print(tensor* t)
 {
-    printf("\n%s: ", msg);
+    printf("\n%s: ", t->name);
 
     for (int i=0, row_len=t->shape[1]; i<t->size; i++) {
         if (i % row_len == 0) cout << endl;
@@ -70,6 +70,7 @@ void graphviz(tensor* tens){
 
             // for tensors, vis shapes instead of names
             fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i )}\"]\n", inp->name, inp->shape[0], inp->shape[1]);
+            // fprintf(f, "%s [shape=record, label=\"{%s\\nshape=(%i, %i )}\"]\n", inp->name, inp->name, inp->shape[0], inp->shape[1]);
 
             // leafs don't have inputs to iterate over in the next iteration
             if (!inp->is_leaf)

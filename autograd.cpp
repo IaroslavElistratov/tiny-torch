@@ -2,8 +2,8 @@
 
 #include "nn.h"
 
-#define print(f_p, msg) _print(f_p, msg)
-void _print(tensor* t, const char* msg);
+#define print(f_p) _print(f_p)
+void _print(tensor* t);
 
 void backward(tensor* loss){
 
@@ -59,7 +59,8 @@ void backward(tensor* loss){
                 ready.push_front(inp);
             }
 
-            print(inp->grad, inp->name);
+            printf("\n%s's grad", inp->name);
+            print(inp->grad);
         }
     }
 }
