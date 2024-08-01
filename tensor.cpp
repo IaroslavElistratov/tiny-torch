@@ -21,13 +21,14 @@ void GetRandomFloat(float* dst, int num)
 
 // todo: add EmptyTensor, EmptyTensorLike, make TensorLikeFill use EmptyTensorLike (instead of TensorLike)
 
-tensor* EmptyTensor(int s1, int s2)
+tensor* _EmptyTensor(int s1, int s2, int s3)
 {
     tensor* t = (tensor*)malloc(sizeof(tensor));
 
-    t->size = s1*s2;
+    t->size = s1*s2*s3;
     t->shape[0] = s1;
     t->shape[1] = s2;
+    t->shape[2] = s3;
 
     t->data = (float*)malloc(sizeof(float) * t->size);
 
@@ -47,6 +48,22 @@ tensor* EmptyTensor(int s1, int s2)
     t->backward = backward;
 
     return t;
+}
+
+tensor* _Tensor(int s1, int s2, int s3)
+{
+    tensor* t = _EmptyTensor(s1, s2, s3);
+    GetRandomFloat(t->data, t->size);
+    return t;
+}
+
+// to preserve old behavior
+// todo-now: must change ops to
+//  - index form the inner most (not other-most)
+//  - loop over the other-most dim as well
+tensor* EmptyTensor(int s1, int s2)
+{
+    return _EmptyTensor(0, s1, s2);
 }
 
 tensor* EmptyTensorLike(tensor* t)
@@ -146,9 +163,4 @@ void set_name(tensor* t, const char* name){
         cout << "[set_name] Warning, specified name larger than MAX_TENSOR_NAME -- truncating" << endl;
         t->name[i+1] = '\0';
     }
-}
-
-// x_max is number columns to get to next row
-int index(int x, int y, int x_max) {
-    return x * x_max + y;
 }

@@ -66,6 +66,68 @@ tensor* index_2d(tensor* t, const char* dims){
     return out;
 }
 
+    const char* dims = "0:1, 4:11, 0:2";
+
+// todo: can I make this re-use index_2d?
+tensor* index_3d(tensor* t, const char* dims){
+
+    // also converts char to int
+    int starts[3] = {dims[0]-'0', dims[5]-'0', dims[10]-'0'};
+    int ends[3] = {dims[2]-'0', dims[7]-'0', dims[12]-'0'};
+
+    // lowercase to denote sizes of the slice, not of t
+    int x = ends[0] - starts[0];
+    int y = ends[1] - starts[1];
+    int z = ends[2] - starts[2];
+
+    // todo-now: 3d tensor
+    tensor* out = _EmptyTensor(x, y, z);
+
+    int Y = t->shape[1];
+    int Z = t->shape[2];
+
+    int strides_in[3] = {Y*Z, Z, 1};
+    int strides_out[3] = {y*z, z, 1};
+
+    for (int xi=0; xi<x; xi++){
+        for (int yi=0; yi<y; yi++){
+            for (int zi=0; zi<z; zi++){
+                int out_idx = strides_out[0]*xi + strides_out[1]*yi + strides_out[2]*zi;
+                int inp_idx = strides_in[0]*(xi+starts[0]) + strides_in[1]*(yi+starts[1]) + strides_in[2]*(zi+starts[2]);
+                out->data[out_idx] = t->data[inp_idx];
+                // cout << "out_idx: " << out_idx << endl;
+                // cout << "inp_idx: " << inp_idx << endl << endl;
+            }
+        }
+    }
+    return out;
+}
+
+void print_3d(tensor* t)
+{
+    printf("\n%s: ", t->name);
+
+    int x = t->shape[0];
+    int y = t->shape[1];
+    int z = t->shape[2];
+
+    int strides_out[3] = {y*z, z, 1};
+
+    printf("\n");
+
+    for (int xi=0; xi<x; xi++){
+        for (int yi=0; yi<y; yi++){
+            for (int zi=0; zi<z; zi++){
+                int idx = strides_out[0]*xi + strides_out[1]*yi + strides_out[2]*zi;
+                printf("%8.4f, ", t->data[idx]);
+            }
+            printf("\n");
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
 
 int main() {
     srand(123);
@@ -75,6 +137,14 @@ int main() {
 
     tensor* x_slice = index_2d(x, "1:3, 4:7");
     print(x_slice);
+
+    tensor* y = _Tensor(4, 3, 7);
+    set_name(y, "y");
+    print_3d(y);
+
+    tensor* y_slice = index_3d(y, "2:4, 1:3, 4:7");
+    set_name(y_slice, "y_slice");
+    print_3d(y_slice);
 
     // const char* dims = "0:1, 4:11";
     return 0;

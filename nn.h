@@ -15,7 +15,7 @@ const char* VIS_COLORS[] = {"darkolivegreen1", "lightsalmon1", "skyblue1", "plum
 // tensor and its fn's are used in both ops.cpp and main.cpp
 struct tensor {
     float* data;
-    int shape[2];
+    int shape[3];
     // to avoid: int size = x->shape[0] * x->shape[1];
     int size;
 
