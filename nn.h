@@ -8,8 +8,8 @@
 // todo: avoid needing to manually sync increment op_type, NUM_OPS, VIS_COLORS when adding a new op
 //  - use graphviz's pastel19 or set312 color scheme ?
 #define NUM_OPS 8
-const char *OP_NAMES[] = {"add", "sub", "mul", "matmul", "pow", "reduce_sum", "relu", "transpose"};
-const char *VIS_COLORS[] = {"darkolivegreen1", "lightsalmon1", "skyblue1", "plum1", "mediumpurple1", "aquamarine", "yellow", "seashell"};
+const char* OP_NAMES[] = {"add", "sub", "mul", "matmul", "pow", "reduce_sum", "relu", "transpose"};
+const char* VIS_COLORS[] = {"darkolivegreen1", "lightsalmon1", "skyblue1", "plum1", "mediumpurple1", "aquamarine", "yellow", "seashell"};
 
 
 // tensor and its fn's are used in both ops.cpp and main.cpp
@@ -30,6 +30,7 @@ struct tensor {
     tensor* inputs[MAX_INPUTS];
 
     char* name;
+    // use char as small int
     int op_type;
 
     void (*backward)(tensor* t);
