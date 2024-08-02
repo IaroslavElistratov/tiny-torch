@@ -33,7 +33,7 @@ using namespace std;
 //  support ":n" and "n:"
 //  support omitting at the both ends
 
-tensor* index_2d(tensor* t, const char* dims){
+tensor* slice_2d(tensor* t, const char* dims){
 
     // also converts char to int
     int starts[2] = {dims[0]-'0', dims[5]-'0'};
@@ -68,8 +68,8 @@ tensor* index_2d(tensor* t, const char* dims){
 
     const char* dims = "0:1, 4:11, 0:2";
 
-// todo: can I make this re-use index_2d?
-tensor* index_3d(tensor* t, const char* dims){
+// todo: can I make this re-use slice_2d?
+tensor* slice_3d(tensor* t, const char* dims){
 
     // also converts char to int
     int starts[3] = {dims[0]-'0', dims[5]-'0', dims[10]-'0'};
@@ -135,14 +135,14 @@ int main() {
     tensor* x = Tensor(3, 7);
     set_name(x, "x"); print(x);
 
-    tensor* x_slice = index_2d(x, "1:3, 4:7");
+    tensor* x_slice = slice_2d(x, "1:3, 4:7");
     print(x_slice);
 
     tensor* y = _Tensor(4, 3, 7);
     set_name(y, "y");
     print_3d(y);
 
-    tensor* y_slice = index_3d(y, "2:4, 1:3, 4:7");
+    tensor* y_slice = slice_3d(y, "2:4, 1:3, 4:7");
     set_name(y_slice, "y_slice");
     print_3d(y_slice);
 
