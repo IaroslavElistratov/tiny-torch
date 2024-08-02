@@ -213,6 +213,46 @@ void print_3d(tensor* t)
     printf("\n");
 }
 
+/*
+Will be used in elementwise ops, which are currently implemented (see below), and this is not valid when input is not contiguous
+    > for (int i=0; i<out->size; i++)
+    >   out->data[i] = a->data[i] + b->data[i];
+
+// test:
+   (3, 7).at(20) = 
+   y_idx = 20 / 7 = 2
+   z_idx = 20 % 7 = 6
+*/
+int at_2d(tensor* t, int idx)
+{
+    int z = t->shape[1];
+    // todo: y instead of stride -- bc want n in shapes here
+    int y_idx = idx / z;
+    int z_idx = idx % z;
+    return index_2d(t, y_idx, z_idx);
+}
+
+int at_3d(tensor* t, int idx)
+{
+    int x = t->shape[0];
+    int y = t->shape[1];
+    int z = t->shape[2];
+
+    // num elements in x: y*z
+    int x_idx = idx / (y*z);
+    // remaining idx
+    idx -= x_idx * (y*z);
+
+    // num elements in y: z
+    int y_idx = idx / z;
+    idx -= (y_idx * z);
+
+    // remaining z
+    int z_idx = idx % z;
+
+    return index_3d(t, x_idx, y_idx, z_idx);
+}
+
 
 int main() {
     srand(123);
@@ -228,6 +268,9 @@ int main() {
     set_name(x_view, "x_view");
     print_2d(x_view);
 
+    cout << "\n19th element of x:" << endl;
+    cout << x->data[at_2d(x, 19)] << endl;
+
     tensor* y = Tensor3d(4, 3, 7);
     set_name(y, "orig. y");
     print_3d(y);
@@ -239,6 +282,9 @@ int main() {
     tensor* y_view = view_3d(y, "2:4, 1:3, 3:6");
     set_name(y_view, "y_view");
     print_3d(y_view);
+
+    cout << "\n54th element of y:" << endl;
+    cout << y->data[at_3d(y, 54)] << endl;
 
     return 0;
 }
