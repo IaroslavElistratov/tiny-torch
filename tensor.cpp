@@ -21,14 +21,21 @@ void GetRandomFloat(float* dst, int num)
 
 // todo: add EmptyTensor, EmptyTensorLike, make TensorLikeFill use EmptyTensorLike (instead of TensorLike)
 
-tensor* _EmptyTensor(int s1, int s2, int s3)
+// empty means non-initalized, but with data allocated to it
+tensor* _EmptyTensor(int x, int y, int z)
 {
     tensor* t = (tensor*)malloc(sizeof(tensor));
 
-    t->size = s1*s2*s3;
-    t->shape[0] = s1;
-    t->shape[1] = s2;
-    t->shape[2] = s3;
+    t->size = x*y*z;
+    // todo-low: one line
+    t->shape[0] = x;
+    t->shape[1] = y;
+    t->shape[2] = z;
+
+    // todo-high: should express later outer strides in terms of inner strides?
+    t->stride[0] = y*z;
+    t->stride[1] = z;
+    t->stride[2] = 1;
 
     t->data = (float*)malloc(sizeof(float) * t->size);
 

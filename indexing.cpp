@@ -33,13 +33,42 @@ using namespace std;
 //  support ":n" and "n:"
 //  support omitting at the both ends
 
+
+int index_2d(tensor* t, int y, int z){
+    return t->stride[0]*y + t->stride[1]*z;
+}
+
+int index_3d(tensor* t, int x, int y, int z){
+    return t->stride[0]*x + t->stride[1]*y + t->stride[2]*z;
+}
+
+
+/*
+//index_s funcs are not convenient to use when ids are variables
+s = "%i, %i".format(yi+starts[0], zi+starts[1])
+int inp_idx = index_2d(t, s);
+
+// better to use when they are constants
+int inp_idx = index_3d(t, "10, 51, 9");
+*/
+
+// int index_s2d(tensor* t, const char* dims){
+//     int idxs[2] = {dims[0]-'0', dims[3]-'0'};
+//     return t->stride[0]*idxs[0] + t->stride[1]*idxs[1];
+// }
+
+// int index_s3d(tensor* t, const char* dims){
+//     int idxs[3] = {dims[0]-'0', dims[3]-'0', dims[6]-'0'};
+//     return t->stride[0]*idxs[0] + t->stride[1]*idxs[1] + t->stride[2]*idxs[2];
+// }
+
+
+
 tensor* slice_2d(tensor* t, const char* dims){
 
     // also converts char to int
     int starts[2] = {dims[0]-'0', dims[5]-'0'};
     int ends[2] = {dims[2]-'0', dims[7]-'0'};
-
-    cout << "starts[0]: " << starts[0] << endl;
 
     // lowercase to denote sizes of the slice, not of t
     int y = ends[0] - starts[0];
@@ -47,26 +76,17 @@ tensor* slice_2d(tensor* t, const char* dims){
 
     tensor* out = EmptyTensor(y, z);
 
-    // strides_out
-    int Z = t->shape[1];
-    // upper-case to denote dims of original input
-    int strides_in[2] = {Z, 1};
     // lower-case to denote dims of the slice
-    int strides_out[2] = {z, 1};
 
     for (int yi=0; yi<y; yi++){
         for (int zi=0; zi<z; zi++){
-            int out_idx = strides_out[0]*yi + strides_out[1]*zi;
-            int inp_idx = strides_in[0]*(yi+starts[0]) + strides_in[1]*(zi+starts[1]);
+            int out_idx = index_2d(out, yi, zi);
+            int inp_idx = index_2d(t, yi+starts[0], zi+starts[1]);
             out->data[out_idx] = t->data[inp_idx];
-            // cout << "out_idx: " << out_idx << endl;
-            // cout << "inp_idx: " << inp_idx << endl << endl;
         }
     }
     return out;
 }
-
-    const char* dims = "0:1, 4:11, 0:2";
 
 // todo: can I make this re-use slice_2d?
 tensor* slice_3d(tensor* t, const char* dims){
@@ -80,23 +100,15 @@ tensor* slice_3d(tensor* t, const char* dims){
     int y = ends[1] - starts[1];
     int z = ends[2] - starts[2];
 
-    // todo-now: 3d tensor
+    // todo: TensorNoData
     tensor* out = _EmptyTensor(x, y, z);
-
-    int Y = t->shape[1];
-    int Z = t->shape[2];
-
-    int strides_in[3] = {Y*Z, Z, 1};
-    int strides_out[3] = {y*z, z, 1};
 
     for (int xi=0; xi<x; xi++){
         for (int yi=0; yi<y; yi++){
             for (int zi=0; zi<z; zi++){
-                int out_idx = strides_out[0]*xi + strides_out[1]*yi + strides_out[2]*zi;
-                int inp_idx = strides_in[0]*(xi+starts[0]) + strides_in[1]*(yi+starts[1]) + strides_in[2]*(zi+starts[2]);
+                int out_idx = index_3d(out, xi, yi, zi);
+                int inp_idx = index_3d(t, xi+starts[0], yi+starts[1], zi+starts[2]);
                 out->data[out_idx] = t->data[inp_idx];
-                // cout << "out_idx: " << out_idx << endl;
-                // cout << "inp_idx: " << inp_idx << endl << endl;
             }
         }
     }
@@ -118,7 +130,7 @@ void print_3d(tensor* t)
     for (int xi=0; xi<x; xi++){
         for (int yi=0; yi<y; yi++){
             for (int zi=0; zi<z; zi++){
-                int idx = strides_out[0]*xi + strides_out[1]*yi + strides_out[2]*zi;
+                int idx = index_3d(t, xi, yi, zi);
                 printf("%8.4f, ", t->data[idx]);
             }
             printf("\n");
@@ -135,14 +147,14 @@ int main() {
     tensor* x = Tensor(3, 7);
     set_name(x, "x"); print(x);
 
-    tensor* x_slice = slice_2d(x, "1:3, 4:7");
+    tensor* x_slice = slice_2d(x, "1:3, 3:6");
     print(x_slice);
 
     tensor* y = _Tensor(4, 3, 7);
     set_name(y, "y");
     print_3d(y);
 
-    tensor* y_slice = slice_3d(y, "2:4, 1:3, 4:7");
+    tensor* y_slice = slice_3d(y, "2:4, 1:3, 3:6");
     set_name(y_slice, "y_slice");
     print_3d(y_slice);
 

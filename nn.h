@@ -16,6 +16,8 @@ const char* VIS_COLORS[] = {"darkolivegreen1", "lightsalmon1", "skyblue1", "plum
 struct tensor {
     float* data;
     int shape[3];
+    int stride[3];
+
     // to avoid: int size = x->shape[0] * x->shape[1];
     int size;
 
