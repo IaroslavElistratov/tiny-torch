@@ -5,7 +5,7 @@ using namespace std;
 
 // #include "nn.h"
 #include "tensor.cpp"
-#include "ops.cpp"
+// #include "ops.cpp"
 #include "utils.cpp"
 
 
@@ -33,6 +33,8 @@ using namespace std;
 //  support ":n" and "n:"
 //  support omitting at the both ends
 
+
+// utils:
 
 int index_2d(tensor* t, int y, int z){
     return t->stride[0]*y + t->stride[1]*z;
@@ -62,6 +64,8 @@ int inp_idx = index_3d(t, "10, 51, 9");
 //     return t->stride[0]*idxs[0] + t->stride[1]*idxs[1] + t->stride[2]*idxs[2];
 // }
 
+
+// owning views:
 
 
 tensor* slice_2d(tensor* t, const char* dims){
@@ -100,8 +104,7 @@ tensor* slice_3d(tensor* t, const char* dims){
     int y = ends[1] - starts[1];
     int z = ends[2] - starts[2];
 
-    // todo: TensorNoData
-    tensor* out = _EmptyTensor(x, y, z);
+    tensor* out = EmptyTensor3d(x, y, z);
 
     for (int xi=0; xi<x; xi++){
         for (int yi=0; yi<y; yi++){
@@ -115,6 +118,78 @@ tensor* slice_3d(tensor* t, const char* dims){
     return out;
 }
 
+
+// non-owning views:
+
+
+tensor* view_2d(tensor* t, const char* dims){
+
+    // also converts char to int
+    int starts[2] = {dims[0]-'0', dims[5]-'0'}; // {y_offset, z_offset}
+    int ends[2] = {dims[2]-'0', dims[7]-'0'}; // {y_end, z_end}
+
+    // lowercase to denote sizes of the slice, not of t
+    int y = ends[0] - starts[0];
+    int z = ends[1] - starts[1];
+
+    tensor* out = TensorNoData(y, z);
+    // the default constructor sets strides based on the shapes provided to the constructor.
+    // This is correct in general, however here heed to change
+    out->stride[0] = t->stride[0];
+    out->stride[1] = t->stride[1]; // this is more general than setting to 1
+
+    // data should point to the first element (of the view) in the original tensor
+    out->data = &t->data[index_2d(t, starts[0], starts[1])];
+
+    // comment:  
+    // no need to loop since in this fn no need to copy or even access the elements
+    // as oppose to (slice_2d, slice_3d)
+
+    return out;
+}
+
+tensor* view_3d(tensor* t, const char* dims){
+    int starts[3] = {dims[0]-'0', dims[5]-'0', dims[10]-'0'}; // {x_offset, y_offset, z_offset}
+    int ends[3] = {dims[2]-'0', dims[7]-'0', dims[12]-'0'}; // {x_end, y_end, z_end}
+
+    // lowercase to denote sizes of the slice, not of t
+    int x = ends[0] - starts[0];
+    int y = ends[1] - starts[1];
+    int z = ends[2] - starts[2];
+
+    tensor* out = TensorNoData3d(x, y, z);
+
+    out->stride[0] = t->stride[0];
+    out->stride[1] = t->stride[1];
+    out->stride[2] = t->stride[2];
+
+    out->data = &t->data[index_3d(t, starts[0], starts[1], starts[2])];
+    return out;
+}
+
+
+// utils:
+
+
+void print_2d(tensor* t)
+{
+    printf("\n%s: ", t->name);
+
+    int y = t->shape[0];
+    int z = t->shape[1];
+
+    printf("\n");
+
+    for (int yi=0; yi<y; yi++){
+        for (int zi=0; zi<z; zi++){
+            int idx = index_2d(t, yi, zi);
+            printf("%8.4f, ", t->data[idx]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
 void print_3d(tensor* t)
 {
     printf("\n%s: ", t->name);
@@ -122,8 +197,6 @@ void print_3d(tensor* t)
     int x = t->shape[0];
     int y = t->shape[1];
     int z = t->shape[2];
-
-    int strides_out[3] = {y*z, z, 1};
 
     printf("\n");
 
@@ -145,19 +218,27 @@ int main() {
     srand(123);
 
     tensor* x = Tensor(3, 7);
-    set_name(x, "x"); print(x);
+    set_name(x, "orig. x"); print(x);
 
     tensor* x_slice = slice_2d(x, "1:3, 3:6");
-    print(x_slice);
+    set_name(x_slice, "x_slice");
+    print_2d(x_slice);
 
-    tensor* y = _Tensor(4, 3, 7);
-    set_name(y, "y");
+    tensor* x_view = view_2d(x, "1:3, 3:6");
+    set_name(x_view, "x_view");
+    print_2d(x_view);
+
+    tensor* y = Tensor3d(4, 3, 7);
+    set_name(y, "orig. y");
     print_3d(y);
 
     tensor* y_slice = slice_3d(y, "2:4, 1:3, 3:6");
     set_name(y_slice, "y_slice");
     print_3d(y_slice);
 
-    // const char* dims = "0:1, 4:11";
+    tensor* y_view = view_3d(y, "2:4, 1:3, 3:6");
+    set_name(y_view, "y_view");
+    print_3d(y_view);
+
     return 0;
 }

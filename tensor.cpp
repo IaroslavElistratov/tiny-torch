@@ -21,8 +21,7 @@ void GetRandomFloat(float* dst, int num)
 
 // todo: add EmptyTensor, EmptyTensorLike, make TensorLikeFill use EmptyTensorLike (instead of TensorLike)
 
-// empty means non-initalized, but with data allocated to it
-tensor* _EmptyTensor(int x, int y, int z)
+tensor* TensorNoData3d(int x, int y, int z)
 {
     tensor* t = (tensor*)malloc(sizeof(tensor));
 
@@ -37,7 +36,7 @@ tensor* _EmptyTensor(int x, int y, int z)
     t->stride[1] = z;
     t->stride[2] = 1;
 
-    t->data = (float*)malloc(sizeof(float) * t->size);
+    t->data = NULL;
 
     // for autograd engine:
 
@@ -57,10 +56,42 @@ tensor* _EmptyTensor(int x, int y, int z)
     return t;
 }
 
-tensor* _Tensor(int s1, int s2, int s3)
+// empty means non-initalized, but with data allocated to it
+tensor* EmptyTensor3d(int x, int y, int z)
 {
-    tensor* t = _EmptyTensor(s1, s2, s3);
+    tensor* t = TensorNoData3d(x, y, z);
+    t->data = (float*)malloc(sizeof(float) * t->size);
+    return t;
+}
+
+tensor* Tensor3d(int s1, int s2, int s3)
+{
+    tensor* t = EmptyTensor3d(s1, s2, s3);
     GetRandomFloat(t->data, t->size);
+    return t;
+}
+
+
+tensor* TensorNoData(int y, int z)
+{
+    tensor* t = (tensor*)malloc(sizeof(tensor));
+
+    t->size = y*z;
+    t->shape[0] = y;
+    t->shape[1] = z;
+
+    t->stride[0] = z;
+    t->stride[1] = 1;
+
+    t->data = NULL;
+    t->is_leaf = true;
+    t->num_inputs = -1;
+    t->name = random_chars(3);
+
+    t->grad_fn = NULL;
+    t->grad = NULL;
+    t->backward = backward;
+
     return t;
 }
 
@@ -68,9 +99,12 @@ tensor* _Tensor(int s1, int s2, int s3)
 // todo-now: must change ops to
 //  - index form the inner most (not other-most)
 //  - loop over the other-most dim as well
+
 tensor* EmptyTensor(int s1, int s2)
 {
-    return _EmptyTensor(0, s1, s2);
+    tensor* t = TensorNoData(s1, s2);
+    t->data = (float*)malloc(sizeof(float) * t->size);
+    return t;
 }
 
 tensor* EmptyTensorLike(tensor* t)
