@@ -5,9 +5,40 @@
 #define print(f_p) _print(f_p)
 void _print(tensor* t);
 
-
 #define IS_DEBUG_AG true
-#define IS_DEBUG_BRANCHES false
+
+
+void print_grad(tensor* inp){
+    char buffer[30];
+    sprintf(buffer, "%s_grad", inp->name);
+    set_name(inp->grad, buffer);
+
+    // todo: move this into lprint
+    if (inp->grad->num_dims==2) {
+        lprint_2d(inp->grad);
+    } else if (inp->grad->num_dims==3) {
+        lprint_3d(inp->grad);
+    } else if (inp->grad->num_dims==4) {
+        lprint_4d(inp->grad);
+    } else {
+        printf("[autograd] Error");
+    }
+}
+
+
+tensor* tensor_like(tensor* loss){
+    tensor* grad;
+    if (loss->num_dims==2)
+        grad = TensorLikeFill(loss, 1.0);
+    else if (loss->num_dims==3)
+        grad = TensorLikeFill3d(loss, 1.0);
+    else if (loss->num_dims==4)
+        grad = TensorLikeFill4d(loss, 1.0);
+    else {
+        printf("[autograd engine] Error");
+    }
+    return grad;
+}
 
 
 
@@ -18,18 +49,8 @@ void backward(tensor* loss){
         return;
     }
 
-    // for the check below to pass
     loss->num_uses = 0;
-
-    if (loss->num_dims==2)
-        loss->grad = TensorLikeFill(loss, 1.0);
-    else if (loss->num_dims==3)
-        loss->grad = TensorLikeFill3d(loss, 1.0);
-    else if (loss->num_dims==4)
-        loss->grad = TensorLikeFill4d(loss, 1.0);
-    else {
-        printf("[autograd engine] Error");
-    }
+    loss->grad = tensor_like(loss);
 
     deque <tensor*> ready;
     ready.push_front(loss);
@@ -60,7 +81,6 @@ void backward(tensor* loss){
             tensor* inp = t->inputs[i];
 
             bool is_pushed = false;
-            // iterate over all quese and see if the "inp" is already pushed
             for (size_t ii=0; ii<ready.size(); ii++){
                 if (ready.at(ii)->name == inp->name){
                     is_pushed = true;
@@ -75,20 +95,7 @@ void backward(tensor* loss){
             inp->num_uses--;
 
             if (IS_DEBUG_AG){
-                char buffer[30];
-                sprintf(buffer, "%s_grad", inp->name);
-                set_name(inp->grad, buffer);
-
-                // todo: move this into lprint
-                if (inp->grad->num_dims==2) {
-                    lprint_2d(inp->grad);
-                } else if (inp->grad->num_dims==3) {
-                    lprint_3d(inp->grad);
-                } else if (inp->grad->num_dims==4) {
-                    lprint_4d(inp->grad);
-                } else {
-                    printf("[autograd] Error");
-                }
+                print_grad(inp);
             }
         }
     }
