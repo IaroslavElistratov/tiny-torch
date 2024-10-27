@@ -3,23 +3,8 @@
 
 #include "nn.h"
 
-void _print(tensor* t)
-{
-    printf("\n%s: ", t->name);
+#define MAX_NODES 30
 
-    for (int i=0, row_len=t->shape[1]; i<t->size; i++) {
-        if (i % row_len == 0) cout << endl;
-        // easy numpy export:
-        // if (i % row_len == 0) cout << "], " << endl << "[";
-
-        // todo: use right justified, and print only 4 points of precision
-        // cout << " " << setw(5) << right << t->data[i] << ", ";
-
-        // %6.1f describes number at least six characters wide, with 1 digit after the decimal point
-        printf("%8.4f, ", t->data[i]);
-    }
-    cout << endl;
-}
 
 char* random_chars(int num){
     // increment for the null terminator;
@@ -47,6 +32,14 @@ void graphviz(tensor* tens){
     fprintf(f, "digraph {\n");
     fprintf(f, "node [ordering=\"in\", fixedsize=shape shape=circle style=filled]\n");
 
+    // will record pointers to all seen names -- to avid visiting same nodes twice, when
+    //       exp
+    //     /    \
+    //    x1     x2
+    char* all_visited[MAX_NODES]; // (float*)malloc(sizeof(float*) * MAX_NODES);
+    // is used to index into all_visited
+    int idx_visited = 0;
+
     deque <tensor*> ready;
     ready.push_front(tens);
 
@@ -65,16 +58,33 @@ void graphviz(tensor* tens){
         for (int i=0; i<t->num_inputs; i++){
             tensor* inp = t->inputs[i];
 
+            // check if we already visited this node
+            bool is_visited = false;
+            for (int i=0; i<idx_visited; i++){
+                if (all_visited[i] == inp->name) {
+                    is_visited = true;
+                    break;
+                }
+            }
+
             // an input -> op
             fprintf(f, "%s -> %s_%s\n", inp->name, op_name, t->name);
 
             // for tensors, vis shapes instead of names
-            fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i )}\"]\n", inp->name, inp->shape[0], inp->shape[1]);
-            // fprintf(f, "%s [shape=record, label=\"{%s\\nshape=(%i, %i )}\"]\n", inp->name, inp->name, inp->shape[0], inp->shape[1]);
+            // label=\"{%s\\nshape=(%i, %i)}\"]\n", inp->name
+            if (inp->num_dims==4)
+                fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i, %i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1], inp->shape[2], inp->shape[3]);
+            else if (inp->num_dims==3)
+                fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1], inp->shape[2]);
+            else
+                fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1]);
 
             // leafs don't have inputs to iterate over in the next iteration
-            if (!inp->is_leaf)
+            if (!inp->is_leaf && !is_visited) {
                 ready.push_front(inp);
+                all_visited[idx_visited++] = inp->name;
+            }
+
         }
     }
     fprintf(f, "}\n");

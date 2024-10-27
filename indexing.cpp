@@ -1,40 +1,13 @@
 #include <iostream> // todo: use C only
-// #include <stdlib.h>
-// #include <iomanip> // for  input-output manipulation
+#include <stdlib.h> // iot
+
 using namespace std;
 
-// #include "nn.h"
-#include "tensor.cpp"
-// #include "ops.cpp"
-#include "utils.cpp"
+#include "parse.cpp"
 
 
-#define NUM_EP 2
-#define LR 0.02
-#define DEBUG  1
-
-#ifdef DEBUG
-#define print(f_p) _print(f_p)
-#else
-#define print(f_p)
-#endif
-
-
-// const char* dims = ":, 4:11, 0";
-// arrays of 3, bc 3 is max nums of dims at the moment
-// int starts[3] = {-1, -1, -1};
-// int ends[3] = {-1, -1, -1};
-// int max_str_len = sizeof("*:*, *:*, *:*") / sizeof(char);
-// for (int i=0; dims[i] != '\0' && i<max_str_len; i++){
-// }
-
-// todo: relax the constrains later
-//  support ":"
-//  support ":n" and "n:"
-//  support omitting at the both ends
-
-
-// utils:
+// todo-low: use C++ to implement these as methods on the struct, so that don't need to explicitly pass first arg
+// todo-high: implement "index", "slice", "view" funcs -- recursively? Removing need to manually impl for each new n_dim
 
 int index_2d(tensor* t, int y, int z){
     return t->stride[0]*y + t->stride[1]*z;
@@ -44,35 +17,21 @@ int index_3d(tensor* t, int x, int y, int z){
     return t->stride[0]*x + t->stride[1]*y + t->stride[2]*z;
 }
 
-
-/*
-//index_s funcs are not convenient to use when ids are variables
-s = "%i, %i".format(yi+starts[0], zi+starts[1])
-int inp_idx = index_2d(t, s);
-
-// better to use when they are constants
-int inp_idx = index_3d(t, "10, 51, 9");
-*/
-
-// int index_s2d(tensor* t, const char* dims){
-//     int idxs[2] = {dims[0]-'0', dims[3]-'0'};
-//     return t->stride[0]*idxs[0] + t->stride[1]*idxs[1];
-// }
-
-// int index_s3d(tensor* t, const char* dims){
-//     int idxs[3] = {dims[0]-'0', dims[3]-'0', dims[6]-'0'};
-//     return t->stride[0]*idxs[0] + t->stride[1]*idxs[1] + t->stride[2]*idxs[2];
-// }
+int index_4d(tensor* t, int o, int x, int y, int z){
+    return t->stride[0]*o + t->stride[1]*x + t->stride[2]*y + t->stride[3]*z;
+}
 
 
 // owning views:
+//   todo: name it "contigify"
 
 
 tensor* slice_2d(tensor* t, const char* dims){
 
     // also converts char to int
-    int starts[2] = {dims[0]-'0', dims[5]-'0'};
-    int ends[2] = {dims[2]-'0', dims[7]-'0'};
+    int* parsed_dims = parse_idxs(dims, 2);
+    int* starts = parsed_dims;
+    int* ends = parsed_dims + 2;
 
     // lowercase to denote sizes of the slice, not of t
     int y = ends[0] - starts[0];
@@ -81,7 +40,6 @@ tensor* slice_2d(tensor* t, const char* dims){
     tensor* out = EmptyTensor(y, z);
 
     // lower-case to denote dims of the slice
-
     for (int yi=0; yi<y; yi++){
         for (int zi=0; zi<z; zi++){
             int out_idx = index_2d(out, yi, zi);
@@ -92,12 +50,16 @@ tensor* slice_2d(tensor* t, const char* dims){
     return out;
 }
 
-// todo: can I make this re-use slice_2d?
+// todo: can make this re-use slice_2d?
 tensor* slice_3d(tensor* t, const char* dims){
 
+
     // also converts char to int
-    int starts[3] = {dims[0]-'0', dims[5]-'0', dims[10]-'0'};
-    int ends[3] = {dims[2]-'0', dims[7]-'0', dims[12]-'0'};
+    int* parsed_dims = parse_idxs(dims, 3);
+    // int* starts = parsed_dims[0];
+    // int* ends = parsed_dims[1];
+    int* starts = parsed_dims;
+    int* ends = parsed_dims + 3;
 
     // lowercase to denote sizes of the slice, not of t
     int x = ends[0] - starts[0];
@@ -125,8 +87,9 @@ tensor* slice_3d(tensor* t, const char* dims){
 tensor* view_2d(tensor* t, const char* dims){
 
     // also converts char to int
-    int starts[2] = {dims[0]-'0', dims[5]-'0'}; // {y_offset, z_offset}
-    int ends[2] = {dims[2]-'0', dims[7]-'0'}; // {y_end, z_end}
+    int* parsed_dims = parse_idxs(dims, 2);
+    int* starts = parsed_dims;
+    int* ends = parsed_dims + 2;
 
     // lowercase to denote sizes of the slice, not of t
     int y = ends[0] - starts[0];
@@ -149,8 +112,10 @@ tensor* view_2d(tensor* t, const char* dims){
 }
 
 tensor* view_3d(tensor* t, const char* dims){
-    int starts[3] = {dims[0]-'0', dims[5]-'0', dims[10]-'0'}; // {x_offset, y_offset, z_offset}
-    int ends[3] = {dims[2]-'0', dims[7]-'0', dims[12]-'0'}; // {x_end, y_end, z_end}
+    // also converts char to int
+    int* parsed_dims = parse_idxs(dims, 3);
+    int* starts = parsed_dims;
+    int* ends = parsed_dims + 3;
 
     // lowercase to denote sizes of the slice, not of t
     int x = ends[0] - starts[0];
@@ -168,61 +133,13 @@ tensor* view_3d(tensor* t, const char* dims){
 }
 
 
-// utils:
-
-
-void print_2d(tensor* t)
-{
-    printf("\n%s: ", t->name);
-
-    int y = t->shape[0];
-    int z = t->shape[1];
-
-    printf("\n");
-
-    for (int yi=0; yi<y; yi++){
-        for (int zi=0; zi<z; zi++){
-            int idx = index_2d(t, yi, zi);
-            printf("%8.4f, ", t->data[idx]);
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
-
-void print_3d(tensor* t)
-{
-    printf("\n%s: ", t->name);
-
-    int x = t->shape[0];
-    int y = t->shape[1];
-    int z = t->shape[2];
-
-    printf("\n");
-
-    for (int xi=0; xi<x; xi++){
-        for (int yi=0; yi<y; yi++){
-            for (int zi=0; zi<z; zi++){
-                int idx = index_3d(t, xi, yi, zi);
-                printf("%8.4f, ", t->data[idx]);
-            }
-            printf("\n");
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
-
 /*
-Will be used in elementwise ops, which are currently implemented (see below), and this is not valid when input is not contiguous
+Used in elementwise ops, which were previously implemented (see below), and this is not valid when input is not contiguous
     > for (int i=0; i<out->size; i++)
     >   out->data[i] = a->data[i] + b->data[i];
-
-// test:
-   (3, 7).at(20) = 
-   y_idx = 20 / 7 = 2
-   z_idx = 20 % 7 = 6
 */
+
+
 int at_2d(tensor* t, int idx)
 {
     int z = t->shape[1];
@@ -251,40 +168,4 @@ int at_3d(tensor* t, int idx)
     int z_idx = idx % z;
 
     return index_3d(t, x_idx, y_idx, z_idx);
-}
-
-
-int main() {
-    srand(123);
-
-    tensor* x = Tensor(3, 7);
-    set_name(x, "orig. x"); print(x);
-
-    tensor* x_slice = slice_2d(x, "1:3, 3:6");
-    set_name(x_slice, "x_slice");
-    print_2d(x_slice);
-
-    tensor* x_view = view_2d(x, "1:3, 3:6");
-    set_name(x_view, "x_view");
-    print_2d(x_view);
-
-    cout << "\n19th element of x:" << endl;
-    cout << x->data[at_2d(x, 19)] << endl;
-
-    tensor* y = Tensor3d(4, 3, 7);
-    set_name(y, "orig. y");
-    print_3d(y);
-
-    tensor* y_slice = slice_3d(y, "2:4, 1:3, 3:6");
-    set_name(y_slice, "y_slice");
-    print_3d(y_slice);
-
-    tensor* y_view = view_3d(y, "2:4, 1:3, 3:6");
-    set_name(y_view, "y_view");
-    print_3d(y_view);
-
-    cout << "\n54th element of y:" << endl;
-    cout << y->data[at_3d(y, 54)] << endl;
-
-    return 0;
 }
