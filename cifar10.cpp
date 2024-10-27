@@ -3,7 +3,7 @@
 
 using namespace std;
 
-#define N_SAMPLES 10 // 10000
+#define N_SAMPLES 100 // 10000
 
 
 /*

@@ -5,7 +5,7 @@
 #define print(f_p) _print(f_p)
 void _print(tensor* t);
 
-#define IS_DEBUG_AG true
+#define IS_DEBUG_AG false
 
 
 void print_grad(tensor* inp){

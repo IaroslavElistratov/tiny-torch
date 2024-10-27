@@ -37,7 +37,6 @@ float train_step(tensor* x, tensor* w1, tensor* w2)
     // loss
     tensor* y = TensorLikeFill(out3, 0.5); // dummy label
     tensor* loss = reduce_sum(pow(sub(y, out3), 2));
-    // cout << "loss :" << loss->data[0] << endl;
 
     // *** Backward ***
     loss->backward(loss);
