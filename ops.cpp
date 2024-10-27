@@ -338,15 +338,15 @@ void div_bwd(tensor* upstream, tensor* out) {
     // "a->grad = mul_k(a_local, upstream)" overwrite's input grad, the below does "+=" to it
     if (!a->grad)
         a->grad = TensorLikeFill(a, 0.0);
-    else {
-        printf("[div_bwd] a->grad exists!\n");
-    }
+    // else {
+    //     printf("[div_bwd] a->grad exists!\n");
+    // }
 
     if (!b->grad)
         b->grad = TensorLikeFill(b, 0.0);
-    else {
-        printf("[div_bwd] b->grad exists!\n");
-    }
+    // else {
+    //     printf("[div_bwd] b->grad exists!\n");
+    // }
 
     tensor* a_grad = mul_k(a_local, upstream);
     tensor* b_grad = mul_k(b_local, upstream);
@@ -798,8 +798,8 @@ void exp_bwd(tensor* upstream, tensor* out) {
     tensor* a=out->inputs[0];
     if (!a->grad)
         a->grad = TensorLikeFill(a, 0.0);
-    else
-        printf("[exp_bwd] a->grad exists!\n");
+    // else
+    //     printf("[exp_bwd] a->grad exists!\n");
 
     for (int i=0; i<a->grad->size; i++) {
         float local = expf(a->data[i]);
@@ -1028,9 +1028,9 @@ void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
         // but bc we do "+=" it does matter (if there's any garbage
         // data, the grad will be += to it)
         a->grad = TensorLikeFill(a, 0.0);
-    else {
-        printf("[batched_reduce_sum_bwd] a->grad exists!\n");
-    }
+    // else {
+    //     printf("[batched_reduce_sum_bwd] a->grad exists!\n");
+    // }
 
     for (int b=0; b<B; b++){
         tensor* curr_a = TensorNoData(1, N);
@@ -1099,9 +1099,9 @@ void batched_max_bwd(tensor* upstream, tensor* out) {
 
     if (!a->grad)
         a->grad = TensorLikeFill(a, 0.0);
-    else {
-        printf("[batched_max_bwd] a->grad exists!\n");
-    }
+    // else {
+    //     printf("[batched_max_bwd] a->grad exists!\n");
+    // }
 
     for (int b=0; b<B; b++){
         tensor* curr_a = TensorNoData(1, N);
