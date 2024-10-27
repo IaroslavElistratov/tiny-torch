@@ -1,4 +1,21 @@
+#include <iostream> // todo: use C only
+using namespace std;
 
+#include "../tensor.cpp"
+#include "../ops.cpp"
+#include "../conv.cpp"
+#include "../utils.cpp"
+#include "../cifar10.cpp"
+#include "../print.cpp"
+
+#define NUM_EP 10
+#define LR 0.02
+
+
+void sgd(tensor* w) {
+    for (int i=0; i<w->size; i++)
+        w->data[i] -= w->grad->data[i] * LR;
+}
 
 
 float train_step(tensor* x, tensor* w1, tensor* w2)
@@ -7,22 +24,20 @@ float train_step(tensor* x, tensor* w1, tensor* w2)
 
     // x(N, M) @ w1(M, D) = out1(N, D)
     tensor* out1 = matmul(x, w1);
-    set_name(out1, "matmul_1"); print(out1);
+    set_name(out1, "matmul_1"); // print(out1);
 
     // out2(N, D)
     tensor* out2 = relu(out1);
-    set_name(out2, "relu"); print(out2);
+    set_name(out2, "relu"); // print(out2);
 
     // out2(N, D) @ w2(D, O) = out3(N, O)
     tensor* out3 = matmul(out2, w2);
-    set_name(out3, "matmul_2"); print(out3);
+    set_name(out3, "matmul_2"); // print(out3);
 
     // loss
     tensor* y = TensorLikeFill(out3, 0.5); // dummy label
     tensor* loss = reduce_sum(pow(sub(y, out3), 2));
-    cout << "loss :" << loss->data[0] << endl;
-
-    // todo: non deterministic order of args?
+    // cout << "loss :" << loss->data[0] << endl;
 
     // *** Backward ***
     loss->backward(loss);
@@ -62,52 +77,51 @@ int main() {
         float loss = train_step(x, w1, w2);
         cout << "\nep: " << ep_idx << "; loss: " << loss << endl;
 
-        print(w1);
-        print(w2);
+        // print(w1);
+        // print(w2);
     }
 
-    // todo: write to file
     return 0;
 }
 
 
-int main_2() {
-    srand(123);
+// int main_2() {
+//     srand(123);
 
-    cout << "sizeof(tensor): " << sizeof(tensor) << endl << endl;
+//     cout << "sizeof(tensor): " << sizeof(tensor) << endl << endl;
 
-    // only used for shape inference
-    tensor* _ = Tensor(2, 2);
+//     // only used for shape inference
+//     tensor* _ = Tensor(2, 2);
 
-    tensor* a = TensorLikeFill(_, 2.0);
-    set_name(a, "a"); print(a);
+//     tensor* a = TensorLikeFill(_, 2.0);
+//     set_name(a, "a"); print(a);
 
-    tensor* b = TensorLikeFill(_, 2.0);
-    set_name(b, "b"); print(b);
+//     tensor* b = TensorLikeFill(_, 2.0);
+//     set_name(b, "b"); print(b);
 
-    tensor* c = add(a, b);
-    set_name(c, "c"); print(c);
+//     tensor* c = add(a, b);
+//     set_name(c, "c"); print(c);
 
-    tensor* d = TensorLikeFill(_, 3.0);
-    set_name(d, "d"); print(d);
+//     tensor* d = TensorLikeFill(_, 3.0);
+//     set_name(d, "d"); print(d);
 
-    tensor* e = mul(c, d);
-    set_name(e, "e"); print(e);
+//     tensor* e = mul(c, d);
+//     set_name(e, "e"); print(e);
 
-    // e(2,2) @ f(2,5) = (2,5)
-    tensor* f = Tensor(2, 5);
-    set_name(f, "f"); print(f);
+//     // e(2,2) @ f(2,5) = (2,5)
+//     tensor* f = Tensor(2, 5);
+//     set_name(f, "f"); print(f);
 
-    tensor* g = matmul(e, f);
-    set_name(g, "g"); print(g);
+//     tensor* g = matmul(e, f);
+//     set_name(g, "g"); print(g);
 
-    // mse
-    tensor* y = TensorLikeFill(g, 0.0);
-    tensor* loss = reduce_sum(pow(sub(y, g), 2));
+//     // mse
+//     tensor* y = TensorLikeFill(g, 0.0);
+//     tensor* loss = reduce_sum(pow(sub(y, g), 2));
 
-    cout << "loss: " << loss->data[0] << endl;
+//     cout << "loss: " << loss->data[0] << endl;
 
-    loss->backward(loss);
-    graphviz(loss);
-    return 0;
-}
+//     loss->backward(loss);
+//     graphviz(loss);
+//     return 0;
+// }

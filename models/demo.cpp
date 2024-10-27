@@ -6,8 +6,9 @@ using namespace std;
 #include "../conv.cpp"
 #include "../utils.cpp"
 #include "../cifar10.cpp"
+#include "../print.cpp"
 
-#define NUM_EP 1
+#define NUM_EP 10
 #define LR 0.02
 
 
