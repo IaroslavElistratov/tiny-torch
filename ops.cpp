@@ -24,17 +24,6 @@ void _copy_arr(float* src, float* dst, int size) {
         dst[i] = src[i];
 }
 
-// todo-high:
-// - to preserve old behavior, change ops to:
-//     - index from the right (inner most dims), NOT from the left (outer most)
-//     - loop over the outer-most dim as well
-// - IOW, in nn.h when increase shape from 3 to 4, all the existing ops (indexing from left) might break?
-// - On the other hand, the kernels are specialized to particular num dims -- so will break anyway
-
-// note: naming convention: assume "_elementwise", by default -- and ask to specify otherwise (if not elementwise) -- e.g. reduce_, matrix_, etc
-// todo: ? use capital letters for functions that allocate heap mem, use lowercase otherwise
-// note: below derivatives try to follow this order -- local * upstream
-
 // **** kernels *****
 //   - operate on tensors
 //   - allocate ouput buff
@@ -51,32 +40,21 @@ void _copy_arr(float* src, float* dst, int size) {
 
 
 tensor* add_k_(tensor* a, tensor* b, tensor* out) {
-    // todo-high:
-    // move this into "at" fn itself
-    //  - previously was hardcoding a at for a specific index here -- needed only for conv
-    //   - e.g. conv_bwd uses add (which calls add_k_) for both 3d tensors (grads wrt input) AND 4d tensors (grads wrt kernels) -- so hardcoding at_3d is wrong here
     int (*at_fn_ptr)(tensor*, int) = NULL;
     if (a->num_dims==2) {
         at_fn_ptr = at_2d;
     } else if (a->num_dims==3) {
         at_fn_ptr = at_3d;
-    // else if (a->num_dims==4)
-    //     at_fn_ptr = at_4;
     } else {
         printf("[add_k_] Error");
         return NULL;
     }
 
-    // todo: here and in all ops, assert same size
     for (int i=0; i<out->size; i++)
-        // comment: note incrementing index like this in a loop, assumes contiguous data
-        // out->data[i] = a->data[i] + b->data[i];
-
         out->data[at_fn_ptr(out, i)] = a->data[at_fn_ptr(a, i)] + b->data[at_fn_ptr(b, i)];
     return out;
 }
 
-// todo: use "const tensor*" instead of "tensor"
 tensor* add_k(tensor* a, tensor* b) {
     tensor* out = TensorLike(a);
     return add_k_(a, b, out);
@@ -92,14 +70,10 @@ void add_bwd(tensor* upstream, tensor* out) {
     tensor* a_local = TensorLikeFill(a, 1.0);
     tensor* b_local = TensorLikeFill(b, 1.0);
 
-    // downstream = local * upstream
-
-    // todo-now: do += instead of replacing existing grad
+    // downstream
     a->grad = mul_k(a_local, upstream);
     b->grad = mul_k(b_local, upstream);
 
-    // todo-now: is it a correct way to de-alloc a struct?
-    //  - and all other ops below
     // free(a_local), free(b_local);
 }
 
@@ -108,11 +82,6 @@ tensor* add(tensor* a, tensor* b) {
     b->num_uses++;
     tensor* t = add_k(a, b);
     t->is_leaf = false;
-    // todo-low: check bool tensor->requires_grad before doing steps below, including allocating buffers
-
-    // todo: this can be further abstracted -- creating a binary_op function
-    // todo: and even further abstracted -- creating a binary_elementwise_op function
-
     // fill the additional info on out tensor
     t->num_inputs = 2;
     t->inputs[0] = a;
@@ -184,17 +153,11 @@ void mul_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
 
-    // todo: don't need malloc here? Bc a->data, b->data
-    //  already malloc'ed -- can just save a pointer to them?
-
-    // note: no need to alloc buff for intermidiates, bc mul_k
-    //  does not mutate its inputs
-
     // local
     tensor* a_local = b;
     tensor* b_local = a;
 
-    // downstream = local * upstream
+    // downstream
     a->grad = mul_k(a_local, upstream);
     b->grad = mul_k(b_local, upstream);
 }
@@ -231,10 +194,6 @@ void matmul_k_(tensor* a, tensor* b, tensor* out)
         for (int d=0; d<D; d++){
             float sum = 0;
             for (int m=0; m<M; m++){
-                // n*M, because for each "n" you skip "M" values
-
-                // uses index_ instead of "a->data[n * M + m * 1]" as to not assume strides
-                // printf("index_2d(a, n, m): %i\n", index_2d(a, n, m));
                 sum += a->data[index_2d(a, n, m)] * b->data[index_2d(b, m, d)];
             }
             out->data[index_2d(out, n, d)] = sum;
@@ -259,20 +218,6 @@ void matmul_bwd(tensor* upstream, tensor* out) {
 
     // 1. local
 
-    // Even though you gonna store e.g. a transpose in a->grad (and not a itself)
-    //  it does not make sense to allocate like below because the dims are logical but
-    //  mem is contiguous anyway -- so for both of the constructors below obviously same memory will be allocated
-    //    EmptyFloat(a->shape[1], a->shape[0]);   // reversed shapes to store Transpose
-    //    EmptyFloatLike(a);
-
-    // note: should allocate a_buff not with a.size but w b.size
-    // note: using this intermidiate variable instead of directly
-    //  allocating "a->grad = EmptyFloatLike(b)", because the final
-    //  a->grad is of shape a not of shape b. It would be incorrect
-    //  to "a->grad = EmptyFloatLike(b)". So I keep these temporary
-    //  variables (local_a, local_b) and de-allocate them after
-    //  computing actual a->grad
-
     // upstream(N, D)   // same as t.shape
     //   a - ?
     //      a(N, M), so a_grad(N, M)
@@ -290,7 +235,6 @@ void matmul_bwd(tensor* upstream, tensor* out) {
     // a.t(M, N) @ upstream(N, D) = b_grad(M, D)
     b->grad = matmul_k(local_b, upstream);
 
-    // note:
     // free(local_a), free(local_b);
 }
 
@@ -333,20 +277,11 @@ void div_bwd(tensor* upstream, tensor* out) {
     tensor* b_local = neg_k(div_k(a, pow_k(b, 2)));
 
     // downstream
-
-    // comment: 
-    // "a->grad = mul_k(a_local, upstream)" overwrite's input grad, the below does "+=" to it
     if (!a->grad)
         a->grad = TensorLikeFill(a, 0.0);
-    // else {
-    //     printf("[div_bwd] a->grad exists!\n");
-    // }
 
     if (!b->grad)
         b->grad = TensorLikeFill(b, 0.0);
-    // else {
-    //     printf("[div_bwd] b->grad exists!\n");
-    // }
 
     tensor* a_grad = mul_k(a_local, upstream);
     tensor* b_grad = mul_k(b_local, upstream);
@@ -382,16 +317,8 @@ tensor* repeat_k(tensor* a, int num_repeats) {
     int B = a->shape[0];
     tensor* out = Tensor(B, num_repeats);
 
-
-    // 1 1 1
-    // 2 2 2
-    // 3 ...
     for (int b=0; b<B; b++){
-        // points to the first element of the current b
         float* curr_a = a->data + b;
-        // here indexing includes multiplying by "out->stride[0]" bc
-        // out is a 2d tensor (for curr_a adding "out->stride[0]" is
-        // not needed bc curr_a is (B, 1))
         float* curr_out = out->data + (b * out->stride[0]);
         for (int i=0; i<num_repeats; i++){
             *(curr_out+i) = *(curr_a);
@@ -426,13 +353,6 @@ tensor* repeat(tensor* a, int num_repeats) {
 
 
 tensor* select_k(tensor* a, tensor* idx) {
-
-    // expect shapes:
-    //  a(s1, s2)
-    //  idx(s1, 1)
-    //      also each element of idx's first dim should be in range 0-s2
-    //      (bc the first dim in idx will be used to index  the 2nd dim of a)
-    //      this latter condition is not being checked here
     if (a->num_dims!=2 || idx->num_dims!=2 || idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
         printf("[select] Error shape");
         return NULL;
@@ -443,13 +363,7 @@ tensor* select_k(tensor* a, tensor* idx) {
 
     for (int b=0; b<B; b++){
         float* curr_a = a->data + (a->stride[0]*b);
-        // note: additional constraint on input: idx->data should be ints;
-        // below:
-        //   1) take pointer to the *first* element of the current batch example in a (curr_a)
-        //   2) add it idx for the current batch example (currently all tensors are floats, so need to cast idx->data to int before doing it)
-        //   3) the result of the above is a pointer, so de-reference it
         out->data[b] = *(curr_a + (int)idx->data[b]);
-        // printf("curr_idx: %i", (int)idx->data[b]);
     }
     return out;
 }
@@ -463,13 +377,11 @@ void select_bwd(tensor* upstream, tensor* out) {
     tensor* idx=out->inputs[1];
     int B = a->shape[0];
 
-    // comment: this is not supported in torch "RuntimeError: only Tensors of floating point and complex dtype can require gradients"
     idx->grad = TensorLikeFill(idx, 1.0);  // (s1, 1)
     for (int i=0; i<idx->grad->size; i++)
         idx->grad->data[i] = idx->grad->data[i] * upstream->data[i];
 
     a->grad = TensorLikeFill(a, 0.0);      // (s1, s2)
-    // this represents gradient checkpoint (other ops that recompute values of fwd in bwd are: relu, maxpool)
     for (int b=0; b<B; b++) {
         int offset_batch = b * a->grad->stride[0];
         float* curr_a_grad = a->grad->data + offset_batch;
@@ -507,8 +419,6 @@ tensor* pow_k(tensor* a, int exponent) {
 void pow_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     // 1. local
-    // store local in grad in the grad field
-    // todo-low: mem leak
     tensor* local = mul_k(TensorLikeFill(a, 2.0), a);
     // 2. wire local with upstream
     a->grad = mul_k(local, upstream);
@@ -519,8 +429,6 @@ tensor* pow(tensor* a, int exponent) {
     a->num_uses++;
     tensor* t = pow_k(a, exponent);
     t->is_leaf = false;
-    //  comment: note by "inputs" I mean tensor inputs (INPUTS which I'll use compute grads wrt to)
-    //  so here even if this op has two inputs, it really has one, for the purpose of the autograd
     t->num_inputs = 1;
     t->inputs[0] = a;
     t->op_type = 4;
@@ -564,10 +472,8 @@ tensor* reduce_sum(tensor* a) {
 
 tensor* relu_k(tensor* a) {
 
-    tensor* out = NULL;  // Declare here so it has function-wide scope (declaring inside the conditional limits the scope of the variable to that conditional expression)
+    tensor* out = NULL;
 
-    // relu_k previously hardcoded creating 2d ouput, "batched relu"
-    // doesn't make sense -- just the below
     if (a->num_dims==2)
         out = TensorLike(a);
     else if (a->num_dims==3)
@@ -586,13 +492,7 @@ tensor* relu_k(tensor* a) {
 
 void relu_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
-    // local
-    // todo: avoid re-computing
-    //  this is kind of gradient checkpointing;
-    //  ofc can avoid by making original relu ouput the mask
-    //  -- but I found recomputing is a bit cleaner to explain
 
-    // tensor* local = TensorLike(a);
     tensor* local = NULL;
 
     if (a->num_dims==2)
@@ -628,7 +528,6 @@ tensor* relu(tensor* a) {
 // todo-high:
 // By modifying strides, for example, an array can be transposed
 // or reshaped at zero cost (no memory needs to be copied).
-// question-now: here and in batched_transpose_k, return a contiguous copy instead of original?
 tensor* transpose_k(tensor* x) {
     // int shape_0 = x->shape[0];
     // x->shape[0] = x->shape[1];
@@ -686,11 +585,6 @@ tensor* transpose(tensor* a) {
 }
 
 
-
-// logic for max and batched_max were copied from: reduce_sum and batched_reduce_sum
-//  todo-high: add some common logic to abstract this repeated stuff away.
-//    - e.g. lua-torch implements a macro, where you only need to specify body of the for loop (op-specific),
-//      the rest (common logic) is in the code of the macro itself and thus doens't need to duplciated for each new op
 tensor* max_k(tensor* a) {
     // set inital minimum to the first element
     tensor* out = TensorScalarFill(a->data[0]);
@@ -714,7 +608,6 @@ void max_bwd(tensor* upstream, tensor* out) {
     }
     local->data[idx_max] = 1.0;
     // 2. wire local with upstream
-    // make upstream and local to be same shape (currently upstream is a scalar, while local is a 2d tensor)
     tensor* broadcasted_upstream = TensorLikeFill(a, upstream->data[0]);
     a->grad = mul_k(local, broadcasted_upstream);
     // free(local);
@@ -798,8 +691,6 @@ void exp_bwd(tensor* upstream, tensor* out) {
     tensor* a=out->inputs[0];
     if (!a->grad)
         a->grad = TensorLikeFill(a, 0.0);
-    // else
-    //     printf("[exp_bwd] a->grad exists!\n");
 
     for (int i=0; i<a->grad->size; i++) {
         float local = expf(a->data[i]);
@@ -807,7 +698,7 @@ void exp_bwd(tensor* upstream, tensor* out) {
     }
 }
 
-// todo: does it conflict with C's math.exp ?
+
 tensor* exp(tensor* a) {
     a->num_uses++;
     tensor* t = exp_k(a);
@@ -837,8 +728,6 @@ void log_bwd(tensor* upstream, tensor* out) {
     tensor* a=out->inputs[0];
     a->grad = TensorLikeFill(a, 0.0);
 
-    // approximately 2.718282 C Math exp() Function e is the base of the natural system of logarithms (approximately 2.718282)
-    // Some implementations of the <math. h> library include a constant M_E
     float log_e = logf(M_E);
 
     for (int i=0; i<a->grad->size; i++) {
@@ -875,17 +764,8 @@ tensor* batched_matmul_k(tensor* a, tensor* b)
     tensor* out = Tensor3d(B, N, D);
 
     for (int i=0; i<B; i++){
-        // todo: use tensor_like to preserve strides of original out? Well original curr_out is contiguous anyway
-        // todo: use view_3d instead of manually doing it here, the problem is view_3d does not handle 2d view on 3d tensor (IOW here a dim actually needs to collapse, resulting in a 2d view)
-
-        // comment: problem is out[i] is float, not Tensor
-        //  curr_out is a scratch throw away tensor, needed bc matmul_k_ expects a Tensor struct for the output argument
-        // todo: find a proper fix to the issue above: creating these throw away tensors creates memory leaks -- at least need to free them
         tensor* curr_out = TensorNoData(N, D);
         curr_out->data = out->data + (i * out->stride[0]);
-
-        // comment: a[i], b[i], out[i] is incorrect. Bc such indexing would return i-th element of the tensor, but I don't want the i-th element, I want i-th row! So use 
-        // todo: index_2d?
 
         tensor* curr_a = TensorNoData(N, M);
         curr_a->data = a->data + (i * a->stride[0]);
@@ -898,7 +778,6 @@ tensor* batched_matmul_k(tensor* a, tensor* b)
     return out;
 }
 
-// comment: shapes are same as matmul_bwd, but with additional (B,) dim first
 void batched_matmul_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
@@ -920,7 +799,6 @@ void batched_matmul_bwd(tensor* upstream, tensor* out) {
     // a.t(B, M, N) @ upstream(B, N, D) = b_grad(B, M, D)
     b->grad = batched_matmul_k(local_b, upstream);
 
-    // note:
     // free(local_a), free(local_b);
 }
 
@@ -953,7 +831,6 @@ tensor* batched_flatten_k(tensor* a) {
         return NULL;
     }
 
-    // inputs to this kernel can be 3d, 4d -- but the output is always 2d (all dims flattened except for the batch dim)
     tensor* out = Tensor(B, out_dim);
 
     for (int i=0; i<a->size; i++)
@@ -964,7 +841,6 @@ tensor* batched_flatten_k(tensor* a) {
 void batched_flatten_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
 
-    // todo: these copies aren't needed -- can just change strides and shapes on the upstream
     if (a->num_dims==3)
         a->grad = TensorLike3d(a);
     else if (a->num_dims==4)
@@ -1003,9 +879,6 @@ tensor* batched_reduce_sum_k(tensor* a) {
     tensor* out = Tensor(B, 1);
 
     for (int b=0; b<B; b++){
-        // a[i], b[i], out[i] is incorrect. Bc such indexing would return
-        // i-th element of the tensor, but I don't want the i-th element,
-        // I want i-th row! So use:
         tensor* curr_a = TensorNoData(1, N);
         curr_a->data = a->data + (b * a->stride[0]);
 
@@ -1028,9 +901,6 @@ void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
         // but bc we do "+=" it does matter (if there's any garbage
         // data, the grad will be += to it)
         a->grad = TensorLikeFill(a, 0.0);
-    // else {
-    //     printf("[batched_reduce_sum_bwd] a->grad exists!\n");
-    // }
 
     for (int b=0; b<B; b++){
         tensor* curr_a = TensorNoData(1, N);
@@ -1048,8 +918,6 @@ void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
 
         for (int i=0; i<curr_a->grad->size; i++){
             int offset_batch = b * a->grad->stride[0];
-            // a->grad->data[offset_batch + i] = curr_a->grad->data[i];
-            // comment: the above overwrites input's grad, the below does "+=" to it
             a->grad->data[offset_batch + i] = a->grad->data[offset_batch + i] + curr_a->grad->data[i];
         }
     }
@@ -1099,9 +967,6 @@ void batched_max_bwd(tensor* upstream, tensor* out) {
 
     if (!a->grad)
         a->grad = TensorLikeFill(a, 0.0);
-    // else {
-    //     printf("[batched_max_bwd] a->grad exists!\n");
-    // }
 
     for (int b=0; b<B; b++){
         tensor* curr_a = TensorNoData(1, N);
@@ -1139,8 +1004,6 @@ tensor* batched_max(tensor* a) {
 
 
 
-// tensor* local_a = transpose_k(b); // (B, M, D) -> (B, D, M)
-// comment: this is equivalent to numpy's np.transpose(x, axes=(0, 2, 1))
 tensor* batched_transpose_k(tensor* x){
     int shape_1 = x->shape[1];
     x->shape[1] = x->shape[2];

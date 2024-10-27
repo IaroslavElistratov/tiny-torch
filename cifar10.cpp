@@ -35,7 +35,6 @@ struct cifar10 {
     tensor* label;
 };
 
-// todo-now: doublecheck that logic here is correct
 cifar10* get_cifar10(){
 
     tensor* input = EmptyTensor4d(N_SAMPLES, 3, 32, 32);

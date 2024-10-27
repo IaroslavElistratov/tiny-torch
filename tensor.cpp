@@ -59,7 +59,6 @@ tensor* TensorNoData(int y, int z)
     return t;
 }
 
-// todo: add EmptyTensor, EmptyTensorLike, make TensorLikeFill use EmptyTensorLike (instead of TensorLike)
 tensor* TensorNoData3d(int x, int y, int z)
 {
     tensor* t = (tensor*)malloc(sizeof(tensor));
@@ -89,7 +88,7 @@ tensor* TensorNoData3d(int x, int y, int z)
     return t;
 }
 
-// todo: minimize duplication (this vs other constructors) this was copy-pasted from TensorNoData3d
+
 tensor* TensorNoData4d(int o, int x, int y, int z)
 {
     tensor* t = (tensor*)malloc(sizeof(tensor));
@@ -191,8 +190,6 @@ tensor* TensorLike4d(tensor* t)
 }
 
 
-// todo: in each TensorLikeFill wasteful to init w random value
-// using GetRandomFloat and then overwrite them anyway
 tensor* TensorLikeFill(tensor* t, float value)
 {
     tensor* t_new = TensorLike(t);
@@ -259,29 +256,3 @@ void set_name(tensor* t, const char* name){
         t->name[i+1] = '\0';
     }
 }
-
-
-// // constructors that take in tensor and return float
-
-// float* EmptyFloat(int s1, int s2)
-// {
-//     return (float*)malloc(sizeof(float) * s1*s2);
-// }
-
-// // used when only tensor->data is needed, and avoids
-// // memory leak unlike the below -- bc tensor output
-// // of TensorLikeFill won't be used anymore (only one
-// // of its members will)
-// //  a->grad = TensorLikeFill(a, 1.0)->data;
-// float* EmptyFloatLike(tensor* t)
-// {
-//     return EmptyFloat(t->shape[0], t->shape[1]);
-// }
-
-// float* FloatLikeFill(tensor* t, int value)
-// {
-//     float* f_new = EmptyFloatLike(t);
-//     for (int i=0; i<t->size; i++)
-//         f_new[i] = value;
-//     return f_new;
-// }
