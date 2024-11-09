@@ -216,19 +216,6 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
     input->grad = grad_x;
 }
 
-tensor* conv(tensor* input, tensor* kernel) {
-    input->num_uses++;
-    kernel->num_uses++;
-    tensor* t = conv_k(input, kernel);
-    t->is_leaf = false;
-    t->num_inputs = 2;
-    t->inputs[0] = input;
-    t->inputs[1] = kernel;
-    t->op_type = 9;
-    t->grad_fn = bwd_conv_k;
-    return t;
-}
-
 
 
 // x (B, C, H, W)
@@ -323,19 +310,6 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
 
     input->grad = grad_x;
     kernel->grad = grad_kernels;
-}
-
-tensor* batched_conv(tensor* input, tensor* kernel) {
-    input->num_uses++;
-    kernel->num_uses++;
-    tensor* t = batched_conv_k(input, kernel);
-    t->is_leaf = false;
-    t->num_inputs = 2;
-    t->inputs[0] = input;
-    t->inputs[1] = kernel;
-    t->op_type = 10;
-    t->grad_fn = bwd_batched_conv_k;
-    return t;
 }
 
 
@@ -499,17 +473,6 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
     input->grad = downstream;
 }
 
-tensor* maxpool(tensor* input) {
-    input->num_uses++;
-    tensor* t = maxpool_k(input);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = input;
-    t->op_type = 11;
-    t->grad_fn = bwd_maxpool_k;
-    return t;
-}
-
 
 
 // x (B, C, H, W)
@@ -590,15 +553,4 @@ void bwd_batched_maxpool_k(tensor* upstream, tensor* out) {
         // add_k_(curr_downstream, downstream, downstream);
     }
     input->grad = downstream;
-}
-
-tensor* batched_maxpool(tensor* input) {
-    input->num_uses++;
-    tensor* t = batched_maxpool_k(input);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = input;
-    t->op_type = 12;
-    t->grad_fn = bwd_batched_maxpool_k;
-    return t;
 }

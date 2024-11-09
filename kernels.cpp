@@ -40,12 +40,6 @@ void _copy_arr(float* src, float* dst, int size) {
 //   - allocate ouput buff
 //      - return new tensor
 
-// **** operations ****
-//   - user-facing, unlike other abstractions
-//   - call primitives, in addition, record data for the autograd:
-//   - allocating grad buffers
-//   - write local derivatives, for each input
-
 
 //    binary elementwise
 
@@ -103,25 +97,6 @@ void add_bwd(tensor* upstream, tensor* out) {
     // free(a_local), free(b_local);
 }
 
-tensor* add(tensor* a, tensor* b) {
-    a->num_uses++;
-    b->num_uses++;
-    tensor* t = add_k(a, b);
-    t->is_leaf = false;
-    // todo-low: check bool tensor->requires_grad before doing steps below, including allocating buffers
-
-    // todo: this can be further abstracted -- creating a binary_op function
-    // todo: and even further abstracted -- creating a binary_elementwise_op function
-
-    // fill the additional info on out tensor
-    t->num_inputs = 2;
-    t->inputs[0] = a;
-    t->inputs[1] = b;
-    t->op_type = 0;
-    t->grad_fn = add_bwd;
-    return t;
-}
-
 
 tensor* sub_k(tensor* a, tensor* b) {
     tensor* out = TensorLike(a);
@@ -143,19 +118,6 @@ void sub_bwd(tensor* upstream, tensor* out) {
     b->grad = mul_k(b_local, upstream);
 
     // free(a_local), free(b_local);
-}
-
-tensor* sub(tensor* a, tensor* b) {
-    a->num_uses++;
-    b->num_uses++;
-    tensor* t = sub_k(a, b);
-    t->is_leaf = false;
-    t->num_inputs = 2;
-    t->inputs[0] = a;
-    t->inputs[1] = b;
-    t->op_type = 1;
-    t->grad_fn = sub_bwd;
-    return t;
 }
 
 
@@ -197,19 +159,6 @@ void mul_bwd(tensor* upstream, tensor* out) {
     // downstream = local * upstream
     a->grad = mul_k(a_local, upstream);
     b->grad = mul_k(b_local, upstream);
-}
-
-tensor* mul(tensor* a, tensor* b) {
-    a->num_uses++;
-    b->num_uses++;
-    tensor* t = mul_k(a, b);
-    t->is_leaf = false;
-    t->num_inputs = 2;
-    t->inputs[0] = a;
-    t->inputs[1] = b;
-    t->op_type = 2;
-    t->grad_fn = mul_bwd;
-    return t;
 }
 
 
@@ -294,21 +243,6 @@ void matmul_bwd(tensor* upstream, tensor* out) {
     // free(local_a), free(local_b);
 }
 
-tensor* matmul(tensor* a, tensor* b){
-    a->num_uses++;
-    b->num_uses++;
-    // e.g.: a(N, M) @ b(M, D) = t(N, D)
-    tensor* t = matmul_k(a, b);
-    t->is_leaf = false;
-    t->num_inputs = 2;
-    t->inputs[0] = a;
-    t->inputs[1] = b;
-    t->op_type = 3;
-    t->grad_fn = matmul_bwd;
-    return t;
-}
-
-
 
 tensor* div_k(tensor* a, tensor* b) {
 
@@ -357,19 +291,6 @@ void div_bwd(tensor* upstream, tensor* out) {
     // free(a_local), free(b_local);
 }
 
-tensor* div(tensor* a, tensor* b) {
-    a->num_uses++;
-    b->num_uses++;
-    tensor* t = div_k(a, b);
-    t->is_leaf = false;
-    t->num_inputs = 2;
-    t->inputs[0] = a;
-    t->inputs[1] = b;
-    t->op_type = 20;
-    t->grad_fn = div_bwd;
-    return t;
-}
-
 
 
 tensor* repeat_k(tensor* a, int num_repeats) {
@@ -410,17 +331,6 @@ void repeat_bwd(tensor* upstream, tensor* out) {
     a->grad = batched_reduce_sum_k(upstream);
 
     // free(local);
-}
-
-tensor* repeat(tensor* a, int num_repeats) {
-    a->num_uses++;
-    tensor* t = repeat_k(a, num_repeats);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 18;
-    t->grad_fn = repeat_bwd;
-    return t;
 }
 
 
@@ -478,19 +388,6 @@ void select_bwd(tensor* upstream, tensor* out) {
     }
 }
 
-tensor* select(tensor* a, tensor* idx) {
-    a->num_uses++;
-    idx->num_uses++;
-    tensor* t = select_k(a, idx);
-    t->is_leaf = false;
-    t->num_inputs = 2;
-    t->inputs[0] = a;
-    t->inputs[1] = idx;
-    t->op_type = 14;
-    t->grad_fn = select_bwd;
-    return t;
-}
-
 
 
 //    unary
@@ -515,19 +412,6 @@ void pow_bwd(tensor* upstream, tensor* out) {
     // free(local);
 }
 
-tensor* pow(tensor* a, int exponent) {
-    a->num_uses++;
-    tensor* t = pow_k(a, exponent);
-    t->is_leaf = false;
-    //  comment: note by "inputs" I mean tensor inputs (INPUTS which I'll use compute grads wrt to)
-    //  so here even if this op has two inputs, it really has one, for the purpose of the autograd
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 4;
-    t->grad_fn = pow_bwd;
-    return t;
-}
-
 
 tensor* reduce_sum_k(tensor* a) {
     // reduce to scalar
@@ -547,17 +431,6 @@ void reduce_sum_bwd(tensor* upstream, tensor* out) {
     tensor* broadcasted_upstream = TensorLikeFill(a, upstream->data[0]);
     a->grad = mul_k(local, broadcasted_upstream);
     // free(local);
-}
-
-tensor* reduce_sum(tensor* a) {
-    a->num_uses++;
-    tensor* t = reduce_sum_k(a);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 5;
-    t->grad_fn = reduce_sum_bwd;
-    return t;
 }
 
 
@@ -612,17 +485,6 @@ void relu_bwd(tensor* upstream, tensor* out) {
     // free(local);
 }
 
-tensor* relu(tensor* a) {
-    a->num_uses++;
-    tensor* t = relu_k(a);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 6;
-    t->grad_fn = relu_bwd;
-    return t;
-}
-
 
 
 // todo-high:
@@ -674,17 +536,6 @@ void transpose_bwd(tensor* upstream, tensor* out) {
     a->grad = transpose_k(upstream);
 }
 
-tensor* transpose(tensor* a) {
-    a->num_uses++;
-    tensor* t = transpose_k(a);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 7;
-    t->grad_fn = transpose_bwd;
-    return t;
-}
-
 
 
 // logic for max and batched_max were copied from: reduce_sum and batched_reduce_sum
@@ -718,17 +569,6 @@ void max_bwd(tensor* upstream, tensor* out) {
     tensor* broadcasted_upstream = TensorLikeFill(a, upstream->data[0]);
     a->grad = mul_k(local, broadcasted_upstream);
     // free(local);
-}
-
-tensor* max(tensor* a) {
-    a->num_uses++;
-    tensor* t = max_k(a);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 21;
-    t->grad_fn = max_bwd;
-    return t;
 }
 
 
@@ -769,17 +609,6 @@ void neg_bwd(tensor* upstream, tensor* out) {
     a->grad = mul_k(local, upstream);
 }
 
-tensor* neg(tensor* a) {
-    a->num_uses++;
-    tensor* t = neg_k(a);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 19;
-    t->grad_fn = neg_bwd;
-    return t;
-}
-
 
 
 tensor* exp_k(tensor* a) {
@@ -807,17 +636,6 @@ void exp_bwd(tensor* upstream, tensor* out) {
     }
 }
 
-// todo: does it conflict with C's math.exp ?
-tensor* exp(tensor* a) {
-    a->num_uses++;
-    tensor* t = exp_k(a);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 16;
-    t->grad_fn = exp_bwd;
-    return t;
-}
 
 
 
@@ -846,17 +664,6 @@ void log_bwd(tensor* upstream, tensor* out) {
         float local = 1/x * log_e;
         a->grad->data[i] = local * upstream->data[i];
     }
-}
-
-tensor* log(tensor* a) {
-    a->num_uses++;
-    tensor* t = log_k(a);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 15;
-    t->grad_fn = log_bwd;
-    return t;
 }
 
 
@@ -924,20 +731,6 @@ void batched_matmul_bwd(tensor* upstream, tensor* out) {
     // free(local_a), free(local_b);
 }
 
-tensor* batched_matmul(tensor* a, tensor* b)
-{
-    a->num_uses++;
-    b->num_uses++;
-    // e.g.: a(B, N, M) @ b(B, M, D) = t(B, N, D)
-    tensor* t = batched_matmul_k(a, b);
-    t->is_leaf = false;
-    t->num_inputs = 2;
-    t->inputs[0] = a;
-    t->inputs[1] = b;
-    t->op_type = 8;
-    t->grad_fn = batched_matmul_bwd;
-    return t;
-}
 
 
 
@@ -977,17 +770,6 @@ void batched_flatten_bwd(tensor* upstream, tensor* out) {
         a->grad->data[i] = upstream->data[i];
 
     // free(local);
-}
-
-tensor* batched_flatten(tensor* a) {
-    a->num_uses++;
-    tensor* t = batched_flatten_k(a);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 13;
-    t->grad_fn = batched_flatten_bwd;
-    return t;
 }
 
 
@@ -1057,17 +839,6 @@ void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
     // free(local);
 }
 
-tensor* batched_reduce_sum(tensor* a) {
-    a->num_uses++;
-    tensor* t = batched_reduce_sum_k(a);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 17;
-    t->grad_fn = batched_reduce_sum_bwd;
-    return t;
-}
-
 
 
 tensor* batched_max_k(tensor* a) {
@@ -1124,17 +895,6 @@ void batched_max_bwd(tensor* upstream, tensor* out) {
     }
 
     // free(local);
-}
-
-tensor* batched_max(tensor* a) {
-    a->num_uses++;
-    tensor* t = batched_max_k(a);
-    t->is_leaf = false;
-    t->num_inputs = 1;
-    t->inputs[0] = a;
-    t->op_type = 22;
-    t->grad_fn = batched_max_bwd;
-    return t;
 }
 
 
