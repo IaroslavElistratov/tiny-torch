@@ -2,8 +2,6 @@
 
 #include "nn.h"
 
-#define print(f_p) _print(f_p)
-void _print(tensor* t);
 
 
 #define IS_DEBUG_AG true

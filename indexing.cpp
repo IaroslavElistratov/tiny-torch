@@ -151,7 +151,7 @@ int at_2d(tensor* t, int idx)
 
 int at_3d(tensor* t, int idx)
 {
-    int x = t->shape[0];
+    // int x = t->shape[0];
     int y = t->shape[1];
     int z = t->shape[2];
 

@@ -16,6 +16,7 @@ const char* VIS_COLORS[] = {"darkolivegreen1", "lightsalmon1", "skyblue1", "plum
 struct tensor {
     float* data;
     int shape[4];
+    int device;
 
     // https://arxiv.org/pdf/1102.1523
     // Strides the number of bytes to skip in memory to
@@ -50,6 +51,15 @@ struct tensor {
     void (*backward)(tensor* t);
 };
 
+// enum device {
+//     cpu = 0,
+//     cuda = 1,
+//     // amd = 2,
+//     // tpu = 3,
+// };
+
+#define CPU 0
+#define CUDA 1
 
 tensor* EmptyTensor(int s1, int s2);
 tensor* EmptyTensorLike(tensor* t);

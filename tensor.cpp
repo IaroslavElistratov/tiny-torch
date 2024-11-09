@@ -145,10 +145,34 @@ tensor* EmptyTensor4d(int o, int x, int y, int z)
 }
 
 
+// todo: rename to Tensor2d, EmptyTensor2d, TensorNoData2d
 tensor* Tensor(int s1, int s2)
 {
     tensor* t = EmptyTensor(s1, s2);
     GetRandomFloat(t->data, t->size);
+    return t;
+}
+
+tensor* CudaTensor(int s1, int s2)
+{
+    // todo-low: directly initialize random floats on gpu (avoid initializing on cpu, and then moving)
+    tensor* t = Tensor(s1, s2);
+    t->device = CUDA; // device.cuda;
+
+    float* t_device;
+    int size = t->size * sizeof(float);
+    cudaError_t err = cudaMalloc((void**)&t_device, size);
+    // todo: exit from program everywhere in case of error
+    if (err != cudaSuccess){
+        printf("[cuda malloc] error");
+    }
+    err = cudaMemcpy(t_device, t->data, size, cudaMemcpyHostToDevice);
+    if (err != cudaSuccess){
+        printf("[cuda memcopy] error");
+    }
+    // todo: free cpu t->data (currently memory leak)
+    t->data = t_device;
+
     return t;
 }
 
@@ -176,6 +200,12 @@ tensor* TensorLike(tensor* t)
 {
     int s1 = t->shape[0], s2 = t->shape[1];
     return Tensor(s1, s2);
+}
+
+tensor* CudaTensorLike(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1];
+    return CudaTensor(s1, s2);
 }
 
 tensor* TensorLike3d(tensor* t)
