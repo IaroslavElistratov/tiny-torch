@@ -51,7 +51,6 @@ int main() {
     int M = 8;
     int D = 4;
 
-    // *** Init ***
     tensor* x = CudaTensor(N, M);
     set_name(x, "x"); print(x);
 
@@ -60,6 +59,14 @@ int main() {
 
     // x(N, M) @ w1(M, D) = out1(N, D)
     tensor* out = MatMul(x, w1);
+    set_name(out, "out"); print(out);
+
+
+
+    x = CudaTensor(N, M);
+    set_name(x, "x"); print(x);
+
+    out = Transpose(x);
     set_name(out, "out"); print(out);
 
     return 0;
