@@ -530,6 +530,7 @@ tensor* transpose_k(tensor* x) {
     return out;
 }
 
+// todo-high: it doesn't make sense to have a transpose_bwd bc it just calls transpose -- at the moment this fn is used bc calling convention (args signature) for _bwd funcs is different from the fwd funcs
 // todo: bwd formula
 void transpose_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];

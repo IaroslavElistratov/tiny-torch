@@ -4,6 +4,8 @@
 #define NUM_THREADS 32
 #define CUDA_DEBUG true
 
+
+tensor* transpose_k(tensor*);
 void matmul_input_checks(tensor*, tensor*);
 void transpose_input_checks(tensor*);
 
@@ -26,8 +28,11 @@ __global__ void MatMulKernel(float* a, float* b, float* out, int N, int M, int D
     }
 }
 
+// todo: this _k naming is maintain parity between names of the cpu kernels and the cuda kernels (so that both can be used polimorphically in ops)
+//     but the below isn't "kernel" in the sense of this word, instead it's a stub that calls the actual kernel (MatMulKernel)
+
 // a(N, M) @ b(M, D) = out(N, D)
-tensor* MatMul(tensor* a, tensor* b){
+tensor* matmul_k(tensor* a, tensor* b){
     matmul_input_checks(a, b);
 
     int N = a->shape[0], M = a->shape[1], D = b->shape[1];
@@ -66,6 +71,25 @@ void matmul_input_checks(tensor* a, tensor* b){
     }
 }
 
+// todo-now: impl is exactly the same as CPU matmul_bwd -- reuse; Same for: transpose_bwd
+void matmul_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    tensor* b = out->inputs[1];
+
+    tensor* local_a = transpose_k(b); // (M, D) -> (D, M)
+    tensor* local_b = transpose_k(a); // (N, M) -> (M, N)
+
+    // 2. wire local with upstream
+    // upstream(N, D) @ b.t(D, M) = a_grad(N, M)
+    a->grad = matmul_k(upstream, local_a);
+    // a.t(M, N) @ upstream(N, D) = b_grad(M, D)
+    b->grad = matmul_k(local_b, upstream);
+
+    // note:
+    // free(local_a), free(local_b);
+}
+
+
 
 
 // a(N, M) -> out(M, N)
@@ -78,7 +102,7 @@ __global__ void TransposeKernel(float* a, float* out, int M, int N){
     }
 }
 
-tensor* Transpose(tensor* a){
+tensor* transpose_k(tensor* a){
     transpose_input_checks(a);
 
     int N = a->shape[0], M = a->shape[1];
@@ -108,4 +132,9 @@ void transpose_input_checks(tensor* a){
         printf("[cuda Transpose] Error: expect 2-dim inputs");
         return;
     }
+}
+
+void transpose_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    a->grad = transpose_k(upstream);
 }

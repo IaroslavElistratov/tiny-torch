@@ -1,14 +1,13 @@
 #include <iostream> // todo: use C only
 using namespace std;
 
+#define DEVICE CUDA
+#define print(a) ((DEVICE == CUDA) ? cuda_print_2d(a) : print_2d(a))
+
 #include "../tensor.cpp"
-// #include "../ops.cpp"
-#include "../ops.cu"
+#include "../ops.cpp"
 #include "../utils.cpp"
 #include "../print.cpp"
-
-#define device CUDA
-#define print(a) ((device == CUDA) ? cuda_print_2d(a) : print_2d(a))
 
 
 void cuda_print_2d(tensor* t)
@@ -41,7 +40,13 @@ void cuda_print_2d(tensor* t)
 }
 
 
-// todo-now: for cuda, use same operation abstractions (as for cpu), but make these abstractions call host stubs for cuda kernels (instead of my kernles for cpu) -- this will preserve my graph building functionality
+// todo-now:
+// for cuda, use same operation abstractions (as for cpu), but make these abstractions call host stubs for cuda kernels (instead of my kernles for cpu) -- this will preserve my graph building functionality
+//   - re-use this from ops.cpp: use same names for kernels, just make them refer to different impls (cpu, cuda) depending on wether device is CUDA or not -- this will reduce code duplication needed to copy paste ops
+
+// todo-now:
+// and "matmul_bwd", "batched_matmul_bwd", "div_bwd", "pow_bwd", "reduce_sum_bwd" can also be re-used!
+
 int main() {
     // random num generator init, must be called once
     // srand(time(NULL));
@@ -58,7 +63,7 @@ int main() {
     set_name(w1, "w1"); print(w1);
 
     // x(N, M) @ w1(M, D) = out1(N, D)
-    tensor* out = MatMul(x, w1);
+    tensor* out = matmul(x, w1);
     set_name(out, "out"); print(out);
 
 
@@ -66,7 +71,7 @@ int main() {
     x = CudaTensor(N, M);
     set_name(x, "x"); print(x);
 
-    out = Transpose(x);
+    out = transpose(x);
     set_name(out, "out"); print(out);
 
     return 0;
