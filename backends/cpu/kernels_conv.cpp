@@ -69,7 +69,7 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
                 sprintf(buffer, "0:%i, %i:%i, %i:%i", C, vert_start, vert_end, horiz_start, horiz_end);
                 // todo: use view instead of slice
                 //   - mul_k (used below) -- needs to use .at when looping over a->size
-                tensor* x_slice = slice_3d(input, buffer);
+                tensor* x_slice = slice(input, buffer);
 
                 if (IS_DEBUG){
                     printf("[conv_k_] buffer x_slice %s\n", buffer);
@@ -90,7 +90,7 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
                 // 3. write to the current location at the output
                 if (IS_DEBUG)
                     printf("[conv_k_] curr_out->data[0]: %f\n", curr_out->data[0]);
-                out->data[index_3d(out, f, hight, width)] = curr_out->data[0];
+                out->data[index(out, f, hight, width)] = curr_out->data[0];
             }
         }
     }
@@ -150,7 +150,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
                 // python: x_slice = input[:, vert_start:vert_end, horiz_start:horiz_end]
                 char buffer[20];
                 sprintf(buffer, "0:%i, %i:%i, %i:%i", C, vert_start, vert_end, horiz_start, horiz_end);
-                tensor* x_slice = slice_3d(input, buffer); // corresponding slice (was used in forward)
+                tensor* x_slice = slice(input, buffer); // corresponding slice (was used in forward)
                 if (IS_DEBUG){
                     printf("[bwd_conv_k] buffer x_slice %s\n", buffer);
                     printf("[bwd_conv_k] x_slice->shape: %i, %i, %i\n", x_slice->shape[0], x_slice->shape[1], x_slice->shape[2]);
@@ -175,7 +175,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
                 // 3. then because there's multiple locations in x (x patches) we slid the kernel through -- elementwise sum the grad
 
                 // python: curr_upstream = upstream[f,h,w]
-                float curr_upstream_float = upstream->data[index_3d(upstream, f, hight, width)]; // scalar
+                float curr_upstream_float = upstream->data[index(upstream, f, hight, width)]; // scalar
                 tensor* curr_upstream = TensorLikeFill(x_slice, curr_upstream_float); // broadcast scalar grad to the shape of the slice
                 if (IS_DEBUG){
                     printf("[bwd_conv_k] curr_upstream_float: %f", curr_upstream_float);
@@ -205,7 +205,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
                 curr_downstream = mul_k(curr_filter, curr_upstream);
 
                 // record downstream grad of the current slice, into the larger tensor (for the downstream grad)
-                curr_downstream_slice_in_larger_tensor = view_3d(grad_x, buffer);
+                curr_downstream_slice_in_larger_tensor = view(grad_x, buffer);
 
                 add_k_(curr_downstream_slice_in_larger_tensor, curr_downstream, curr_downstream_slice_in_larger_tensor);
             }
@@ -349,7 +349,7 @@ tensor* maxpool_k_(tensor* input, tensor* out) {
                 int c_next = c + 1;
                 char buffer[20];
                 sprintf(buffer, "%i:%i, %i:%i, %i:%i", c, c_next, vert_start, vert_end, horiz_start, horiz_end);
-                tensor* x_slice = view_3d(input, buffer);
+                tensor* x_slice = view(input, buffer);
                 if (IS_DEBUG_MP){
                     printf("[maxpool_k_] buffer x_slice %s\n", buffer);
                     printf("[maxpool_k_] x_slice->shape: %i, %i, %i\n", x_slice->shape[0], x_slice->shape[1], x_slice->shape[2]);
@@ -360,16 +360,16 @@ tensor* maxpool_k_(tensor* input, tensor* out) {
                 // need to recompute this during backward (so that you put local grad 1 into the lications where there was maximum element)
                 float max = x_slice->data[0];
                 for (int i=0; i<x_slice->size; i++){
-                    if (x_slice->data[at_3d(x_slice, i)] > max) {
+                    if (x_slice->data[at(x_slice, i)] > max) {
                         // comment: 
-                        //  crucial to use at_3d here and not simple "x_slice->data[i]" bc x_slice is a view thus it's NON contiguous!
+                        //  crucial to use at here and not simple "x_slice->data[i]" bc x_slice is a view thus it's NON contiguous!
                         //  alternatively, can create x_slice with "slice" instead of "view" -- the former will make a contiguous copy, in which case fine to index with "x_slice->data[i]
-                        max = x_slice->data[at_3d(x_slice, i)];
+                        max = x_slice->data[at(x_slice, i)];
                     }
                 }
                 if (IS_DEBUG_MP)
                     printf("[maxpool_k_] max: %f\n", max);
-                out->data[index_3d(out, c, hight, width)] = max;
+                out->data[index(out, c, hight, width)] = max;
             }
         }
     }
@@ -432,15 +432,15 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
                 char buffer[20];
                 int c_next = c + 1;
                 sprintf(buffer, "%i:%i, %i:%i, %i:%i", c, c_next, vert_start, vert_end, horiz_start, horiz_end);
-                tensor* x_slice = view_3d(input, buffer);
+                tensor* x_slice = view(input, buffer);
 
                 // local
                 tensor* local = TensorLikeFill(x_slice, 0.0);
                 int idx_max = 0;
                 float max = x_slice->data[0];
                 for (int i=0; i<x_slice->size; i++){
-                    if (x_slice->data[at_3d(x_slice, i)] > max) {
-                        max = x_slice->data[at_3d(x_slice, i)];
+                    if (x_slice->data[at(x_slice, i)] > max) {
+                        max = x_slice->data[at(x_slice, i)];
                         // bc local is contiguous, record contiguous idx (not the x_slice's idx)
                         idx_max = i;
                     }
@@ -450,7 +450,7 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
                     set_name(local, "local"), print(local);
 
                 // upstream
-                float curr_upstream_float = upstream->data[index_3d(upstream, c, hight, width)]; // scalar
+                float curr_upstream_float = upstream->data[index(upstream, c, hight, width)]; // scalar
                 tensor* curr_upstream = TensorLikeFill(x_slice, curr_upstream_float); // broadcast scalar grad to the shape of the slice
 
                 // downstream
@@ -459,12 +459,12 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
                     set_name(curr_downstream, "curr_downstream"), print(curr_downstream);
 
                 // record downstream grad of the current slice, into the larger tensor (corresponding to the downstream grad)
-                tensor* downstream_slice = view_3d(downstream, buffer);
+                tensor* downstream_slice = view(downstream, buffer);
                 // todo-low: use _copy_arr instead of the below; modify that fn to use at instead of t->data[i]
                 for (int i=0; i<downstream_slice->size; i++){
-                    // note you use at_3d on the downstream_slice bc it's a slice and therefore it's not contiguous, on the
+                    // note you use at on the downstream_slice bc it's a slice and therefore it's not contiguous, on the
                     // other hand, curr_downstream is contiguous, so simple curr_downstream->data[i] suffices
-                    downstream_slice->data[at_3d(downstream_slice, i)] = curr_downstream->data[i];
+                    downstream_slice->data[at(downstream_slice, i)] = curr_downstream->data[i];
                 }
 
             }

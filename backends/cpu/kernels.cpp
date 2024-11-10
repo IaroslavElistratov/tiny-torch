@@ -43,27 +43,12 @@ void _copy_arr(float* src, float* dst, int size) {
 
 
 tensor* add_k_(tensor* a, tensor* b, tensor* out) {
-    // todo-high:
-    // move this into "at" fn itself
-    //  - previously was hardcoding a at for a specific index here -- needed only for conv
-    //   - e.g. conv_bwd uses add (which calls add_k_) for both 3d tensors (grads wrt input) AND 4d tensors (grads wrt kernels) -- so hardcoding at_3d is wrong here
-    int (*at_fn_ptr)(tensor*, int) = NULL;
-    if (a->num_dims==2) {
-        at_fn_ptr = at_2d;
-    } else if (a->num_dims==3) {
-        at_fn_ptr = at_3d;
-    // else if (a->num_dims==4)
-    //     at_fn_ptr = at_4;
-    } else {
-        printf("[add_k_] Error");
-        return NULL;
-    }
-
+    // Previously was hardcoding a at for a specific index here -- conv_bwd uses add (which calls add_k_) for both 3d tensors (grads wrt input) AND 4d tensors (grads wrt kernels)
     // todo: here and in all ops, assert same size
     for (int i=0; i<out->size; i++)
         // comment: note incrementing index like this in a loop, assumes contiguous data
         // out->data[i] = a->data[i] + b->data[i];
-        out->data[at_fn_ptr(out, i)] = a->data[at_fn_ptr(a, i)] + b->data[at_fn_ptr(b, i)];
+        out->data[at(out, i)] = a->data[at(a, i)] + b->data[at(b, i)];
     return out;
 }
 

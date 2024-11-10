@@ -126,7 +126,6 @@ tensor* EmptyTensor4d(int o, int x, int y, int z)
 }
 
 
-// todo: rename to Tensor2d, EmptyTensor2d, TensorNoData2d
 tensor* Tensor2d(int s1, int s2)
 {
     tensor* t = EmptyTensor2d(s1, s2);
@@ -275,8 +274,8 @@ tensor* CudaTensorLikeFill2d(tensor* t, float value)
 
 
 
-// implement function dispatching based on the number of arguments 
-//  abstracting constructors of single family requires dispatching to different fn impls depending on the number of args
+// implements function dispatching based on the number of arguments
+//  abstracts constructors of each family by dispatching to different impls depending on the number of args
 
 // need this instead of sizeof based impl, otherwise preprocessor fails
 #define VA_NARGS_IMPL(_1, _2, _3, _4, _5, N, ...) N
@@ -306,7 +305,7 @@ tensor* CudaTensorLikeFill2d(tensor* t, float value)
 
 // tensor* CudaTensorImpl(int num_args, ...){
 //     va_list args;
-//     va_start(args, arg_count);
+//     va_start(args, num_args);
 
 //     int s0 = va_arg(args, int);
 //     int s1 = va_arg(args, int);
@@ -321,6 +320,7 @@ tensor* CudaTensorLikeFill2d(tensor* t, float value)
 //         int s3 = va_arg(args, int);
 //         return CudaTensor3d(s0, s1, s2, s3);
 //     }
+//     va_end(args);
 // }
 
 

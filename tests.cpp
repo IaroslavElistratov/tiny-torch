@@ -585,31 +585,31 @@ int test_indexing() {
     tensor* x = Tensor(3, 7);
     set_name(x, "orig. x"); print(x);
 
-    tensor* x_slice = slice_2d(x, "1:3, 3:6");
+    tensor* x_slice = slice(x, "1:3, 3:6");
     set_name(x_slice, "x_slice");
     print(x_slice);
 
-    tensor* x_view = view_2d(x, "1:3, 3:6");
+    tensor* x_view = view(x, "1:3, 3:6");
     set_name(x_view, "x_view");
     print(x_view);
 
     cout << "\n19th element of x:" << endl;
-    cout << x->data[at_2d(x, 19)] << endl;
+    cout << x->data[at(x, 19)] << endl;
 
     tensor* y = Tensor(4, 3, 7);
     set_name(y, "orig. y");
     print(y);
 
-    tensor* y_slice = slice_3d(y, "2:4, 1:3, 3:6");
+    tensor* y_slice = slice(y, "2:4, 1:3, 3:6");
     set_name(y_slice, "y_slice");
     print(y_slice);
 
-    tensor* y_view = view_3d(y, "2:4, 1:3, 3:6");
+    tensor* y_view = view(y, "2:4, 1:3, 3:6");
     set_name(y_view, "y_view");
     print(y_view);
 
     cout << "\n54th element of y:" << endl;
-    cout << y->data[at_3d(y, 54)] << endl;
+    cout << y->data[at(y, 54)] << endl;
 
     return 0;
 }

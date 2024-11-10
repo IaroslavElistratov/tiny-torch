@@ -27,7 +27,6 @@ void backward(tensor* loss){
     // for the check below to pass
     loss->num_uses = 0;
 
-    // todo: move this into TensorLikeFill (which will call one of: TensorLikeFill2d, TensorLikeFill3d, TensorLikeFill4d) or CUDA tensor equivalents
     if (DEVICE==CPU)
         loss->grad = TensorLikeFill(loss, 1.0);
     else if (DEVICE==CUDA)
