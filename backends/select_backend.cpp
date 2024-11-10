@@ -1,0 +1,19 @@
+#include "../nn.h"
+
+extern void (*COPY_TO_DEVICE)(tensor*);
+extern tensor* (*COPY_FROM_DEVICE)(tensor*);
+
+// include this unconditionally, because used by both cuda and cpu
+#include "cpu/move_data.cpp"
+
+#if DEVICE == CPU
+    #include "cpu/kernels.cpp"
+    #include "cpu/kernels_conv.cpp"
+#elif DEVICE == CUDA
+    #include "cuda/move_data.cpp"
+    #include "cuda/kernels.cu"
+#endif
+
+#include "common.cpp"
+
+#define set_backend_device() ((DEVICE==CUDA) ? set_backend_cuda() : set_backend_cpu())

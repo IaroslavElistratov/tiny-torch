@@ -51,6 +51,12 @@ struct tensor {
     void (*backward)(tensor* t);
 };
 
+// COPY_TO_DEVICE is a pointer to a function that has one tensor * argument and returns void
+// COPY_FROM_DEVICE is a pointer to a function that has one tensor * argument and returns tensor *
+// define function pointer type, declare the global function pointer as extern
+void (*COPY_TO_DEVICE)(tensor*) = NULL;
+tensor* (*COPY_FROM_DEVICE)(tensor*) = NULL;
+
 // enum device {
 //     cpu = 0,
 //     cuda = 1,
@@ -66,12 +72,11 @@ void set_name(tensor*, const char*);
 char* random_chars(int);
 
 tensor* TensorLikeFill(tensor*, float);
-tensor* CudaTensorLikeFill(tensor*, float);
+tensor* TensorLike(tensor* t);
+// tensor* Tensor(...);
 
 void print(tensor*);
 void lprint(tensor*);
 void cuda_lprint(tensor*);
-
-float* _copy_data_to_cpu(tensor* t);
 
 #endif

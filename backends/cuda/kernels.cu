@@ -17,7 +17,7 @@ __global__ void MatMulKernel(float* a, float* b, float* out, int N, int M, int D
         for (int m=0; m<M; m++){
             // todo-low: calling a __host__ function("index_2d") from a __global__ function("MatMulKernel") is not allowed
             //   But, it doesn't really make sense to use index_2d when you're accessing contiguous cuda memory
-            //   (I belive it's contiguous as this is ouput of cuda-malloc called from inside CudaTensor constructor)
+            //   (I belive it's contiguous as this is ouput of cuda-malloc called from inside Tensor constructor)
             // out += a->data[index_2d(a, n, k)] * b->data[index_2d(b, k, d)];
             curr_out += a[n*M + m] * b[m*D + d];
         }
@@ -34,7 +34,7 @@ tensor* matmul_k(tensor* a, tensor* b){
 
     int N = a->shape[0], M = a->shape[1], D = b->shape[1];
     // todo: fill w 0
-    tensor* out = CudaTensor(N, D);
+    tensor* out = Tensor(N, D);
 
     // todo: unify 7 lines below into a fn (e.g. compute_launch_shapes), re-use acorss all stubs
     // important to have it float to avoid int division
@@ -85,7 +85,7 @@ tensor* transpose_k(tensor* a){
 
     int N = a->shape[0], M = a->shape[1];
     // todo: allocate empty
-    tensor* out = CudaTensor(M, N);
+    tensor* out = Tensor(M, N);
 
     float num_threads = (float)NUM_THREADS;
     dim3 dimGrid(ceil(M/num_threads), ceil(N/num_threads), 1);

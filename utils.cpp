@@ -107,12 +107,12 @@ void graphviz(tensor* tens){
 
             // for tensors, vis shapes instead of names
             // label=\"{%s\\nshape=(%i, %i)}\"]\n", inp->name
-            if (inp->num_dims==4)
-                fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i, %i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1], inp->shape[2], inp->shape[3]);
+            if (inp->num_dims==2)
+                fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1]);
             else if (inp->num_dims==3)
                 fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1], inp->shape[2]);
-            else
-                fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1]);
+            else if (inp->num_dims==4)
+                fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i, %i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1], inp->shape[2], inp->shape[3]);
 
             // leafs don't have inputs to iterate over in the next iteration
             if (!inp->is_leaf && !is_visited) {

@@ -2,6 +2,9 @@
 #include "autograd.cpp"
 
 
+// todo-now: assert callback func pointers are not NULL, before calling them
+
+
 tensor* TensorNoData2d(int y, int z)
 {
     tensor* t = (tensor*)malloc(sizeof(tensor));
@@ -130,6 +133,8 @@ tensor* Tensor2d(int s1, int s2)
 {
     tensor* t = EmptyTensor2d(s1, s2);
     GetRandomFloat(t->data, t->size);
+    // todo-low: directly initialize random floats on gpu (avoid initializing on cpu, and then moving)
+    COPY_TO_DEVICE(t);
     return t;
 }
 
@@ -137,6 +142,7 @@ tensor* Tensor3d(int s1, int s2, int s3)
 {
     tensor* t = EmptyTensor3d(s1, s2, s3);
     GetRandomFloat(t->data, t->size);
+    COPY_TO_DEVICE(t);
     return t;
 }
 
@@ -144,6 +150,7 @@ tensor* Tensor4d(int s1, int s2, int s3, int s4)
 {
     tensor* t = EmptyTensor4d(s1, s2, s3, s4);
     GetRandomFloat(t->data, t->size);
+    COPY_TO_DEVICE(t);
     return t;
 }
 
@@ -176,31 +183,36 @@ tensor* TensorLike4d(tensor* t)
 // using GetRandomFloat and then overwrite them anyway
 tensor* TensorLikeFill2d(tensor* t, float value)
 {
-    tensor* t_new = TensorLike2d(t);
+    tensor* device_t_new = TensorLike2d(t);
+    tensor* t_new = COPY_FROM_DEVICE(device_t_new);
     for (int i=0; i<t_new->size; i++)
         t_new->data[i] = value;
+    // todo-high: all TensorLikeFillNd constructors (and TensorScalarFill) invoke COPY_TO_DEVICE twice -- once here, another time in TensorLike2d -> Tensor2d -> COPY_TO_DEVICE
+    COPY_TO_DEVICE(t_new);
     return t_new;
 }
 
 tensor* TensorLikeFill3d(tensor* t, float value)
 {
-    tensor* t_new = TensorLike3d(t);
+    tensor* device_t_new = TensorLike3d(t);
+    tensor* t_new = COPY_FROM_DEVICE(device_t_new);
     for (int i=0; i<t_new->size; i++)
         t_new->data[i] = value;
+    COPY_TO_DEVICE(t_new);
     return t_new;
 }
 
 tensor* TensorLikeFill4d(tensor* t, float value)
 {
-    tensor* t_new = TensorLike4d(t);
+    tensor* device_t_new = TensorLike4d(t);
+    tensor* t_new = COPY_FROM_DEVICE(device_t_new);
     for (int i=0; i<t_new->size; i++)
         t_new->data[i] = value;
+    COPY_TO_DEVICE(t_new);
     return t_new;
 }
 
 
-// todo: this ScalarFill seems to specific -- think of smt more general
-// todo: add constructor for empty tensors -- kind of like TensorLikeFill(, 0.0)
 tensor* TensorScalarFill(float value)
 {
     // todo: wasteful to init w random value using GetRandomFloat
@@ -208,73 +220,14 @@ tensor* TensorScalarFill(float value)
     tensor* t = Tensor2d(1, 1);
     // needed bc Tensor initializes to random value
     t->data[0] = value;
+    COPY_TO_DEVICE(t);
     return t;
 }
 
-tensor* EmptyTensorLike2d(tensor* t)
-{
-    int s1 = t->shape[0], s2 = t->shape[1];
-    return EmptyTensor2d(s1, s2);
-}
 
 
 
-void _copy_data_to_cuda(tensor* t)
-{
-    float* t_device;
-    int size = t->size * sizeof(float);
-    cudaError_t err = cudaMalloc((void**)&t_device, size);
-    // todo: exit from program everywhere in case of error
-    if (err != cudaSuccess){
-        printf("[cuda malloc] error");
-    }
-    err = cudaMemcpy(t_device, t->data, size, cudaMemcpyHostToDevice);
-    if (err != cudaSuccess){
-        printf("[cuda memcopy] error");
-    }
-    // todo: free cpu t->data (currently memory leak)
-    t->data = t_device;
-}
-
-float* _copy_data_to_cpu(tensor* t) {
-    // todo: can just define a macro for print to call 4 lines below and then call the orignal print2d (no need for cuda_print_2d)
-    cudaDeviceSynchronize();
-    int size = t->size * sizeof(float);
-    float* host_data = (float*)malloc(size);
-    cudaError_t err = cudaMemcpy(host_data, t->data, size, cudaMemcpyDeviceToHost);
-    // todo: define a macro CUDA_CHECK for unwrapping this
-    if (err != cudaSuccess){
-        printf("[cuda memcopy] error: %s",  cudaGetErrorString(err));
-    }
-    return host_data;
-}
-
-tensor* CudaTensor2d(int s1, int s2)
-{
-    // todo-low: directly initialize random floats on gpu (avoid initializing on cpu, and then moving)
-    tensor* t = Tensor2d(s1, s2);
-    t->device = CUDA; // device.cuda;
-    _copy_data_to_cuda(t);
-    return t;
-}
-
-tensor* CudaTensorLike2d(tensor* t)
-{
-    int s1 = t->shape[0], s2 = t->shape[1];
-    return CudaTensor2d(s1, s2);
-}
-
-tensor* CudaTensorLikeFill2d(tensor* t, float value)
-{
-    tensor* t_new = TensorLikeFill2d(t, value);
-    t_new->device = CUDA; // device.cuda;
-    _copy_data_to_cuda(t_new);
-    return t_new;
-}
-
-
-
-// implements function dispatching based on the number of arguments
+// the below implements function dispatching based on the number of arguments
 //  abstracts constructors of each family by dispatching to different impls depending on the number of args
 
 // need this instead of sizeof based impl, otherwise preprocessor fails
@@ -291,42 +244,41 @@ tensor* CudaTensorLikeFill2d(tensor* t, float value)
 #define TensorNoData(...) CONCAT(TensorNoData, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
 #define EmptyTensor(...) CONCAT(EmptyTensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
 #define Tensor(...) CONCAT(Tensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
-#define CudaTensor(...) CONCAT(CudaTensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
 
-
+/*
 // question-now: use funcs of this form instead of the macros above?
 
-// #include <stdarg.h>
+#include <stdarg.h>
 
-// #define COUNT_ARGS(...) \
-//     (sizeof((int[]){__VA_ARGS__})/sizeof(int))
+#define COUNT_ARGS(...) \
+    (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 
-// #define CudaTensor(...) CudaTensorImpl(COUNT_ARGS(__VA_ARGS__), __VA_ARGS__)
+#define Tensor(...) TensorImpl(COUNT_ARGS(__VA_ARGS__), __VA_ARGS__)
 
-// tensor* CudaTensorImpl(int num_args, ...){
-//     va_list args;
-//     va_start(args, num_args);
+tensor* TensorImpl(int num_args, ...){
+    va_list args;
+    va_start(args, num_args);
 
-//     int s0 = va_arg(args, int);
-//     int s1 = va_arg(args, int);
+    int s0 = va_arg(args, int);
+    int s1 = va_arg(args, int);
 
-//     if (num_args == 2){
-//         return CudaTensor2d(s0, s1);
-//     } else if (num_args == 3){
-//         int s2 = va_arg(args, int);
-//         return CudaTensor3d(s0, s1, s2);
-//     } else if (num_args == 4){
-//         int s2 = va_arg(args, int);
-//         int s3 = va_arg(args, int);
-//         return CudaTensor3d(s0, s1, s2, s3);
-//     }
-//     va_end(args);
-// }
-
+    if (num_args == 2){
+        return Tensor2d(s0, s1);
+    } else if (num_args == 3){
+        int s2 = va_arg(args, int);
+        return Tensor3d(s0, s1, s2);
+    } else if (num_args == 4){
+        int s2 = va_arg(args, int);
+        int s3 = va_arg(args, int);
+        return Tensor3d(s0, s1, s2, s3);
+    }
+    va_end(args);
+}
+*/
 
 // comment:
-//  use functions (instead of macros) for TensorLike, TensorLikeFill, CudaTensorLike, CudaTensorLikeFill
-//  bc preprocessor can't evaluate runtime value from a struct member at pre-processing time, so handle it in a fn
+//  use functions (instead of macros) for TensorLike, TensorLikeFill, bc preprocessor can't
+//  evaluate runtime value from a struct member at pre-processing time, so handle it in a fn
 
 tensor* TensorLike(tensor* t){
     if (t->num_dims==2)
@@ -346,28 +298,6 @@ tensor* TensorLikeFill(tensor* t, float val){
         return TensorLikeFill3d(t, val);
     else if (t->num_dims==4)
         return TensorLikeFill4d(t, val);
-    else
-        return NULL;
-}
-
-tensor* CudaTensorLike(tensor* t){
-    if (t->num_dims==2)
-        return CudaTensorLike2d(t);
-    // else if (t->num_dims==3)
-    //     return CudaTensorLike3d(t);
-    // else if (t->num_dims==4)
-    //     return CudaTensorLike4d(t);
-    else
-        return NULL;
-}
-
-tensor* CudaTensorLikeFill(tensor* t, float val){
-    if (t->num_dims==2)
-        return CudaTensorLikeFill2d(t, val);
-    // else if (t->num_dims==3)
-    //     return CudaTensorLikeFill3d(t, val);
-    // else if (t->num_dims==4)
-    //     return CudaTensorLikeFill4d(t, val);
     else
         return NULL;
 }

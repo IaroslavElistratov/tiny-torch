@@ -1,15 +1,6 @@
 #include "nn.h"
 #include "indexing.cpp"
-
-#if DEVICE == CUDA
-    #include "backends/cuda/kernels.cu"
-    // #include "backends/cuda/kernels_conv.cu"
-#elif DEVICE == CPU
-    #include "backends/cpu/kernels.cpp"
-    #include "backends/cpu/kernels_conv.cpp"
-#endif
-
-#include "backends/common.cpp"
+#include "backends/select_backend.cpp"
 
 
 // **** operations ****

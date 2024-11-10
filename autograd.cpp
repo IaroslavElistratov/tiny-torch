@@ -26,15 +26,7 @@ void backward(tensor* loss){
 
     // for the check below to pass
     loss->num_uses = 0;
-
-    if (DEVICE==CPU)
-        loss->grad = TensorLikeFill(loss, 1.0);
-    else if (DEVICE==CUDA)
-        loss->grad = CudaTensorLikeFill(loss, 1.0);
-    else {
-        printf("[autograd engine] Error");
-        return;
-    }
+    loss->grad = TensorLikeFill(loss, 1.0);
 
     deque <tensor*> ready;
     ready.push_front(loss);
@@ -108,13 +100,7 @@ void backward(tensor* loss){
                 char buffer[30];
                 sprintf(buffer, "%s_grad", inp->name);
                 set_name(inp->grad, buffer);
-
-                // todo: move this into lprint
-                if (DEVICE==CPU) {
-                    lprint(inp->grad);
-                } else if (DEVICE==CUDA) {
-                    cuda_lprint(inp->grad);
-                }
+                lprint(inp->grad);
             }
         }
     }

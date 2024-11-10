@@ -2,13 +2,12 @@
 using namespace std;
 
 #define DEVICE CUDA
-// #define print(a) ((DEVICE == CUDA) ? cuda_print(a) : print(a))
 
+#include "../nn.h"
 #include "../tensor.cpp"
 #include "../ops.cpp"
-#include "../utils.cpp"
+#include "../utils.cpp" // graphviz
 #include "../print.cpp"
-
 
 // todo-now:
 // for cuda, use same operation abstractions (as for cpu), but make these abstractions call host stubs for cuda kernels (instead of my kernles for cpu) -- this will preserve my graph building functionality
@@ -23,6 +22,9 @@ using namespace std;
 // Need to abstract away loop over individual elements and then can re-use most of the fwd kernels
 
 int main() {
+    // by default set to DEVICE backend
+    set_backend_device();
+
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -31,20 +33,25 @@ int main() {
     int M = 8;
     int D = 4;
 
-    tensor* x = CudaTensor(N, M);
-    set_name(x, "x"); cuda_print(x);
+    tensor* x = Tensor(N, M);
+    set_name(x, "x"); print(x);
 
-    tensor* w1 = CudaTensor(M, D);
-    set_name(w1, "w1"); cuda_print(w1);
+    tensor* w1 = Tensor(M, D);
+    set_name(w1, "w1"); print(w1);
 
     tensor* out = matmul(x, w1); // (N, D)
-    set_name(out, "out_mm"); cuda_print(out);
+    set_name(out, "out_mm"); print(out);
 
     tensor* out_tr = transpose(out);       // (D, N)
-    set_name(out_tr, "out_tr"); cuda_print(out_tr);
+    set_name(out_tr, "out_tr"); print(out_tr);
 
     out_tr->backward(out_tr);
     graphviz(out_tr);
+
+
+    set_backend_cpu();
+    tensor* cpu_tens = Tensor(M, D);
+    set_name(cpu_tens, "cpu_tens"); print(cpu_tens);
 
     return 0;
 }
