@@ -1,7 +1,12 @@
+#include "../../nn.h"
+#include "../../indexing.cpp"
+
 #if DEVICE == CUDA
-    #include "kernels.cu"
+    #include "../cuda/kernels.cu"
+    // #include "../cuda/kernels_conv.cu"
 #elif DEVICE == CPU
-    #include "kernels.cpp"
+    #include "../cpu/kernels.cpp"
+    #include "../cpu/kernels_conv.cpp"
 #endif
 
 

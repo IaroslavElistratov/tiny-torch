@@ -1,6 +1,3 @@
-#include "nn.h"
-#include "indexing.cpp"
-
 #define NUM_THREADS 32
 #define CUDA_DEBUG true
 

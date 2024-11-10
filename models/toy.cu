@@ -5,7 +5,7 @@ using namespace std;
 #define print(a) ((DEVICE == CUDA) ? cuda_print_2d(a) : print_2d(a))
 
 #include "../tensor.cpp"
-#include "../ops.cpp"
+#include "../backends/common/ops.cpp"
 #include "../utils.cpp"
 #include "../print.cpp"
 

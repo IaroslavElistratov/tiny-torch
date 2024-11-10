@@ -3,8 +3,7 @@ using namespace std;
 
 // #include "nn.h"
 #include "../tensor.cpp"
-#include "../ops.cpp"
-#include "../conv.cpp"
+#include "../backends/common/ops.cpp"
 #include "../utils.cpp"
 #include "../cifar10.cpp"
 #include "../print.cpp"

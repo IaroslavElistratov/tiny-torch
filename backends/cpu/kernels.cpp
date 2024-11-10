@@ -1,6 +1,3 @@
-#include "nn.h"
-#include "indexing.cpp"
-
 #include <math.h> // log, pow
 
 
