@@ -153,12 +153,8 @@ tensor* Tensor(int s1, int s2)
     return t;
 }
 
-tensor* CudaTensor(int s1, int s2)
+void _copy_data_to_cuda(tensor* t)
 {
-    // todo-low: directly initialize random floats on gpu (avoid initializing on cpu, and then moving)
-    tensor* t = Tensor(s1, s2);
-    t->device = CUDA; // device.cuda;
-
     float* t_device;
     int size = t->size * sizeof(float);
     cudaError_t err = cudaMalloc((void**)&t_device, size);
@@ -172,7 +168,27 @@ tensor* CudaTensor(int s1, int s2)
     }
     // todo: free cpu t->data (currently memory leak)
     t->data = t_device;
+}
 
+float* _copy_data_to_cpu(tensor* t) {
+    // todo: can just define a macro for print to call 4 lines below and then call the orignal print2d (no need for cuda_print_2d)
+    cudaDeviceSynchronize();
+    int size = t->size * sizeof(float);
+    float* host_data = (float*)malloc(size);
+    cudaError_t err = cudaMemcpy(host_data, t->data, size, cudaMemcpyDeviceToHost);
+    // todo: define a macro CUDA_CHECK for unwrapping this
+    if (err != cudaSuccess){
+        printf("[cuda memcopy] error: %s",  cudaGetErrorString(err));
+    }
+    return host_data;
+}
+
+tensor* CudaTensor(int s1, int s2)
+{
+    // todo-low: directly initialize random floats on gpu (avoid initializing on cpu, and then moving)
+    tensor* t = Tensor(s1, s2);
+    t->device = CUDA; // device.cuda;
+    _copy_data_to_cuda(t);
     return t;
 }
 
@@ -228,6 +244,14 @@ tensor* TensorLikeFill(tensor* t, float value)
     tensor* t_new = TensorLike(t);
     for (int i=0; i<t_new->size; i++)
         t_new->data[i] = value;
+    return t_new;
+}
+
+tensor* CudaTensorLikeFill(tensor* t, float value)
+{
+    tensor* t_new = TensorLikeFill(t, value);
+    t_new->device = CUDA; // device.cuda;
+    _copy_data_to_cuda(t_new);
     return t_new;
 }
 

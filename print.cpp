@@ -226,3 +226,58 @@ void lprint_4d(tensor* t)
     }
     fclose(f);
 }
+
+
+
+
+
+void cuda_print_2d(tensor* t)
+{
+    float* host_data = _copy_data_to_cpu(t);
+
+    sprint_2d(t);
+
+    int y = t->shape[0];
+    int z = t->shape[1];
+
+    for (int yi=0; yi<y; yi++){
+        printf("[");
+        for (int zi=0; zi<z; zi++){
+            // todo: doens't make sense to use cpu strides when acessing contigious copy data
+            // int idx = index_2d(t, yi, zi);
+            int idx = yi * t->shape[1] + zi;
+            printf("%8.4f, ", host_data[idx]);
+        }
+        printf("],\n");
+    }
+    printf("\n");
+}
+
+void cuda_lprint_2d(tensor* t)
+{
+
+    float* host_data = _copy_data_to_cpu(t);
+
+    lsprint_2d(t);
+
+    FILE *f = fopen("./generated/log.txt", "a");
+    if (!f) {
+        printf("Error opening file\n");
+        return;
+    }
+
+    int y = t->shape[0];
+    int z = t->shape[1];
+
+    for (int yi=0; yi<y; yi++){
+        fprintf(f, "[");
+        for (int zi=0; zi<z; zi++){
+            // int idx = index_2d(t, yi, zi);
+            int idx = yi * t->shape[1] + zi;
+            fprintf(f, "%8.4f, ", host_data[idx]);
+        }
+        fprintf(f, "],\n");
+    }
+    fprintf(f, "\n");
+    fclose(f);
+}

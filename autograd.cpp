@@ -30,11 +30,14 @@ void backward(tensor* loss){
     // for the check below to pass
     loss->num_uses = 0;
 
-    if (loss->num_dims==2)
+    // todo: move this into TensorLikeFill (which will call one of: TensorLikeFill2d, TensorLikeFill3d, TensorLikeFill4d) or CUDA tensor equivalents
+    if (loss->num_dims==2 && DEVICE==CPU)
         loss->grad = TensorLikeFill(loss, 1.0);
-    else if (loss->num_dims==3)
+    else if (loss->num_dims==2 && DEVICE==CUDA)
+        loss->grad = CudaTensorLikeFill(loss, 1.0);
+    else if (loss->num_dims==3 && DEVICE==CPU)
         loss->grad = TensorLikeFill3d(loss, 1.0);
-    else if (loss->num_dims==4)
+    else if (loss->num_dims==4 && DEVICE==CPU)
         loss->grad = TensorLikeFill4d(loss, 1.0);
     else {
         printf("[autograd engine] Error");
@@ -114,11 +117,13 @@ void backward(tensor* loss){
                 set_name(inp->grad, buffer);
 
                 // todo: move this into lprint
-                if (inp->grad->num_dims==2) {
+                if (inp->grad->num_dims==2 && DEVICE==CPU) {
                     lprint_2d(inp->grad);
-                } else if (inp->grad->num_dims==3) {
+                } else if (inp->grad->num_dims==2 && DEVICE==CUDA) {
+                    cuda_lprint_2d(inp->grad);
+                } else if (inp->grad->num_dims==3 && DEVICE==CPU) {
                     lprint_3d(inp->grad);
-                } else if (inp->grad->num_dims==4) {
+                } else if (inp->grad->num_dims==4 && DEVICE==CPU) {
                     lprint_4d(inp->grad);
                 } else {
                     printf("[autograd] Error");

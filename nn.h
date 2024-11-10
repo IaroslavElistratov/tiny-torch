@@ -68,6 +68,7 @@ tensor* TensorLike(tensor* t);
 tensor* TensorLikeFill(tensor* t, float value);
 tensor* TensorLikeFill3d(tensor* t, float value);
 tensor* TensorLikeFill4d(tensor* t, float value);
+tensor* CudaTensorLikeFill(tensor* t, float value);
 
 float* EmptyFloat(int s1, int s2);
 float* EmptyFloatLike(tensor* t);
@@ -83,5 +84,9 @@ void print_4d(tensor*);
 void lprint_2d(tensor* t);
 void lprint_3d(tensor* t);
 void lprint_4d(tensor* t);
+
+void cuda_lprint_2d(tensor* t);
+
+float* _copy_data_to_cpu(tensor* t);
 
 #endif
