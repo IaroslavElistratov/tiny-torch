@@ -9,6 +9,8 @@
     #include "../cpu/kernels_conv.cpp"
 #endif
 
+#include "bwd.cpp"
+
 
 // **** operations ****
 //   - shared between CUDA and CPU kernels

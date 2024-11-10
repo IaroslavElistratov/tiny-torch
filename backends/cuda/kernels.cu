@@ -68,25 +68,6 @@ void matmul_input_checks(tensor* a, tensor* b){
     }
 }
 
-// todo-now: impl is exactly the same as CPU matmul_bwd -- reuse; Same for: transpose_bwd
-void matmul_bwd(tensor* upstream, tensor* out) {
-    tensor* a = out->inputs[0];
-    tensor* b = out->inputs[1];
-
-    tensor* local_a = transpose_k(b); // (M, D) -> (D, M)
-    tensor* local_b = transpose_k(a); // (N, M) -> (M, N)
-
-    // 2. wire local with upstream
-    // upstream(N, D) @ b.t(D, M) = a_grad(N, M)
-    a->grad = matmul_k(upstream, local_a);
-    // a.t(M, N) @ upstream(N, D) = b_grad(M, D)
-    b->grad = matmul_k(local_b, upstream);
-
-    // note:
-    // free(local_a), free(local_b);
-}
-
-
 
 
 // a(N, M) -> out(M, N)
@@ -129,9 +110,4 @@ void transpose_input_checks(tensor* a){
         printf("[cuda Transpose] Error: expect 2-dim inputs");
         return;
     }
-}
-
-void transpose_bwd(tensor* upstream, tensor* out) {
-    tensor* a = out->inputs[0];
-    a->grad = transpose_k(upstream);
 }

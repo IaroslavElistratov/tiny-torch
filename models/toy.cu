@@ -17,6 +17,10 @@ using namespace std;
 // todo-now:
 // and "matmul_bwd", "batched_matmul_bwd", "div_bwd", "pow_bwd", "reduce_sum_bwd" can also be re-used!
 // Seems possible to overwrite all tensor constructors (from CPU to CUDA) when DEVICE macro is set to CUDA, and re-use _bwd[s] ?
+//  No need to overwrite constructors, just move selection of what subclass to call (cpu or cuda) to the constructor fn itself
+
+// todo-now:
+// Need to abstract away loop over individual elements and then can re-use most of the fwd kernels
 
 int main() {
     // random num generator init, must be called once
