@@ -188,13 +188,13 @@ int main() {
     // w2 = Tensor(relu3->shape[1], 16);
     // w3 = Tensor(relu4->shape[1], 10);
 
-    tensor* w1 = Tensor(24, 32);
+    tensor* w1 = Tensor2d(24, 32);
     set_name(w1, "w1"), sprint_2d(w1);
 
-    tensor* w2 = Tensor(32, 16);
+    tensor* w2 = Tensor2d(32, 16);
     set_name(w2, "w2"), sprint_2d(w2);
 
-    tensor* w3 = Tensor(16, 10);
+    tensor* w3 = Tensor2d(16, 10);
     set_name(w3, "w3"), sprint_2d(w3);
 
     state params = {kernel1, kernel2, w1, w2, w3};

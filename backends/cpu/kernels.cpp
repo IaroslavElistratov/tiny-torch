@@ -69,13 +69,13 @@ tensor* add_k_(tensor* a, tensor* b, tensor* out) {
 
 // todo: use "const tensor*" instead of "tensor"
 tensor* add_k(tensor* a, tensor* b) {
-    tensor* out = TensorLike(a);
+    tensor* out = TensorLike2d(a);
     return add_k_(a, b, out);
 }
 
 
 tensor* sub_k(tensor* a, tensor* b) {
-    tensor* out = TensorLike(a);
+    tensor* out = TensorLike2d(a);
     for (int i=0; i<out->size; i++)
         out->data[i] = a->data[i] - b->data[i];
     return out;
@@ -88,7 +88,7 @@ tensor* mul_k(tensor* a, tensor* b) {
 
     // todo-high: move this into TensorLike fn itself; rename current TensorLike to TensorLike2d
     if (a->num_dims==2)
-        out = TensorLike(a);
+        out = TensorLike2d(a);
     else if (a->num_dims==3)
         out = TensorLike3d(a);
     else if (a->num_dims==4)
@@ -104,7 +104,7 @@ tensor* mul_k(tensor* a, tensor* b) {
 }
 
 
-//    binary not-elementwise
+//    binary
 
 
 // a.shape (N, M)
@@ -139,7 +139,7 @@ void matmul_k_(tensor* a, tensor* b, tensor* out)
 tensor* matmul_k(tensor* a, tensor* b)
 {
     int N = a->shape[0], D = b->shape[1];
-    tensor* out = Tensor(N, D);
+    tensor* out = Tensor2d(N, D);
     matmul_k_(a, b, out);
     return out;
 }
@@ -152,7 +152,7 @@ tensor* div_k(tensor* a, tensor* b) {
         return NULL;
     }
 
-    tensor* out = TensorLike(a);
+    tensor* out = TensorLike2d(a);
 
     for (int i=0; i<out->size; i++)
         out->data[i] = a->data[i] / b->data[i];
@@ -168,7 +168,7 @@ tensor* repeat_k(tensor* a, int num_repeats) {
     }
 
     int B = a->shape[0];
-    tensor* out = Tensor(B, num_repeats);
+    tensor* out = Tensor2d(B, num_repeats);
 
 
     // 1 1 1
@@ -203,7 +203,7 @@ tensor* select_k(tensor* a, tensor* idx) {
     }
 
     int B = a->shape[0];
-    tensor* out = Tensor(B, 1);
+    tensor* out = Tensor2d(B, 1);
 
     for (int b=0; b<B; b++){
         float* curr_a = a->data + (a->stride[0]*b);
@@ -228,11 +228,11 @@ void select_bwd(tensor* upstream, tensor* out) {
     int B = a->shape[0];
 
     // comment: this is not supported in torch "RuntimeError: only Tensors of floating point and complex dtype can require gradients"
-    idx->grad = TensorLikeFill(idx, 1.0);  // (s1, 1)
+    idx->grad = TensorLikeFill2d(idx, 1.0);  // (s1, 1)
     for (int i=0; i<idx->grad->size; i++)
         idx->grad->data[i] = idx->grad->data[i] * upstream->data[i];
 
-    a->grad = TensorLikeFill(a, 0.0);      // (s1, s2)
+    a->grad = TensorLikeFill2d(a, 0.0);      // (s1, s2)
     // this represents gradient checkpoint (other ops that recompute values of fwd in bwd are: relu, maxpool)
     for (int b=0; b<B; b++) {
         int offset_batch = b * a->grad->stride[0];
@@ -247,7 +247,7 @@ void select_bwd(tensor* upstream, tensor* out) {
 
 
 tensor* pow_k(tensor* a, int exponent) {
-    tensor* out = TensorLikeFill(a, 0.0);
+    tensor* out = TensorLikeFill2d(a, 0.0);
     for (int i=0; i<out->size; i++)
         // pow here refers to C's math function, not tiny-torch's op
         out->data[i] = (float)pow(a->data[i], exponent);
@@ -272,7 +272,7 @@ tensor* relu_k(tensor* a) {
     // relu_k previously hardcoded creating 2d ouput, "batched relu"
     // doesn't make sense -- just the below
     if (a->num_dims==2)
-        out = TensorLike(a);
+        out = TensorLike2d(a);
     else if (a->num_dims==3)
         out = TensorLike3d(a);
     else if (a->num_dims==4)
@@ -295,11 +295,11 @@ void relu_bwd(tensor* upstream, tensor* out) {
     //  ofc can avoid by making original relu ouput the mask
     //  -- but I found recomputing is a bit cleaner to explain
 
-    // tensor* local = TensorLike(a);
+    // tensor* local = TensorLike2d(a);
     tensor* local = NULL;
 
     if (a->num_dims==2)
-        local = TensorLike(a);
+        local = TensorLike2d(a);
     else if (a->num_dims==3)
         local = TensorLike3d(a);
     else if (a->num_dims==4)
@@ -337,7 +337,7 @@ tensor* transpose_k(tensor* x) {
     //   - to go to next column, need to skip 1
     int stride_next_row = s2, stride_next_col = 1;
 
-    tensor* out = Tensor(s2, s1);
+    tensor* out = Tensor2d(s2, s1);
 
     // basically need indexing pattern to access elements of array
     // next idx is different inside-a-row vs when switching to next row
@@ -376,7 +376,7 @@ tensor* max_k(tensor* a) {
 void max_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     // 1. local
-    tensor* local = TensorLikeFill(a, 0.0);
+    tensor* local = TensorLikeFill2d(a, 0.0);
     int idx_max = 0;
     float max = a->data[idx_max];
     for (int i=0; i<a->size; i++) {
@@ -388,7 +388,7 @@ void max_bwd(tensor* upstream, tensor* out) {
     local->data[idx_max] = 1.0;
     // 2. wire local with upstream
     // make upstream and local to be same shape (currently upstream is a scalar, while local is a 2d tensor)
-    tensor* broadcasted_upstream = TensorLikeFill(a, upstream->data[0]);
+    tensor* broadcasted_upstream = TensorLikeFill2d(a, upstream->data[0]);
     a->grad = mul_k(local, broadcasted_upstream);
     // free(local);
 }
@@ -399,7 +399,7 @@ tensor* neg_k(tensor* a) {
     tensor* out = NULL;
 
     if (a->num_dims==2)
-        out = TensorLike(a);
+        out = TensorLike2d(a);
     else if (a->num_dims==3)
         out = TensorLike3d(a);
     else if (a->num_dims==4)
@@ -420,7 +420,7 @@ tensor* exp_k(tensor* a) {
         printf("[exp_k] Error shape");
         return NULL;
     }
-    tensor* out = TensorLikeFill(a, 0.0);
+    tensor* out = TensorLikeFill2d(a, 0.0);
     for (int i=0; i<out->size; i++){
         out->data[i] = expf(a->data[i]);
     }
@@ -430,7 +430,7 @@ tensor* exp_k(tensor* a) {
 void exp_bwd(tensor* upstream, tensor* out) {
     tensor* a=out->inputs[0];
     if (!a->grad)
-        a->grad = TensorLikeFill(a, 0.0);
+        a->grad = TensorLikeFill2d(a, 0.0);
     else
         printf("[exp_bwd] a->grad exists!\n");
 
@@ -446,7 +446,7 @@ tensor* log_k(tensor* a) {
         printf("[log_k] Error shape");
         return NULL;
     }
-    tensor* out = TensorLikeFill(a, 0.0);
+    tensor* out = TensorLikeFill2d(a, 0.0);
     for (int i=0; i<out->size; i++){
         out->data[i] = logf(a->data[i]);
     }
@@ -455,7 +455,7 @@ tensor* log_k(tensor* a) {
 
 void log_bwd(tensor* upstream, tensor* out) {
     tensor* a=out->inputs[0];
-    a->grad = TensorLikeFill(a, 0.0);
+    a->grad = TensorLikeFill2d(a, 0.0);
 
     // approximately 2.718282 C Math exp() Function e is the base of the natural system of logarithms (approximately 2.718282)
     // Some implementations of the <math. h> library include a constant M_E
@@ -519,7 +519,7 @@ tensor* batched_flatten_k(tensor* a) {
     }
 
     // inputs to this kernel can be 3d, 4d -- but the output is always 2d (all dims flattened except for the batch dim)
-    tensor* out = Tensor(B, out_dim);
+    tensor* out = Tensor2d(B, out_dim);
 
     for (int i=0; i<a->size; i++)
         out->data[i] = a->data[i];
@@ -553,7 +553,7 @@ tensor* batched_reduce_sum_k(tensor* a) {
     }
 
     int B = a->shape[0], N = a->shape[1];
-    tensor* out = Tensor(B, 1);
+    tensor* out = Tensor2d(B, 1);
 
     for (int b=0; b<B; b++){
         // a[i], b[i], out[i] is incorrect. Bc such indexing would return
@@ -580,7 +580,7 @@ void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
         // If we instead simply overwrite it, then wouldn't matter,
         // but bc we do "+=" it does matter (if there's any garbage
         // data, the grad will be += to it)
-        a->grad = TensorLikeFill(a, 0.0);
+        a->grad = TensorLikeFill2d(a, 0.0);
     else {
         printf("[batched_reduce_sum_bwd] a->grad exists!\n");
     }
@@ -619,7 +619,7 @@ tensor* batched_max_k(tensor* a) {
     }
 
     int B = a->shape[0], N = a->shape[1];
-    tensor* out = Tensor(B, 1);
+    tensor* out = Tensor2d(B, 1);
 
     for (int b=0; b<B; b++){
         tensor* curr_a = TensorNoData(1, N);
@@ -639,7 +639,7 @@ void batched_max_bwd(tensor* upstream, tensor* out) {
         printf("[batched_max] Error");
 
     if (!a->grad)
-        a->grad = TensorLikeFill(a, 0.0);
+        a->grad = TensorLikeFill2d(a, 0.0);
     else {
         printf("[batched_max_bwd] a->grad exists!\n");
     }

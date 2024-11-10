@@ -37,7 +37,7 @@ tensor* slice_2d(tensor* t, const char* dims){
     int y = ends[0] - starts[0];
     int z = ends[1] - starts[1];
 
-    tensor* out = EmptyTensor(y, z);
+    tensor* out = EmptyTensor2d(y, z);
 
     // lower-case to denote dims of the slice
     for (int yi=0; yi<y; yi++){
@@ -95,7 +95,7 @@ tensor* view_2d(tensor* t, const char* dims){
     int y = ends[0] - starts[0];
     int z = ends[1] - starts[1];
 
-    tensor* out = TensorNoData(y, z);
+    tensor* out = TensorNoData2d(y, z);
     // the default constructor sets strides based on the shapes provided to the constructor.
     // This is correct in general, however here heed to change
     out->stride[0] = t->stride[0];

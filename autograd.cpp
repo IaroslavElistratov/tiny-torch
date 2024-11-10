@@ -32,9 +32,9 @@ void backward(tensor* loss){
 
     // todo: move this into TensorLikeFill (which will call one of: TensorLikeFill2d, TensorLikeFill3d, TensorLikeFill4d) or CUDA tensor equivalents
     if (loss->num_dims==2 && DEVICE==CPU)
-        loss->grad = TensorLikeFill(loss, 1.0);
+        loss->grad = TensorLikeFill2d(loss, 1.0);
     else if (loss->num_dims==2 && DEVICE==CUDA)
-        loss->grad = CudaTensorLikeFill(loss, 1.0);
+        loss->grad = CudaTensorLikeFill2d(loss, 1.0);
     else if (loss->num_dims==3 && DEVICE==CPU)
         loss->grad = TensorLikeFill3d(loss, 1.0);
     else if (loss->num_dims==4 && DEVICE==CPU)

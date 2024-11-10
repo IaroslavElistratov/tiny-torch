@@ -20,8 +20,10 @@ void GetRandomFloat(float* dst, int num)
     }
 }
 
+// todo-now: implement function dispatching based on the number of arguments 
+//  abstracting constructors of single family requires dispatching to different fn impls depending on the number of args
 
-tensor* TensorNoData(int y, int z)
+tensor* TensorNoData2d(int y, int z)
 {
     tensor* t = (tensor*)malloc(sizeof(tensor));
 
@@ -123,9 +125,9 @@ tensor* TensorNoData4d(int o, int x, int y, int z)
 
 
 // empty means non-initalized, but with data allocated to it
-tensor* EmptyTensor(int s1, int s2)
+tensor* EmptyTensor2d(int s1, int s2)
 {
-    tensor* t = TensorNoData(s1, s2);
+    tensor* t = TensorNoData2d(s1, s2);
     t->data = (float*)malloc(sizeof(float) * t->size);
     return t;
 }
@@ -146,12 +148,98 @@ tensor* EmptyTensor4d(int o, int x, int y, int z)
 
 
 // todo: rename to Tensor2d, EmptyTensor2d, TensorNoData2d
-tensor* Tensor(int s1, int s2)
+tensor* Tensor2d(int s1, int s2)
 {
-    tensor* t = EmptyTensor(s1, s2);
+    tensor* t = EmptyTensor2d(s1, s2);
     GetRandomFloat(t->data, t->size);
     return t;
 }
+
+tensor* Tensor3d(int s1, int s2, int s3)
+{
+    tensor* t = EmptyTensor3d(s1, s2, s3);
+    GetRandomFloat(t->data, t->size);
+    return t;
+}
+
+tensor* Tensor4d(int s1, int s2, int s3, int s4)
+{
+    tensor* t = EmptyTensor4d(s1, s2, s3, s4);
+    GetRandomFloat(t->data, t->size);
+    return t;
+}
+
+
+/*
+for convince to avoid:
+    int N = x->shape[0], M = x->shape[1];
+    tensor* out = Tensor2d(N, D);
+*/
+tensor* TensorLike2d(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1];
+    return Tensor2d(s1, s2);
+}
+
+tensor* TensorLike3d(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1], s3 = t->shape[2];
+    return Tensor3d(s1, s2, s3);
+}
+
+tensor* TensorLike4d(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1], s3 = t->shape[2], s4 = t->shape[3];
+    return Tensor4d(s1, s2, s3, s4);
+}
+
+
+// todo: in each TensorLikeFill wasteful to init w random value
+// using GetRandomFloat and then overwrite them anyway
+tensor* TensorLikeFill2d(tensor* t, float value)
+{
+    tensor* t_new = TensorLike2d(t);
+    for (int i=0; i<t_new->size; i++)
+        t_new->data[i] = value;
+    return t_new;
+}
+
+tensor* TensorLikeFill3d(tensor* t, float value)
+{
+    tensor* t_new = TensorLike3d(t);
+    for (int i=0; i<t_new->size; i++)
+        t_new->data[i] = value;
+    return t_new;
+}
+
+tensor* TensorLikeFill4d(tensor* t, float value)
+{
+    tensor* t_new = TensorLike4d(t);
+    for (int i=0; i<t_new->size; i++)
+        t_new->data[i] = value;
+    return t_new;
+}
+
+
+// todo: this ScalarFill seems to specific -- think of smt more general
+// todo: add constructor for empty tensors -- kind of like TensorLikeFill(, 0.0)
+tensor* TensorScalarFill(float value)
+{
+    // todo: wasteful to init w random value using GetRandomFloat
+    //  and then overwrite them anyway
+    tensor* t = Tensor2d(1, 1);
+    // needed bc Tensor initializes to random value
+    t->data[0] = value;
+    return t;
+}
+
+tensor* EmptyTensorLike2d(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1];
+    return EmptyTensor2d(s1, s2);
+}
+
+
 
 void _copy_data_to_cuda(tensor* t)
 {
@@ -183,112 +271,30 @@ float* _copy_data_to_cpu(tensor* t) {
     return host_data;
 }
 
-tensor* CudaTensor(int s1, int s2)
+tensor* CudaTensor2d(int s1, int s2)
 {
     // todo-low: directly initialize random floats on gpu (avoid initializing on cpu, and then moving)
-    tensor* t = Tensor(s1, s2);
+    tensor* t = Tensor2d(s1, s2);
     t->device = CUDA; // device.cuda;
     _copy_data_to_cuda(t);
     return t;
 }
 
-tensor* Tensor3d(int s1, int s2, int s3)
-{
-    tensor* t = EmptyTensor3d(s1, s2, s3);
-    GetRandomFloat(t->data, t->size);
-    return t;
-}
-
-tensor* Tensor4d(int s1, int s2, int s3, int s4)
-{
-    tensor* t = EmptyTensor4d(s1, s2, s3, s4);
-    GetRandomFloat(t->data, t->size);
-    return t;
-}
-
-
-/*
-for convince to avoid:
-    int N = x->shape[0], M = x->shape[1];
-    tensor* out = Tensor(N, D);
-*/
-tensor* TensorLike(tensor* t)
+tensor* CudaTensorLike2d(tensor* t)
 {
     int s1 = t->shape[0], s2 = t->shape[1];
-    return Tensor(s1, s2);
-}
-
-tensor* CudaTensorLike(tensor* t)
-{
-    int s1 = t->shape[0], s2 = t->shape[1];
-    return CudaTensor(s1, s2);
-}
-
-tensor* TensorLike3d(tensor* t)
-{
-    int s1 = t->shape[0], s2 = t->shape[1], s3 = t->shape[2];
-    return Tensor3d(s1, s2, s3);
-}
-
-tensor* TensorLike4d(tensor* t)
-{
-    int s1 = t->shape[0], s2 = t->shape[1], s3 = t->shape[2], s4 = t->shape[3];
-    return Tensor4d(s1, s2, s3, s4);
+    return CudaTensor2d(s1, s2);
 }
 
 
-// todo: in each TensorLikeFill wasteful to init w random value
-// using GetRandomFloat and then overwrite them anyway
-tensor* TensorLikeFill(tensor* t, float value)
+tensor* CudaTensorLikeFill2d(tensor* t, float value)
 {
-    tensor* t_new = TensorLike(t);
-    for (int i=0; i<t_new->size; i++)
-        t_new->data[i] = value;
-    return t_new;
-}
-
-tensor* CudaTensorLikeFill(tensor* t, float value)
-{
-    tensor* t_new = TensorLikeFill(t, value);
+    tensor* t_new = TensorLikeFill2d(t, value);
     t_new->device = CUDA; // device.cuda;
     _copy_data_to_cuda(t_new);
     return t_new;
 }
 
-tensor* TensorLikeFill3d(tensor* t, float value)
-{
-    tensor* t_new = TensorLike3d(t);
-    for (int i=0; i<t_new->size; i++)
-        t_new->data[i] = value;
-    return t_new;
-}
-
-tensor* TensorLikeFill4d(tensor* t, float value)
-{
-    tensor* t_new = TensorLike4d(t);
-    for (int i=0; i<t_new->size; i++)
-        t_new->data[i] = value;
-    return t_new;
-}
-
-
-// todo: this ScalarFill seems to specific -- think of smt more general
-// todo: add constructor for empty tensors -- kind of like TensorLikeFill(, 0.0)
-tensor* TensorScalarFill(float value)
-{
-    // todo: wasteful to init w random value using GetRandomFloat
-    //  and then overwrite them anyway
-    tensor* t = Tensor(1, 1);
-    // needed bc Tensor initializes to random value
-    t->data[0] = value;
-    return t;
-}
-
-tensor* EmptyTensorLike(tensor* t)
-{
-    int s1 = t->shape[0], s2 = t->shape[1];
-    return EmptyTensor(s1, s2);
-}
 
 
 void set_name(tensor* t, const char* name){

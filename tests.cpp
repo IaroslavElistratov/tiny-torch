@@ -46,7 +46,7 @@ using namespace std;
 */
 
 /* autograd
-    tensor* a = Tensor(2, 2);
+    tensor* a = Tensor2d(2, 2);
     a->backward(a);
     // >>> [autograd engine] Error: tensor has no grad_fn
 */
@@ -98,21 +98,21 @@ int test_net() {
     tensor* out_flat = batched_flatten(out_mp2);
     set_name(out_flat, "out_flat"); sprint_2d(out_flat);
 
-    tensor* w1 = Tensor(out_flat->shape[1], 32);
+    tensor* w1 = Tensor2d(out_flat->shape[1], 32);
     set_name(w1, "w1"); print_2d(w1);
     tensor* out_mm1 = matmul(out_flat, w1);
     set_name(out_mm1, "out_mm1"); sprint_2d(out_mm1);
     tensor* out_relu3 = relu(out_mm1);
     set_name(out_relu3, "out_relu3"); sprint_2d(out_relu3);
 
-    tensor* w2 = Tensor(out_relu3->shape[1], 16);
+    tensor* w2 = Tensor2d(out_relu3->shape[1], 16);
     set_name(w2, "w2"); print_2d(w2);
     tensor* out_mm2 = matmul(out_relu3, w2);
     set_name(out_mm2, "out_mm2"); sprint_2d(out_mm1);
     tensor* out_relu4 = relu(out_mm2);
     set_name(out_relu4, "out_relu4"); sprint_2d(out_relu4);
 
-    tensor* w3 = Tensor(out_relu4->shape[1], 10);
+    tensor* w3 = Tensor2d(out_relu4->shape[1], 10);
     set_name(w3, "w3"); print_2d(w3);
     tensor* out = matmul(out_relu4, w3);
     set_name(out, "out"); print_2d(out);
@@ -127,9 +127,9 @@ int test_net() {
 
 int test_select() {
     srand(123);
-    tensor* a = Tensor(4, 2);
+    tensor* a = Tensor2d(4, 2);
     set_name(a, "a"), print_2d(a);
-    tensor* idx = Tensor(4, 1);
+    tensor* idx = Tensor2d(4, 1);
     idx->data[0] = 1.0;
     idx->data[1] = 0.0;
     idx->data[2] = 0.0;
@@ -137,7 +137,7 @@ int test_select() {
 
     tensor* out = select(a, idx);
 
-    tensor* w = Tensor(1, 5);
+    tensor* w = Tensor2d(1, 5);
     set_name(w, "w"), print_2d(w);
 
     tensor* out2 = matmul(out, w);
@@ -151,13 +151,13 @@ int test_select() {
 // test_max
 int test_max() {
     srand(123);
-    tensor* a = Tensor(4, 3);
+    tensor* a = Tensor2d(4, 3);
     set_name(a, "a"), print_2d(a);
 
     tensor* out = batched_max(a);
     set_name(out, "out"), print_2d(out);
 
-    tensor* w = Tensor(1, 5);
+    tensor* w = Tensor2d(1, 5);
     set_name(w, "w"), print_2d(w);
 
     tensor* out2 = matmul(out, w);
@@ -172,13 +172,13 @@ int test_max() {
 
 int test_batched_reduce() {
     srand(123);
-    tensor* a = Tensor(4, 10);
+    tensor* a = Tensor2d(4, 10);
     set_name(a, "a"), print_2d(a);
 
     tensor* out = batched_reduce_sum(a);
     set_name(out, "out"), print_2d(out);
 
-    tensor* w = Tensor(1, 5);
+    tensor* w = Tensor2d(1, 5);
     set_name(w, "w"), print_2d(w);
 
     tensor* out2 = matmul(out, w);
@@ -193,13 +193,13 @@ int test_batched_reduce() {
 
 int test_exp() {
     srand(123);
-    tensor* a = Tensor(4, 10);
+    tensor* a = Tensor2d(4, 10);
     set_name(a, "a"), print_2d(a);
 
     tensor* out = exp(a);
     set_name(out, "out"), print_2d(out);
 
-    tensor* w = Tensor(10, 5);
+    tensor* w = Tensor2d(10, 5);
     set_name(w, "w"), print_2d(w);
 
     tensor* out2 = matmul(out, w);
@@ -216,13 +216,13 @@ int test_exp() {
 
 int test_log() {
     srand(123);
-    tensor* a = Tensor(4, 10);
+    tensor* a = Tensor2d(4, 10);
     set_name(a, "a"), print_2d(a);
 
     tensor* out = log(a);
     set_name(out, "out"), print_2d(out);
 
-    tensor* w = Tensor(10, 5);
+    tensor* w = Tensor2d(10, 5);
     set_name(w, "w"), print_2d(w);
 
     tensor* out2 = matmul(out, w);
@@ -241,13 +241,13 @@ int test_log() {
 
 int test_repeat() {
     srand(123);
-    tensor* a = Tensor(4, 1);
+    tensor* a = Tensor2d(4, 1);
     set_name(a, "a"), print_2d(a);
 
     tensor* out = repeat(a, 3);
     set_name(out, "out"), print_2d(out);
 
-    tensor* w = Tensor(3, 5);
+    tensor* w = Tensor2d(3, 5);
     set_name(w, "w"), print_2d(w);
 
     tensor* out2 = matmul(out, w);
@@ -266,13 +266,13 @@ int test_repeat() {
 
 int test_neg() {
     srand(123);
-    tensor* a = Tensor(4, 1);
+    tensor* a = Tensor2d(4, 1);
     set_name(a, "a"), print_2d(a);
 
     tensor* out = neg(a);
     set_name(out, "out"), print_2d(out);
 
-    tensor* w = Tensor(1, 5);
+    tensor* w = Tensor2d(1, 5);
     set_name(w, "w"), print_2d(w);
 
     tensor* out2 = matmul(out, w);
@@ -292,16 +292,16 @@ int test_neg() {
 
 int test_div() {
     srand(123);
-    tensor* a = Tensor(4, 3);
+    tensor* a = Tensor2d(4, 3);
     set_name(a, "a"), print_2d(a);
 
-    tensor* b = Tensor(4, 3);
+    tensor* b = Tensor2d(4, 3);
     set_name(b, "b"), print_2d(b);
 
     tensor* out = div(a, b);
     set_name(out, "out"), print_2d(out);
 
-    tensor* w = Tensor(3, 5);
+    tensor* w = Tensor2d(3, 5);
     set_name(w, "w"), print_2d(w);
 
     tensor* out2 = matmul(out, w);
@@ -318,10 +318,10 @@ int test_div() {
 
 // int main(){
 //     srand(123);
-//     tensor* a = Tensor(4, 3);
+//     tensor* a = Tensor2d(4, 3);
 //     set_name(a, "a"), print_2d(a);
 
-//     tensor* b = Tensor(4, 3);
+//     tensor* b = Tensor2d(4, 3);
 //     set_name(b, "b"), print_2d(b);
 
 //     tensor* c = pow_k(b, 2);
@@ -586,7 +586,7 @@ int test_parse(){
 int test_indexing() {
     srand(123);
 
-    tensor* x = Tensor(3, 7);
+    tensor* x = Tensor2d(3, 7);
     set_name(x, "orig. x"); print(x);
 
     tensor* x_slice = slice_2d(x, "1:3, 3:6");
