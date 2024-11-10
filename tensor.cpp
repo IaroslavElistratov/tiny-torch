@@ -1,27 +1,6 @@
-// #include <iostream>
-// using namespace std;
-
 #include "nn.h"
 #include "autograd.cpp"
 
-char* random_chars(int num);
-
-void GetRandomFloat(float* dst, int num)
-{
-    for (int i=0; i<num; i++)
-    {
-        // https://linux.die.net/man/3/random
-        // returns a pseudo-random int between 0 and RAND_MAX
-        // normalize to: 0 - 1
-        // shift to: -0.5 - 0.5
-
-        // not truncating to 0 due to int division, bc C promotes args
-        dst[i] = ((float)rand() / RAND_MAX) - 0.5;
-    }
-}
-
-// todo-now: implement function dispatching based on the number of arguments 
-//  abstracting constructors of single family requires dispatching to different fn impls depending on the number of args
 
 tensor* TensorNoData2d(int y, int z)
 {
@@ -286,7 +265,6 @@ tensor* CudaTensorLike2d(tensor* t)
     return CudaTensor2d(s1, s2);
 }
 
-
 tensor* CudaTensorLikeFill2d(tensor* t, float value)
 {
     tensor* t_new = TensorLikeFill2d(t, value);
@@ -297,51 +275,99 @@ tensor* CudaTensorLikeFill2d(tensor* t, float value)
 
 
 
-void set_name(tensor* t, const char* name){
-    // free the automatically set random name
-    // added by the constructor
-    free(t->name);
+// implement function dispatching based on the number of arguments 
+//  abstracting constructors of single family requires dispatching to different fn impls depending on the number of args
 
-    // todo-low: small inefficiency of always allocating MAX_TENSOR_NAME
-    //  even if user provided str is shorter
-    t->name = (char*)malloc(sizeof(char) * MAX_TENSOR_NAME);
+// need this instead of sizeof based impl, otherwise preprocessor fails
+#define VA_NARGS_IMPL(_1, _2, _3, _4, _5, N, ...) N
+#define VA_NARGS(...) VA_NARGS_IMPL(__VA_ARGS__, 5, 4, 3, 2, 1)
 
-    int i=0;
-    bool is_break = false;
-    for (; !is_break && i<MAX_TENSOR_NAME-1; i++) {
-        t->name[i] = name[i];
-        if (name[i] == '\0')
-            is_break = true;
-    }
+// need inner otherwise preprocessor fails
+#define CONCAT(a, b) CONCAT_INNER(a, b)
+#define CONCAT_INNER(a, b) a##b
 
-    if (!is_break && name[i+1] != '\0') {
-        printf("[set_name] Warning, specified name larger than MAX_TENSOR_NAME -- truncating\n");
-        t->name[i+1] = '\0';
-    }
+#define MAX_DIM 4
+
+// todo: static_assert(VA_NARGS(__VA_ARGS__) <= MAX_DIM, "[constructor] error")
+#define TensorNoData(...) CONCAT(TensorNoData, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+#define EmptyTensor(...) CONCAT(EmptyTensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+#define Tensor(...) CONCAT(Tensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+#define CudaTensor(...) CONCAT(CudaTensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+
+
+// question-now: use funcs of this form instead of the macros above?
+
+// #include <stdarg.h>
+
+// #define COUNT_ARGS(...) \
+//     (sizeof((int[]){__VA_ARGS__})/sizeof(int))
+
+// #define CudaTensor(...) CudaTensorImpl(COUNT_ARGS(__VA_ARGS__), __VA_ARGS__)
+
+// tensor* CudaTensorImpl(int num_args, ...){
+//     va_list args;
+//     va_start(args, arg_count);
+
+//     int s0 = va_arg(args, int);
+//     int s1 = va_arg(args, int);
+
+//     if (num_args == 2){
+//         return CudaTensor2d(s0, s1);
+//     } else if (num_args == 3){
+//         int s2 = va_arg(args, int);
+//         return CudaTensor3d(s0, s1, s2);
+//     } else if (num_args == 4){
+//         int s2 = va_arg(args, int);
+//         int s3 = va_arg(args, int);
+//         return CudaTensor3d(s0, s1, s2, s3);
+//     }
+// }
+
+
+// comment:
+//  use functions (instead of macros) for TensorLike, TensorLikeFill, CudaTensorLike, CudaTensorLikeFill
+//  bc preprocessor can't evaluate runtime value from a struct member at pre-processing time, so handle it in a fn
+
+tensor* TensorLike(tensor* t){
+    if (t->num_dims==2)
+        return TensorLike2d(t);
+    else if (t->num_dims==3)
+        return TensorLike3d(t);
+    else if (t->num_dims==4)
+        return TensorLike4d(t);
+    else
+        return NULL;
 }
 
+tensor* TensorLikeFill(tensor* t, float val){
+    if (t->num_dims==2)
+        return TensorLikeFill2d(t, val);
+    else if (t->num_dims==3)
+        return TensorLikeFill3d(t, val);
+    else if (t->num_dims==4)
+        return TensorLikeFill4d(t, val);
+    else
+        return NULL;
+}
 
-// // constructors that take in tensor and return float
+tensor* CudaTensorLike(tensor* t){
+    if (t->num_dims==2)
+        return CudaTensorLike2d(t);
+    // else if (t->num_dims==3)
+    //     return CudaTensorLike3d(t);
+    // else if (t->num_dims==4)
+    //     return CudaTensorLike4d(t);
+    else
+        return NULL;
+}
 
-// float* EmptyFloat(int s1, int s2)
-// {
-//     return (float*)malloc(sizeof(float) * s1*s2);
-// }
-
-// // used when only tensor->data is needed, and avoids
-// // memory leak unlike the below -- bc tensor output
-// // of TensorLikeFill won't be used anymore (only one
-// // of its members will)
-// //  a->grad = TensorLikeFill(a, 1.0)->data;
-// float* EmptyFloatLike(tensor* t)
-// {
-//     return EmptyFloat(t->shape[0], t->shape[1]);
-// }
-
-// float* FloatLikeFill(tensor* t, int value)
-// {
-//     float* f_new = EmptyFloatLike(t);
-//     for (int i=0; i<t->size; i++)
-//         f_new[i] = value;
-//     return f_new;
-// }
+tensor* CudaTensorLikeFill(tensor* t, float val){
+    if (t->num_dims==2)
+        return CudaTensorLikeFill2d(t, val);
+    // else if (t->num_dims==3)
+    //     return CudaTensorLikeFill3d(t, val);
+    // else if (t->num_dims==4)
+    //     return CudaTensorLikeFill4d(t, val);
+    else
+        return NULL;
+}

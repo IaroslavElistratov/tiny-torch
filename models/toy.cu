@@ -31,10 +31,10 @@ int main() {
     int M = 8;
     int D = 4;
 
-    tensor* x = CudaTensor2d(N, M);
+    tensor* x = CudaTensor(N, M);
     set_name(x, "x"); print(x);
 
-    tensor* w1 = CudaTensor2d(M, D);
+    tensor* w1 = CudaTensor(M, D);
     set_name(w1, "w1"); print(w1);
 
     tensor* out = matmul(x, w1); // (N, D)

@@ -1,10 +1,21 @@
-// #include <iostream> // todo: use C only
-// using namespace std;
-
 #include "nn.h"
 
 #define MAX_NODES 30
 
+
+void GetRandomFloat(float* dst, int num)
+{
+    for (int i=0; i<num; i++)
+    {
+        // https://linux.die.net/man/3/random
+        // returns a pseudo-random int between 0 and RAND_MAX
+        // normalize to: 0 - 1
+        // shift to: -0.5 - 0.5
+
+        // not truncating to 0 due to int division, bc C promotes args
+        dst[i] = ((float)rand() / RAND_MAX) - 0.5;
+    }
+}
 
 char* random_chars(int num){
     // increment for the null terminator;
@@ -20,6 +31,30 @@ char* random_chars(int num){
     s[num] = '\0';
     return s;
 }
+
+void set_name(tensor* t, const char* name){
+    // free the automatically set random name
+    // added by the constructor
+    free(t->name);
+
+    // todo-low: small inefficiency of always allocating MAX_TENSOR_NAME
+    //  even if user provided str is shorter
+    t->name = (char*)malloc(sizeof(char) * MAX_TENSOR_NAME);
+
+    int i=0;
+    bool is_break = false;
+    for (; !is_break && i<MAX_TENSOR_NAME-1; i++) {
+        t->name[i] = name[i];
+        if (name[i] == '\0')
+            is_break = true;
+    }
+
+    if (!is_break && name[i+1] != '\0') {
+        printf("[set_name] Warning, specified name larger than MAX_TENSOR_NAME -- truncating\n");
+        t->name[i+1] = '\0';
+    }
+}
+
 
 // todo-low: keras like vis https://graphviz.org/Gallery/directed/neural-network.html
 void graphviz(tensor* tens){

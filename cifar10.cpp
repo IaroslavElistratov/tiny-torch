@@ -38,9 +38,9 @@ struct cifar10 {
 // todo-now: doublecheck that logic here is correct
 cifar10* get_cifar10(){
 
-    tensor* input = EmptyTensor4d(N_SAMPLES, 3, 32, 32);
+    tensor* input = EmptyTensor(N_SAMPLES, 3, 32, 32);
     set_name(input, "input");
-    tensor* label = EmptyTensor2d(N_SAMPLES, 1);
+    tensor* label = EmptyTensor(N_SAMPLES, 1);
     set_name(label, "label");
 
     FILE *fp;

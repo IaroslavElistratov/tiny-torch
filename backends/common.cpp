@@ -13,8 +13,8 @@ doesn't fail bc linker can't find _k expected by these ops
 //     tensor* b = out->inputs[1];
 
 //     // local grad (note also allocates buff)
-//     tensor* a_local = TensorLikeFill2d(a, 1.0);
-//     tensor* b_local = TensorLikeFill2d(b, 1.0);
+//     tensor* a_local = TensorLikeFill(a, 1.0);
+//     tensor* b_local = TensorLikeFill(b, 1.0);
 
 //     // downstream = local * upstream
 
@@ -32,8 +32,8 @@ doesn't fail bc linker can't find _k expected by these ops
 //     tensor* b = out->inputs[1];
 
 //     // local
-//     tensor* a_local = TensorLikeFill2d(a, 1.0);
-//     tensor* b_local = TensorLikeFill2d(b, -1.0);
+//     tensor* a_local = TensorLikeFill(a, 1.0);
+//     tensor* b_local = TensorLikeFill(b, -1.0);
 
 //     // downstream = local * upstream
 //     a->grad = mul_k(a_local, upstream);
@@ -107,7 +107,7 @@ void matmul_bwd(tensor* upstream, tensor* out) {
 //     tensor* b = out->inputs[1];
 
 //     // local
-//     tensor* a_local = div_k(TensorLikeFill2d(a, 1.0), b);
+//     tensor* a_local = div_k(TensorLikeFill(a, 1.0), b);
 //     tensor* b_local = neg_k(div_k(a, pow_k(b, 2)));
 
 //     // downstream
@@ -115,13 +115,13 @@ void matmul_bwd(tensor* upstream, tensor* out) {
 //     // comment: 
 //     // "a->grad = mul_k(a_local, upstream)" overwrite's input grad, the below does "+=" to it
 //     if (!a->grad)
-//         a->grad = TensorLikeFill2d(a, 0.0);
+//         a->grad = TensorLikeFill(a, 0.0);
 //     else {
 //         printf("[div_bwd] a->grad exists!\n");
 //     }
 
 //     if (!b->grad)
-//         b->grad = TensorLikeFill2d(b, 0.0);
+//         b->grad = TensorLikeFill(b, 0.0);
 //     else {
 //         printf("[div_bwd] b->grad exists!\n");
 //     }
@@ -152,7 +152,7 @@ void matmul_bwd(tensor* upstream, tensor* out) {
 //     // 1. local
 //     // store local in grad in the grad field
 //     // todo-low: mem leak
-//     tensor* local = mul_k(TensorLikeFill2d(a, 2.0), a);
+//     tensor* local = mul_k(TensorLikeFill(a, 2.0), a);
 //     // 2. wire local with upstream
 //     a->grad = mul_k(local, upstream);
 //     // free(local);
@@ -161,10 +161,10 @@ void matmul_bwd(tensor* upstream, tensor* out) {
 // void reduce_sum_bwd(tensor* upstream, tensor* out) {
 //     tensor* a = out->inputs[0];
 //     // 1. local
-//     tensor* local = TensorLikeFill2d(a, 1.0);
+//     tensor* local = TensorLikeFill(a, 1.0);
 //     // 2. wire local with upstream
 //     // make upstream and local to be same shape (currently upstream is a scalar, while local is a 2d tensor)
-//     tensor* broadcasted_upstream = TensorLikeFill2d(a, upstream->data[0]);
+//     tensor* broadcasted_upstream = TensorLikeFill(a, upstream->data[0]);
 //     a->grad = mul_k(local, broadcasted_upstream);
 //     // free(local);
 // }
@@ -180,15 +180,7 @@ void transpose_bwd(tensor* upstream, tensor* out) {
 //     tensor* a = out->inputs[0];
 //     tensor* local = NULL;
 
-//     if (a->num_dims==2)
-//         local = TensorLikeFill2d(a, -1.0);
-//     else if (a->num_dims==3)
-//         local = TensorLikeFill3d(a, -1.0);
-//     else if (a->num_dims==4)
-//         local = TensorLikeFill4d(a, -1.0);
-//     else
-//         printf("[neg] Error");
-
+//     local = TensorLikeFill(a, -1.0);
 //     a->grad = mul_k(local, upstream);
 // }
 

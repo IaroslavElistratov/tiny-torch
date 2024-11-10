@@ -49,7 +49,7 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
 
                 // workaround to put the data into tensor type
                 // todo-high:: constructor does NOT take care of setting correct strides
-                tensor* curr_filter = TensorNoData3d(C, HH, WW);
+                tensor* curr_filter = TensorNoData(C, HH, WW);
                 curr_filter->data = curr_kernel;
 
                 if (IS_DEBUG){
@@ -113,7 +113,7 @@ tensor* conv_k(tensor* input, tensor* kernel) {
         printf("[conv_k] w_out: %i\n", w_out);
     }
 
-    tensor* out = EmptyTensor3d(F, h_out, w_out);
+    tensor* out = EmptyTensor(F, h_out, w_out);
     return  conv_k_(input, kernel, out);
 }
 
@@ -134,8 +134,8 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
     int w_out = 1 + (W + 2 * pad - WW) / stride;
 
     // make sure it's not initialised with garbage
-    tensor* grad_kernels = TensorLikeFill4d(kernel, 0.0);
-    tensor* grad_x = TensorLikeFill3d(input, 0.0);
+    tensor* grad_kernels = TensorLikeFill(kernel, 0.0);
+    tensor* grad_x = TensorLikeFill(input, 0.0);
 
     for (int f=0; f<F; f++){
         for (int hight=0; hight<h_out; hight++){
@@ -158,7 +158,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
                 }
 
                 // python: curr_filter = index(kernel, f); // (F, C, HH, WW) -> (C, HH, WW)
-                tensor* curr_filter = TensorNoData3d(C, HH, WW); // filter (was used in forward)
+                tensor* curr_filter = TensorNoData(C, HH, WW); // filter (was used in forward)
                 curr_filter->data = kernel->data + f*kernel->stride[0];
                 if (IS_DEBUG){
                     printf("[bwd_conv_k] f*C*HH*WW: %i\n", f*C*HH*WW);
@@ -176,7 +176,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
 
                 // python: curr_upstream = upstream[f,h,w]
                 float curr_upstream_float = upstream->data[index_3d(upstream, f, hight, width)]; // scalar
-                tensor* curr_upstream = TensorLikeFill3d(x_slice, curr_upstream_float); // broadcast scalar grad to the shape of the slice
+                tensor* curr_upstream = TensorLikeFill(x_slice, curr_upstream_float); // broadcast scalar grad to the shape of the slice
                 if (IS_DEBUG){
                     printf("[bwd_conv_k] curr_upstream_float: %f", curr_upstream_float);
                     printf("\n[bwd_conv_k] curr_upstream.shape: %i, %i, %i", curr_upstream->shape[0], curr_upstream->shape[1], curr_upstream->shape[2]);
@@ -190,7 +190,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
 
                 // workaround for not having non owning slice 4d
                 //    todo-high: constructor does not set correct strides in this case
-                tensor* curr_downstream_slice_in_larger_tensor = TensorNoData3d(C, HH, WW);
+                tensor* curr_downstream_slice_in_larger_tensor = TensorNoData(C, HH, WW);
                 curr_downstream_slice_in_larger_tensor->data = grad_kernels->data + f*grad_kernels->stride[0];
 
                 add_k_(curr_downstream_slice_in_larger_tensor, curr_downstream, curr_downstream_slice_in_larger_tensor);
@@ -234,15 +234,15 @@ tensor* batched_conv_k(tensor* input, tensor* kernel){
         printf("[batched_conv_k] w_out: %i\n", w_out);
     }
 
-    tensor* out = EmptyTensor4d(B, F, h_out, w_out);
+    tensor* out = EmptyTensor(B, F, h_out, w_out);
 
     for (int i=0; i<B; i++){
         // comment: same semantics as in batched_matmul_k
 
-        tensor* curr_out = TensorNoData3d(F, h_out, w_out);
+        tensor* curr_out = TensorNoData(F, h_out, w_out);
         curr_out->data = out->data + (i * out->stride[0]);
 
-        tensor* curr_x = TensorNoData3d(C, H, W);
+        tensor* curr_x = TensorNoData(C, H, W);
         curr_x->data = input->data + (i * input->stride[0]);
 
         // comment: add support for 5d tensors? -- NO, w stays 4d
@@ -271,19 +271,19 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
     }
 
     // make sure it's not initialised with garbage
-    tensor* grad_x = TensorLikeFill4d(input, 0.0);
-    tensor* grad_kernels = TensorLikeFill4d(kernel, 0.0);
+    tensor* grad_x = TensorLikeFill(input, 0.0);
+    tensor* grad_kernels = TensorLikeFill(kernel, 0.0);
 
     for (int i=0; i<B; i++){
         // comment: same semantics as in batched_matmul_k
 
-        tensor* curr_x = TensorNoData3d(C, H, W);
+        tensor* curr_x = TensorNoData(C, H, W);
         curr_x->data = input->data + (i * input->stride[0]);
 
-        tensor* curr_upstream = TensorNoData3d(F, h_out, w_out);
+        tensor* curr_upstream = TensorNoData(F, h_out, w_out);
         curr_upstream->data = upstream->data + (i * upstream->stride[0]);
 
-        tensor* curr_out = TensorNoData3d(F, h_out, w_out);
+        tensor* curr_out = TensorNoData(F, h_out, w_out);
         curr_out->data = out->data + (i * out->stride[0]);
 
         // bwd_conv_k unpacks this
@@ -394,7 +394,7 @@ tensor* maxpool_k(tensor* input) {
         printf("[maxpool_k] w_out: %i\n", w_out);
     }
 
-    tensor* out = EmptyTensor3d(C, h_out, w_out);
+    tensor* out = EmptyTensor(C, h_out, w_out);
     return  maxpool_k_(input, out);
 }
 
@@ -414,7 +414,7 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
     int h_out = 1 + (H + 2 * pad - HH) / stride;
     int w_out = 1 + (W + 2 * pad - WW) / stride;
 
-    tensor* downstream = TensorLikeFill3d(input, 0.0);
+    tensor* downstream = TensorLikeFill(input, 0.0);
 
     for (int c=0; c<C; c++){
         for (int hight=0; hight<h_out; hight++){
@@ -435,7 +435,7 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
                 tensor* x_slice = view_3d(input, buffer);
 
                 // local
-                tensor* local = TensorLikeFill3d(x_slice, 0.0);
+                tensor* local = TensorLikeFill(x_slice, 0.0);
                 int idx_max = 0;
                 float max = x_slice->data[0];
                 for (int i=0; i<x_slice->size; i++){
@@ -451,7 +451,7 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
 
                 // upstream
                 float curr_upstream_float = upstream->data[index_3d(upstream, c, hight, width)]; // scalar
-                tensor* curr_upstream = TensorLikeFill3d(x_slice, curr_upstream_float); // broadcast scalar grad to the shape of the slice
+                tensor* curr_upstream = TensorLikeFill(x_slice, curr_upstream_float); // broadcast scalar grad to the shape of the slice
 
                 // downstream
                 tensor* curr_downstream = mul_k(local, curr_upstream);
@@ -493,13 +493,13 @@ tensor* batched_maxpool_k(tensor* input){
         printf("[batched_maxpool_k] w_out: %i\n", w_out);
     }
 
-    tensor* out = EmptyTensor4d(B, C, h_out, w_out);
+    tensor* out = EmptyTensor(B, C, h_out, w_out);
 
     for (int i=0; i<B; i++){
-        tensor* curr_out = TensorNoData3d(C, h_out, w_out);
+        tensor* curr_out = TensorNoData(C, h_out, w_out);
         curr_out->data = out->data + (i * out->stride[0]);
 
-        tensor* curr_x = TensorNoData3d(C, H, W);
+        tensor* curr_x = TensorNoData(C, H, W);
         curr_x->data = input->data + (i * input->stride[0]);
 
         maxpool_k_(curr_x, curr_out);
@@ -525,18 +525,18 @@ void bwd_batched_maxpool_k(tensor* upstream, tensor* out) {
     }
 
     // make sure it's not initialised with garbage
-    tensor* downstream = TensorLikeFill4d(input, 0.0);
+    tensor* downstream = TensorLikeFill(input, 0.0);
 
     for (int i=0; i<B; i++){
         // comment: same semantics as in batched_matmul_k
 
-        tensor* curr_x = TensorNoData3d(C, H, W);
+        tensor* curr_x = TensorNoData(C, H, W);
         curr_x->data = input->data + (i * input->stride[0]);
 
-        tensor* curr_upstream = TensorNoData3d(C, h_out, w_out);
+        tensor* curr_upstream = TensorNoData(C, h_out, w_out);
         curr_upstream->data = upstream->data + (i * upstream->stride[0]);
 
-        tensor* curr_out = TensorNoData3d(C, h_out, w_out);
+        tensor* curr_out = TensorNoData(C, h_out, w_out);
         curr_out->data = out->data + (i * out->stride[0]);
 
         // bwd_maxpool_k unpacks this

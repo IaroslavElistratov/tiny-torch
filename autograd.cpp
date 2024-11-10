@@ -31,14 +31,10 @@ void backward(tensor* loss){
     loss->num_uses = 0;
 
     // todo: move this into TensorLikeFill (which will call one of: TensorLikeFill2d, TensorLikeFill3d, TensorLikeFill4d) or CUDA tensor equivalents
-    if (loss->num_dims==2 && DEVICE==CPU)
-        loss->grad = TensorLikeFill2d(loss, 1.0);
-    else if (loss->num_dims==2 && DEVICE==CUDA)
-        loss->grad = CudaTensorLikeFill2d(loss, 1.0);
-    else if (loss->num_dims==3 && DEVICE==CPU)
-        loss->grad = TensorLikeFill3d(loss, 1.0);
-    else if (loss->num_dims==4 && DEVICE==CPU)
-        loss->grad = TensorLikeFill4d(loss, 1.0);
+    if (DEVICE==CPU)
+        loss->grad = TensorLikeFill(loss, 1.0);
+    else if (DEVICE==CUDA)
+        loss->grad = CudaTensorLikeFill(loss, 1.0);
     else {
         printf("[autograd engine] Error");
     }

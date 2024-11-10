@@ -34,7 +34,7 @@ tensor* matmul_k(tensor* a, tensor* b){
 
     int N = a->shape[0], M = a->shape[1], D = b->shape[1];
     // todo: fill w 0
-    tensor* out = CudaTensor2d(N, D);
+    tensor* out = CudaTensor(N, D);
 
     // todo: unify 7 lines below into a fn (e.g. compute_launch_shapes), re-use acorss all stubs
     // important to have it float to avoid int division
@@ -85,7 +85,7 @@ tensor* transpose_k(tensor* a){
 
     int N = a->shape[0], M = a->shape[1];
     // todo: allocate empty
-    tensor* out = CudaTensor2d(M, N);
+    tensor* out = CudaTensor(M, N);
 
     float num_threads = (float)NUM_THREADS;
     dim3 dimGrid(ceil(M/num_threads), ceil(N/num_threads), 1);

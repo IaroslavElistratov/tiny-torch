@@ -18,7 +18,7 @@ float train_step(tensor* x, tensor* w1, tensor* w2)
     set_name(out3, "matmul_2"); print(out3);
 
     // loss
-    tensor* y = TensorLikeFill2d(out3, 0.5); // dummy label
+    tensor* y = TensorLikeFill(out3, 0.5); // dummy label
     tensor* loss = reduce_sum(pow(sub(y, out3), 2));
     cout << "loss :" << loss->data[0] << endl;
 
@@ -48,13 +48,13 @@ int main() {
     int O = 1;
 
     // *** Init ***
-    tensor* x = Tensor2d(N, M);
+    tensor* x = Tensor(N, M);
     set_name(x, "x"); print(x);
 
-    tensor* w1 = Tensor2d(M, D);
+    tensor* w1 = Tensor(M, D);
     set_name(w1, "w1"); print(w1);
 
-    tensor* w2 = Tensor2d(D, O);
+    tensor* w2 = Tensor(D, O);
     set_name(w2, "w2"); print(w2);
 
     // *** Train ***
@@ -77,18 +77,18 @@ int main_2() {
     cout << "sizeof(tensor): " << sizeof(tensor) << endl << endl;
 
     // only used for shape inference
-    tensor* _ = Tensor2d(2, 2);
+    tensor* _ = Tensor(2, 2);
 
-    tensor* a = TensorLikeFill2d(_, 2.0);
+    tensor* a = TensorLikeFill(_, 2.0);
     set_name(a, "a"); print(a);
 
-    tensor* b = TensorLikeFill2d(_, 2.0);
+    tensor* b = TensorLikeFill(_, 2.0);
     set_name(b, "b"); print(b);
 
     tensor* c = add(a, b);
     set_name(c, "c"); print(c);
 
-    tensor* d = TensorLikeFill2d(_, 3.0);
+    tensor* d = TensorLikeFill(_, 3.0);
     set_name(d, "d"); print(d);
 
     tensor* e = mul(c, d);
@@ -102,7 +102,7 @@ int main_2() {
     set_name(g, "g"); print(g);
 
     // mse
-    tensor* y = TensorLikeFill2d(g, 0.0);
+    tensor* y = TensorLikeFill(g, 0.0);
     tensor* loss = reduce_sum(pow(sub(y, g), 2));
 
     cout << "loss: " << loss->data[0] << endl;

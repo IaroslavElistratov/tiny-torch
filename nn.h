@@ -61,21 +61,12 @@ struct tensor {
 #define CPU 0
 #define CUDA 1
 
-tensor* EmptyTensor2d(int s1, int s2);
-tensor* EmptyTensorLike2d(tensor* t);
-tensor* Tensor2d(int s1, int s2);
-tensor* TensorLike2d(tensor* t);
-tensor* TensorLikeFill2d(tensor* t, float value);
-tensor* TensorLikeFill3d(tensor* t, float value);
-tensor* TensorLikeFill4d(tensor* t, float value);
-tensor* CudaTensorLikeFill2d(tensor* t, float value);
-
-// float* EmptyFloat(int s1, int s2);
-// float* EmptyFloatLike(tensor* t);
-// float* FloatLikeFill(tensor* t, int value);
-
+void GetRandomFloat(float*, int);
 void set_name(tensor*, const char*);
+char* random_chars(int);
 
+tensor* TensorLikeFill(tensor*, float);
+tensor* CudaTensorLikeFill(tensor*, float);
 
 void print_2d(tensor*);
 void print_3d(tensor*);
