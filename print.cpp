@@ -1,16 +1,16 @@
 #include "nn.h"
 
-void _print(tensor* t)
-{
-    printf("\n%s: ", t->name);
+// void _print(tensor* t)
+// {
+//     printf("\n%s: ", t->name);
 
-    for (int i=0, row_len=t->shape[1]; i<t->size; i++) {
-        if (i % row_len == 0) cout << endl;
-        // %6.1f describes number at least six characters wide, with 1 digit after the decimal point
-        printf("%8.4f, ", t->data[i]);
-    }
-    printf("\n");
-}
+//     for (int i=0, row_len=t->shape[1]; i<t->size; i++) {
+//         if (i % row_len == 0) cout << endl;
+//         // %6.1f describes number at least six characters wide, with 1 digit after the decimal point
+//         printf("%8.4f, ", t->data[i]);
+//     }
+//     printf("\n");
+// }
 
 
 void sprint_2d(tensor* t){
@@ -19,13 +19,11 @@ void sprint_2d(tensor* t){
     printf("%s->strides: %i, %i\n", t->name, t->stride[0], t->stride[1]);
 }
 
-void sprint_3d(tensor* t)
-{
+void sprint_3d(tensor* t){
     printf("\n%s:\n", t->name);
     printf("%s->shape: %i, %i, %i\n", t->name, t->shape[0], t->shape[1], t->shape[2]);
     printf("%s->strides: %i, %i, %i\n", t->name, t->stride[0], t->stride[1], t->stride[2]);
 }
-
 
 void sprint_4d(tensor* t){
     printf("\n%s:\n", t->name);
@@ -33,9 +31,15 @@ void sprint_4d(tensor* t){
     printf("%s->strides: %i, %i, %i, %i\n", t->name, t->stride[0], t->stride[1],  t->stride[2],  t->stride[3]);
 }
 
+void sprint(tensor* t){
+    if (t->num_dims==2) sprint_2d(t);
+    else if (t->num_dims==3) sprint_3d(t);
+    else if (t->num_dims==4) sprint_4d(t);
+    else printf("[sprint] Error");
+}
 
-void print_2d(tensor* t)
-{
+
+void print_2d(tensor* t){
     sprint_2d(t);
 
     int y = t->shape[0];
@@ -52,8 +56,7 @@ void print_2d(tensor* t)
     printf("\n");
 }
 
-void print_3d(tensor* t)
-{
+void print_3d(tensor* t){
     sprint_3d(t);
 
     int x = t->shape[0];
@@ -74,8 +77,7 @@ void print_3d(tensor* t)
     printf("\n");
 }
 
-void print_4d(tensor* t)
-{
+void print_4d(tensor* t){
     sprint_4d(t);
 
     int o = t->shape[0];
@@ -99,6 +101,13 @@ void print_4d(tensor* t)
     }
 }
 
+void print(tensor* t){
+    if (t->num_dims==2) print_2d(t);
+    else if (t->num_dims==3) print_3d(t);
+    else if (t->num_dims==4) print_4d(t);
+    else printf("[print] Error");
+}
+
 
 // todo-high: de duplicate lprint and lsprint:
 
@@ -114,8 +123,7 @@ void lsprint_2d(tensor* t){
     fclose(f);
 }
 
-void lsprint_3d(tensor* t)
-{
+void lsprint_3d(tensor* t){
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
@@ -125,7 +133,6 @@ void lsprint_3d(tensor* t)
     fprintf(f, "%s->shape: %i, %i, %i\n", t->name, t->shape[0], t->shape[1], t->shape[2]);
     fprintf(f, "%s->strides: %i, %i, %i\n", t->name, t->stride[0], t->stride[1], t->stride[2]);
     fclose(f);
-
 }
 
 void lsprint_4d(tensor* t){
@@ -140,9 +147,15 @@ void lsprint_4d(tensor* t){
     fclose(f);
 }
 
-void lprint_2d(tensor* t)
-{
+void lsprint(tensor* t){
+    if (t->num_dims==2) lsprint_2d(t);
+    else if (t->num_dims==3) lsprint_3d(t);
+    else if (t->num_dims==4) lsprint_4d(t);
+    else printf("[lsprint] Error");
+}
 
+
+void lprint_2d(tensor* t){
     lsprint_2d(t);
 
     FILE *f = fopen("./generated/log.txt", "a");
@@ -166,8 +179,7 @@ void lprint_2d(tensor* t)
     fclose(f);
 }
 
-void lprint_3d(tensor* t)
-{
+void lprint_3d(tensor* t){
     lsprint_3d(t);
 
     FILE *f = fopen("./generated/log.txt", "a");
@@ -195,8 +207,7 @@ void lprint_3d(tensor* t)
     fclose(f);
 }
 
-void lprint_4d(tensor* t)
-{
+void lprint_4d(tensor* t){
     lsprint_4d(t);
 
     FILE *f = fopen("./generated/log.txt", "a");
@@ -227,12 +238,16 @@ void lprint_4d(tensor* t)
     fclose(f);
 }
 
+void lprint(tensor* t){
+    if (t->num_dims==2) lprint_2d(t);
+    else if (t->num_dims==3) lprint_3d(t);
+    else if (t->num_dims==4) lprint_4d(t);
+    else printf("[lprint] Error");
+}
 
 
 
-
-void cuda_print_2d(tensor* t)
-{
+void cuda_print_2d(tensor* t){
     float* host_data = _copy_data_to_cpu(t);
 
     sprint_2d(t);
@@ -253,9 +268,14 @@ void cuda_print_2d(tensor* t)
     printf("\n");
 }
 
-void cuda_lprint_2d(tensor* t)
-{
+void cuda_print(tensor* t){
+    if (t->num_dims==2 && DEVICE==CUDA) cuda_print_2d(t);
+    // else if (t->num_dims==3 && DEVICE==CUDA) cuda_print_3d(t);
+    // else if (t->num_dims==4 && DEVICE==CUDA) cuda_print_4d(t);
+    else printf("[cuda print] Error");
+}
 
+void cuda_lprint_2d(tensor* t){
     float* host_data = _copy_data_to_cpu(t);
 
     lsprint_2d(t);
@@ -280,4 +300,11 @@ void cuda_lprint_2d(tensor* t)
     }
     fprintf(f, "\n");
     fclose(f);
+}
+
+void cuda_lprint(tensor* t){
+    if (t->num_dims==2 && DEVICE==CUDA) cuda_lprint_2d(t);
+    // else if (t->num_dims==3 && DEVICE==CUDA) cuda_lprint_3d(t);
+    // else if (t->num_dims==4 && DEVICE==CUDA) cuda_lprint_4d(t);
+    else printf("[cuda lprint] Error");
 }

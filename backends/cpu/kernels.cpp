@@ -7,12 +7,13 @@ tensor* transpose_k(tensor*);
 tensor* mul_k(tensor*, tensor*);
 tensor* batched_transpose_k(tensor*);
 tensor* batched_reduce_sum_k(tensor*);
+void reduce_sum_bwd(tensor*, tensor*);
 
 
 void _strcp(char* src, char* dst, int size){
     for (int i=0; i<size; i++) {
         dst[i] = src[i];
-        cout << src[i] << endl;
+        printf("%c\n", src[i]);
     }
 }
 

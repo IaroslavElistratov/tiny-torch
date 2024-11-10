@@ -1,8 +1,5 @@
 #include <deque> // deque from standard template library (STL)
-
 #include "nn.h"
-
-
 
 #define IS_DEBUG_AG true
 #define IS_DEBUG_BRANCHES false
@@ -37,6 +34,7 @@ void backward(tensor* loss){
         loss->grad = CudaTensorLikeFill(loss, 1.0);
     else {
         printf("[autograd engine] Error");
+        return;
     }
 
     deque <tensor*> ready;
@@ -113,16 +111,10 @@ void backward(tensor* loss){
                 set_name(inp->grad, buffer);
 
                 // todo: move this into lprint
-                if (inp->grad->num_dims==2 && DEVICE==CPU) {
-                    lprint_2d(inp->grad);
-                } else if (inp->grad->num_dims==2 && DEVICE==CUDA) {
-                    cuda_lprint_2d(inp->grad);
-                } else if (inp->grad->num_dims==3 && DEVICE==CPU) {
-                    lprint_3d(inp->grad);
-                } else if (inp->grad->num_dims==4 && DEVICE==CPU) {
-                    lprint_4d(inp->grad);
-                } else {
-                    printf("[autograd] Error");
+                if (DEVICE==CPU) {
+                    lprint(inp->grad);
+                } else if (DEVICE==CUDA) {
+                    cuda_lprint(inp->grad);
                 }
             }
         }

@@ -13,11 +13,6 @@ using namespace std;
 #define LR 0.02
 #define DEBUG  1
 
-#ifdef DEBUG
-#define print(f_p) _print(f_p)
-#else
-#define print(f_p)
-#endif
 
 
 // todo-low: mv to optim.cpp
@@ -66,71 +61,71 @@ tensor* forward(tensor* input, state* params) {
     // *** Net ***
 
     tensor* conv1 = batched_conv(input, params->kernel1);
-    set_name(conv1, "conv1"); // sprint_4d(conv1);
+    set_name(conv1, "conv1"); // sprint(conv1);
     tensor* relu1 = relu(conv1);
-    set_name(relu1, "relu1"); // sprint_4d(relu1);
+    set_name(relu1, "relu1"); // sprint(relu1);
     tensor* mp1 = batched_maxpool(relu1);
-    set_name(mp1, "mp1"); // sprint_4d(mp1);
+    set_name(mp1, "mp1"); // sprint(mp1);
 
     tensor* conv2 = batched_conv(mp1, params->kernel2);
-    set_name(conv2, "conv2"); // sprint_4d(conv2);
+    set_name(conv2, "conv2"); // sprint(conv2);
     tensor* relu2 = relu(conv2);
-    set_name(relu2, "relu2"); // sprint_4d(relu2);
+    set_name(relu2, "relu2"); // sprint(relu2);
     tensor* mp2 = batched_maxpool(relu2);
-    set_name(mp2, "mp2"); // sprint_4d(mp2);
+    set_name(mp2, "mp2"); // sprint(mp2);
 
     tensor* flat = batched_flatten(mp2);
-    set_name(flat, "flat"); // sprint_2d(flat);
+    set_name(flat, "flat"); // sprint(flat);
 
     tensor* mm1 = matmul(flat, params->w1);
-    set_name(mm1, "mm1"); // sprint_2d(mm1);
+    set_name(mm1, "mm1"); // sprint(mm1);
     tensor* relu3 = relu(mm1);
-    set_name(relu3, "relu3"); // sprint_2d(relu3);
+    set_name(relu3, "relu3"); // sprint(relu3);
 
     tensor* mm2 = matmul(relu3, params->w2);
-    set_name(mm2, "mm2"); // sprint_2d(mm1);
+    set_name(mm2, "mm2"); // sprint(mm1);
     tensor* relu4 = relu(mm2);
-    set_name(relu4, "relu4"); // sprint_2d(relu4);
+    set_name(relu4, "relu4"); // sprint(relu4);
 
     tensor* mm3 = matmul(relu4, params->w3);
-    set_name(mm3, "mm3"); // sprint_2d(out);
+    set_name(mm3, "mm3"); // sprint(out);
 
     // *** Softmax ***
 
     // min-max trick for numerical stability, python: "mm3 -= np.max(mm3, axis=1, keepdims=True)"
     int n_repeats = mm3->shape[1];
     tensor* maxes = repeat(batched_max(mm3), n_repeats);
-    set_name(maxes, "maxes"); // sprint_2d(maxes);
+    set_name(maxes, "maxes"); // sprint(maxes);
     tensor* su = sub(mm3, maxes);
-    set_name(su, "su"); // sprint_2d(su);
+    set_name(su, "su"); // sprint(su);
 
     tensor* ex = exp(su);                       // (B, ?)
-    set_name(ex, "ex"); // sprint_2d(ex);
+    set_name(ex, "ex"); // sprint(ex);
     tensor* denom = batched_reduce_sum(ex);     // (B, 1)
-    set_name(denom, "denom"); // sprint_2d(denom);
+    set_name(denom, "denom"); // sprint(denom);
     n_repeats = ex->shape[1];
     tensor* denom_broadcasted = repeat(denom, n_repeats);
-    set_name(denom_broadcasted, "denom_broadcasted"); // sprint_2d(denom_broadcasted);
+    set_name(denom_broadcasted, "denom_broadcasted"); // sprint(denom_broadcasted);
     tensor* sm = div(ex, denom_broadcasted);    // (B, ?)
-    set_name(sm, "sm"); // print_2d(sm);
+    set_name(sm, "sm"); // print(sm);
 
     return sm;
 }
 
 tensor* NLL(tensor* probs, tensor* label){
     int B = label->shape[0];
-    set_name(label, "label"); // print_2d(data->label);
+    set_name(label, "label"); // print(data->label);
     tensor* se = select(probs, label);   // (B, 1)
-    set_name(se, "se"); // sprint_2d(se);
+    set_name(se, "se"); // sprint(se);
     tensor* lg = log(se);               // (B, 1)
-    set_name(lg, "lg"); // sprint_2d(lg);
+    set_name(lg, "lg"); // sprint(lg);
     tensor* lgsum = reduce_sum(lg);         // (, )
-    set_name(lgsum, "lgsum"); // sprint_2d(lgsum);
+    set_name(lgsum, "lgsum"); // sprint(lgsum);
     tensor* nll = neg(lgsum);               // (, )
-    set_name(nll, "nll"); // print_2d(nll);
+    set_name(nll, "nll"); // print(nll);
     // divide by the batch size
     tensor* nll_normalized = div(nll, TensorScalarFill(B));               // (, )
-    set_name(nll_normalized, "nll_normalized"); // print_2d(nll_normalized);
+    set_name(nll_normalized, "nll_normalized"); // print(nll_normalized);
     return nll_normalized;
 }
 
@@ -177,10 +172,10 @@ int main() {
     // *** Init ***
 
     tensor* kernel1 = Tensor(F, C, HH1, WW1);
-    set_name(kernel1, "kernel1"), sprint_4d(kernel1);
+    set_name(kernel1, "kernel1"), sprint(kernel1);
 
     tensor* kernel2 = Tensor(F, F, HH2, WW2);
-    set_name(kernel2, "kernel2"), sprint_4d(kernel2);
+    set_name(kernel2, "kernel2"), sprint(kernel2);
 
     // todo-low: when define weights (w1, w2, w3) in forward, can use runtime shapes to create these weights.
     // But when creating weights in main (in main fn), needed to hardcode these shapes, copying from train_step.
@@ -189,13 +184,13 @@ int main() {
     // w3 = Tensor(relu4->shape[1], 10);
 
     tensor* w1 = Tensor(24, 32);
-    set_name(w1, "w1"), sprint_2d(w1);
+    set_name(w1, "w1"), sprint(w1);
 
     tensor* w2 = Tensor(32, 16);
-    set_name(w2, "w2"), sprint_2d(w2);
+    set_name(w2, "w2"), sprint(w2);
 
     tensor* w3 = Tensor(16, 10);
-    set_name(w3, "w3"), sprint_2d(w3);
+    set_name(w3, "w3"), sprint(w3);
 
     state params = {kernel1, kernel2, w1, w2, w3};
 
@@ -218,10 +213,10 @@ int main() {
     // }
     // fprintf(f, "my_tensor\n");
     // fclose(f);
-    print_4d(kernel1);
-    print_4d(kernel2);
-    print_2d(w1);
-    print_2d(w2);
-    print_2d(w3);
+    print(kernel1);
+    print(kernel2);
+    print(w1);
+    print(w2);
+    print(w3);
     return 0;
 }

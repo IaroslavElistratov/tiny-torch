@@ -53,7 +53,7 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
                 curr_filter->data = curr_kernel;
 
                 if (IS_DEBUG){
-                    set_name(curr_filter, "curr_filter"); print_3d(curr_filter);
+                    set_name(curr_filter, "curr_filter"); print(curr_filter);
                     printf("[conv_k_] f*C*HH*WW: %i\n", f*kernel->stride[0]);
                 }
 
@@ -74,7 +74,7 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
                 if (IS_DEBUG){
                     printf("[conv_k_] buffer x_slice %s\n", buffer);
                     printf("[conv_k_] x_slice->shape: %i, %i, %i\n", x_slice->shape[0], x_slice->shape[1], x_slice->shape[2]);
-                    set_name(x_slice, "x_slice"); print_3d(x_slice);
+                    set_name(x_slice, "x_slice"); print(x_slice);
                 }
 
                 // 2. element-wise multiply and sum
@@ -154,7 +154,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
                 if (IS_DEBUG){
                     printf("[bwd_conv_k] buffer x_slice %s\n", buffer);
                     printf("[bwd_conv_k] x_slice->shape: %i, %i, %i\n", x_slice->shape[0], x_slice->shape[1], x_slice->shape[2]);
-                    set_name(x_slice, "x_slice"); print_3d(x_slice);
+                    set_name(x_slice, "x_slice"); print(x_slice);
                 }
 
                 // python: curr_filter = index(kernel, f); // (F, C, HH, WW) -> (C, HH, WW)
@@ -162,7 +162,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
                 curr_filter->data = kernel->data + f*kernel->stride[0];
                 if (IS_DEBUG){
                     printf("[bwd_conv_k] f*C*HH*WW: %i\n", f*C*HH*WW);
-                    set_name(curr_filter, "curr_filter"); print_3d(curr_filter);
+                    set_name(curr_filter, "curr_filter"); print(curr_filter);
                 }
 
 
@@ -180,7 +180,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
                 if (IS_DEBUG){
                     printf("[bwd_conv_k] curr_upstream_float: %f", curr_upstream_float);
                     printf("\n[bwd_conv_k] curr_upstream.shape: %i, %i, %i", curr_upstream->shape[0], curr_upstream->shape[1], curr_upstream->shape[2]);
-                    set_name(curr_upstream, "curr_upstream"); print_3d(curr_upstream);
+                    set_name(curr_upstream, "curr_upstream"); print(curr_upstream);
                 }
 
                 // kernel->grad = add(kernel->grad, mul_k(x_slice, curr_upstream))
@@ -353,7 +353,7 @@ tensor* maxpool_k_(tensor* input, tensor* out) {
                 if (IS_DEBUG_MP){
                     printf("[maxpool_k_] buffer x_slice %s\n", buffer);
                     printf("[maxpool_k_] x_slice->shape: %i, %i, %i\n", x_slice->shape[0], x_slice->shape[1], x_slice->shape[2]);
-                    set_name(x_slice, "x_slice"); print_3d(x_slice);
+                    set_name(x_slice, "x_slice"); print(x_slice);
                 }
 
                 // select maximum element
@@ -447,7 +447,7 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
                 }
                 local->data[idx_max] = 1.0;
                 if (IS_DEBUG_MP)
-                    set_name(local, "local"), print_3d(local);
+                    set_name(local, "local"), print(local);
 
                 // upstream
                 float curr_upstream_float = upstream->data[index_3d(upstream, c, hight, width)]; // scalar
@@ -456,7 +456,7 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
                 // downstream
                 tensor* curr_downstream = mul_k(local, curr_upstream);
                 if (IS_DEBUG_MP)
-                    set_name(curr_downstream, "curr_downstream"), print_3d(curr_downstream);
+                    set_name(curr_downstream, "curr_downstream"), print(curr_downstream);
 
                 // record downstream grad of the current slice, into the larger tensor (corresponding to the downstream grad)
                 tensor* downstream_slice = view_3d(downstream, buffer);

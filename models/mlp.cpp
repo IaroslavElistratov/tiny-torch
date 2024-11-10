@@ -1,4 +1,4 @@
-
+#define DEVICE CPU
 
 
 float train_step(tensor* x, tensor* w1, tensor* w2)

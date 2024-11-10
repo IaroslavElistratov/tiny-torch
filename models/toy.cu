@@ -2,7 +2,7 @@
 using namespace std;
 
 #define DEVICE CUDA
-#define print(a) ((DEVICE == CUDA) ? cuda_print_2d(a) : print_2d(a))
+// #define print(a) ((DEVICE == CUDA) ? cuda_print(a) : print(a))
 
 #include "../tensor.cpp"
 #include "../ops.cpp"
@@ -32,16 +32,16 @@ int main() {
     int D = 4;
 
     tensor* x = CudaTensor(N, M);
-    set_name(x, "x"); print(x);
+    set_name(x, "x"); cuda_print(x);
 
     tensor* w1 = CudaTensor(M, D);
-    set_name(w1, "w1"); print(w1);
+    set_name(w1, "w1"); cuda_print(w1);
 
     tensor* out = matmul(x, w1); // (N, D)
-    set_name(out, "out_mm"); print(out);
+    set_name(out, "out_mm"); cuda_print(out);
 
     tensor* out_tr = transpose(out);       // (D, N)
-    set_name(out_tr, "out_tr"); print(out_tr);
+    set_name(out_tr, "out_tr"); cuda_print(out_tr);
 
     out_tr->backward(out_tr);
     graphviz(out_tr);

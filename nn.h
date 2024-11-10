@@ -68,15 +68,9 @@ char* random_chars(int);
 tensor* TensorLikeFill(tensor*, float);
 tensor* CudaTensorLikeFill(tensor*, float);
 
-void print_2d(tensor*);
-void print_3d(tensor*);
-void print_4d(tensor*);
-
-void lprint_2d(tensor* t);
-void lprint_3d(tensor* t);
-void lprint_4d(tensor* t);
-
-void cuda_lprint_2d(tensor* t);
+void print(tensor*);
+void lprint(tensor*);
+void cuda_lprint(tensor*);
 
 float* _copy_data_to_cpu(tensor* t);
 
