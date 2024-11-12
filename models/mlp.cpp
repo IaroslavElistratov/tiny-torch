@@ -1,29 +1,5 @@
-#include <iostream> // todo: use C only
-// #include <stdlib.h>
-// #include <iomanip> // for  input-output manipulation
-using namespace std;
-
-// #include "nn.h"
-#include "tensor.cpp"
-#include "ops.cpp"
-#include "utils.cpp"
 
 
-#define NUM_EP 2
-#define LR 0.02
-#define DEBUG  1
-
-#ifdef DEBUG
-#define print(f_p) _print(f_p)
-#else
-#define print(f_p)
-#endif
-
-void sgd(tensor* w, tensor* grad_w)
-{
-    for (int i=0; i<w->size; i++)
-        w->data[i] -= grad_w->data[i] * LR;
-}
 
 float train_step(tensor* x, tensor* w1, tensor* w2)
 {
@@ -52,8 +28,8 @@ float train_step(tensor* x, tensor* w1, tensor* w2)
     loss->backward(loss);
 
     // *** Optim Step ***
-    sgd(w1, w1->grad);
-    sgd(w2, w2->grad);
+    sgd(w1);
+    sgd(w2);
 
     graphviz(loss);
 
@@ -81,7 +57,7 @@ int main() {
     tensor* w2 = Tensor(D, O);
     set_name(w2, "w2"); print(w2);
 
-    // *** Train Step ***
+    // *** Train ***
     for (int ep_idx=0; ep_idx<NUM_EP; ep_idx++) {
         float loss = train_step(x, w1, w2);
         cout << "\nep: " << ep_idx << "; loss: " << loss << endl;
@@ -95,7 +71,7 @@ int main() {
 }
 
 
-int _main() {
+int main_2() {
     srand(123);
 
     cout << "sizeof(tensor): " << sizeof(tensor) << endl << endl;
