@@ -118,6 +118,12 @@ tensor* mul_k(tensor* a, tensor* b){
     return _launch_binary_elsementwise(MulKernel, a, b, NULL);
 }
 
+// used in exp_bwd, log_bwd
+tensor* mul_k_(tensor* a, tensor* b, tensor* c){
+    if (CUDA_DEBUG) printf("[mul_k_]\n");
+    return _launch_binary_elsementwise(MulKernel, a, b, c);
+}
+
 
 __global__ void DivKernel(float* a, float* b, float* out, int size){
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -231,6 +237,32 @@ tensor* pow_k(tensor* a, int exponent){
         exit(1);
     }
     return _launch_unary_elsementwise(PowKernel, a);
+}
+
+
+__global__ void ExpKernel(float* a, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx<size){
+        out[idx] = expf(a[idx]);
+    }
+}
+
+tensor* exp_k(tensor* a){
+    if (CUDA_DEBUG) printf("[exp_k]\n");
+    return _launch_unary_elsementwise(ExpKernel, a);
+}
+
+
+__global__ void LogKernel(float* a, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx<size){
+        out[idx] = logf(a[idx]);
+    }
+}
+
+tensor* log_k(tensor* a){
+    if (CUDA_DEBUG) printf("[log_k]\n");
+    return _launch_unary_elsementwise(LogKernel, a);
 }
 
 

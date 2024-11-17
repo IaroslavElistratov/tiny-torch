@@ -161,6 +161,29 @@ void pow_bwd(tensor* upstream, tensor* out) {
     // free(local);
 }
 
+void exp_bwd(tensor* upstream, tensor* out) {
+    tensor* a=out->inputs[0];
+    if (!a->grad)
+        a->grad = TensorLikeFill(a, 0.0);
+    else
+        printf("[exp_bwd] a->grad exists!\n");
+
+    tensor* local = out;
+    mul_k_(local, upstream, a->grad);
+}
+
+void log_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    a->grad = TensorLikeFill(a, 0.0);
+
+    // approximately 2.718282 C Math exp() Function e is the base of the natural system of logarithms (approximately 2.718282)
+    // Some implementations of the <math. h> library include a constant M_E
+    float log_e = logf(M_E);
+    // non-vectorized form: "(1/a) * log_e;"
+    tensor* local = mul_k(div_k(TensorLikeFill(a, 1), a), TensorLikeFill(a, log_e));
+    mul_k_(local, upstream, a->grad);
+}
+
 // void reduce_sum_bwd(tensor* upstream, tensor* out) {
 //     tensor* a = out->inputs[0];
 //     // 1. local

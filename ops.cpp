@@ -177,28 +177,28 @@ tensor* neg(tensor* a) {
     return t;
 }
 
-// // todo: does it conflict with C's math.exp ?
-// tensor* exp(tensor* a) {
-//     a->num_uses++;
-//     tensor* t = exp_k(a);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = a;
-//     t->op_type = 16;
-//     t->grad_fn = exp_bwd;
-//     return t;
-// }
+// todo: does it conflict with C's math.exp ?
+tensor* exp(tensor* a) {
+    a->num_uses++;
+    tensor* t = exp_k(a);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->op_type = 16;
+    t->grad_fn = exp_bwd;
+    return t;
+}
 
-// tensor* log(tensor* a) {
-//     a->num_uses++;
-//     tensor* t = log_k(a);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = a;
-//     t->op_type = 15;
-//     t->grad_fn = log_bwd;
-//     return t;
-// }
+tensor* log(tensor* a) {
+    a->num_uses++;
+    tensor* t = log_k(a);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->op_type = 15;
+    t->grad_fn = log_bwd;
+    return t;
+}
 
 // tensor* batched_matmul(tensor* a, tensor* b)
 // {

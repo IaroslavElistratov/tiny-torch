@@ -67,11 +67,15 @@ tensor* sub_k(tensor* a, tensor* b) {
 }
 
 
-tensor* mul_k(tensor* a, tensor* b) {
-    tensor* out = TensorLike(a);
+tensor* mul_k_(tensor* a, tensor* b, tensor* out) {
     for (int i=0; i<out->size; i++)
         out->data[i] = a->data[i] * b->data[i];
     return out;
+}
+
+tensor* mul_k(tensor* a, tensor* b) {
+    tensor* out = TensorLike(a);
+    return mul_k_(a, b, out);
 }
 
 
@@ -318,6 +322,10 @@ tensor* max_k(tensor* a) {
     return out;
 }
 
+// todo-now:
+// can make max_bwd and relu_bwd to be shared between gpu and cpu if allow kernels
+// to record some additional info during fwd kernel, and simply access and use this
+// filed in bwd
 void max_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     // 1. local
@@ -359,19 +367,6 @@ tensor* exp_k(tensor* a) {
     return out;
 }
 
-void exp_bwd(tensor* upstream, tensor* out) {
-    tensor* a=out->inputs[0];
-    if (!a->grad)
-        a->grad = TensorLikeFill(a, 0.0);
-    else
-        printf("[exp_bwd] a->grad exists!\n");
-
-    for (int i=0; i<a->grad->size; i++) {
-        float local = expf(a->data[i]);
-        a->grad->data[i] = local * upstream->data[i];
-    }
-}
-
 
 tensor* log_k(tensor* a) {
     if (a->num_dims!=2) {
@@ -383,21 +378,6 @@ tensor* log_k(tensor* a) {
         out->data[i] = logf(a->data[i]);
     }
     return out;
-}
-
-void log_bwd(tensor* upstream, tensor* out) {
-    tensor* a=out->inputs[0];
-    a->grad = TensorLikeFill(a, 0.0);
-
-    // approximately 2.718282 C Math exp() Function e is the base of the natural system of logarithms (approximately 2.718282)
-    // Some implementations of the <math. h> library include a constant M_E
-    float log_e = logf(M_E);
-
-    for (int i=0; i<a->grad->size; i++) {
-        float x = a->data[i];
-        float local = 1/x * log_e;
-        a->grad->data[i] = local * upstream->data[i];
-    }
 }
 
 
@@ -564,6 +544,7 @@ tensor* batched_max_k(tensor* a) {
     return out;
 }
 
+// todo-now: for all "batched" kernels can I just reshape input to (B*first_dim), run regular max kernel and then reshape back?
 void batched_max_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     int B = a->shape[0], N = a->shape[1];

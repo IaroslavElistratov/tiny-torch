@@ -74,7 +74,10 @@ int main() {
     print(di);
 
     tensor* pw = pow(di, 2);
-    tensor* out = neg(pw);
+    tensor* ng = neg(pw);
+    tensor* ex = exp(ng);
+    tensor* out = log(ex);
+    set_name(out, "out"); print(out);
 
     out->backward(out);
     graphviz(out);
