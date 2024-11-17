@@ -273,24 +273,24 @@ tensor* batched_conv(tensor* input, tensor* kernel) {
     return t;
 }
 
-// tensor* maxpool(tensor* input) {
-//     input->num_uses++;
-//     tensor* t = maxpool_k(input);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = input;
-//     t->op_type = 11;
-//     t->grad_fn = bwd_maxpool_k;
-//     return t;
-// }
+tensor* maxpool(tensor* input) {
+    input->num_uses++;
+    tensor* t = maxpool_k(input);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = input;
+    t->op_type = 11;
+    t->grad_fn = bwd_maxpool_k;
+    return t;
+}
 
-// tensor* batched_maxpool(tensor* input) {
-//     input->num_uses++;
-//     tensor* t = batched_maxpool_k(input);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = input;
-//     t->op_type = 12;
-//     t->grad_fn = bwd_batched_maxpool_k;
-//     return t;
-// }
+tensor* batched_maxpool(tensor* input) {
+    input->num_uses++;
+    tensor* t = batched_maxpool_k(input);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = input;
+    t->op_type = 12;
+    t->grad_fn = bwd_batched_maxpool_k;
+    return t;
+}

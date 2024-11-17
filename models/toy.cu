@@ -78,27 +78,61 @@ int test_bmm() {
 // }
 
 
-// test_batched_conv
+// int test_batched_conv() {
+//     srand(123);
+
+//     // int B = 3000, H = 128, W = 128, C = 3, F = 5, K = 2;
+//     int B = 2, H = 4, W = 4, C = 3, F = 5, K = 2;
+
+//     set_backend_device();
+
+//     tensor* x = Tensor(B, C, H, W);
+//     set_name(x, "x"); print(x);
+
+//     tensor* kernels = Tensor(F, C, K, K);
+//     set_name(kernels, "kernels"); print(kernels);
+
+//     tensor* out = batched_conv(x, kernels);
+//     set_name(out, "out"); print(out);
+
+//     out->backward(out);
+// }
+
+
+// // test_pool
+// int main() {
+//     srand(123);
+
+//     int H = 4, W = 4, C = 3, K = 2;
+
+//     set_backend_device();
+
+//     tensor* x = Tensor(C, H, W);
+//     set_name(x, "x"); print(x);
+
+//     tensor* out = maxpool(x);
+//     set_name(out, "out"); print(out);
+
+//     out->backward(out);
+// }
+
+
+// test_batched_pool
 int main() {
     srand(123);
 
-    // int B = 3000, H = 128, W = 128, C = 3, F = 5, K = 2;
-    int B = 2, H = 4, W = 4, C = 3, F = 5, K = 2;
+    int B = 2, H = 4, W = 4, C = 3, K = 2;
 
     set_backend_device();
 
     tensor* x = Tensor(B, C, H, W);
     set_name(x, "x"); print(x);
 
-    tensor* kernels = Tensor(F, C, K, K);
-    set_name(kernels, "kernels"); print(kernels);
-
-    tensor* out = batched_conv(x, kernels);
+    tensor* out = batched_maxpool(x);
     set_name(out, "out"); print(out);
 
     out->backward(out);
 }
-
 
 
 
