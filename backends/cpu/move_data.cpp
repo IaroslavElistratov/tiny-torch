@@ -13,8 +13,6 @@ tensor* copy_from_cpu(tensor* t) {
 }
 
 void set_backend_cpu(void){
-    extern void (*COPY_TO_DEVICE)(tensor*);
-    extern tensor* (*COPY_FROM_DEVICE)(tensor*);
     COPY_TO_DEVICE = copy_to_cpu;
     COPY_FROM_DEVICE = copy_from_cpu;
 }

@@ -4,6 +4,9 @@
 
 // todo-now: assert callback func pointers are not NULL, before calling them
 
+extern void (*COPY_TO_DEVICE)(tensor*);
+extern tensor* (*COPY_FROM_DEVICE)(tensor*);
+
 
 tensor* TensorNoData2d(int y, int z)
 {
@@ -246,7 +249,9 @@ tensor* TensorScalarFill(float value)
 #define Tensor(...) CONCAT(Tensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
 
 /*
-// question-now: use funcs of this form instead of the macros above?
+// question-now: 
+//  use funcs of this form instead of the macros above?
+//  This will also allow to call e.g. COPY_TO_DEVICE only once in e.g. Tensor fn, instead of needing to call it multiple times from each impl (e.g. Tensor2d)
 
 #include <stdarg.h>
 

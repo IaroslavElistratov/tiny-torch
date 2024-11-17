@@ -1,7 +1,8 @@
 #include "../nn.h"
 
-extern void (*COPY_TO_DEVICE)(tensor*);
-extern tensor* (*COPY_FROM_DEVICE)(tensor*);
+// declare and define pointers to functions
+void (*COPY_TO_DEVICE)(tensor*) = NULL;
+tensor* (*COPY_FROM_DEVICE)(tensor*) = NULL;
 
 // include this unconditionally, because used by both cuda and cpu
 #include "cpu/move_data.cpp"

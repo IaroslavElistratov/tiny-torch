@@ -51,11 +51,6 @@ struct tensor {
     void (*backward)(tensor* t);
 };
 
-// COPY_TO_DEVICE is a pointer to a function that has one tensor * argument and returns void
-// COPY_FROM_DEVICE is a pointer to a function that has one tensor * argument and returns tensor *
-// define function pointer type, declare the global function pointer as extern
-void (*COPY_TO_DEVICE)(tensor*) = NULL;
-tensor* (*COPY_FROM_DEVICE)(tensor*) = NULL;
 
 // enum device {
 //     cpu = 0,
