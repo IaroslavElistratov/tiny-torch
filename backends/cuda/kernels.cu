@@ -1,10 +1,86 @@
+#include "../../nn.h"
+
 #define NUM_THREADS 32
 #define CUDA_DEBUG true
 
 
 tensor* transpose_k(tensor*);
-void matmul_input_checks(tensor*, tensor*);
-void transpose_input_checks(tensor*);
+
+
+void unary_input_checks(tensor* a){
+    if (a->device!=CUDA){
+        printf("[cuda kernel] Error: expected device cuda\n");
+        exit(1);
+    }
+    if (a->num_dims!=2){
+        printf("[cuda kernel] Error: expected 2-dim inputs\n");
+        exit(1);
+    }
+}
+
+void binary_input_checks(tensor* a, tensor* b){
+    unary_input_checks(a);
+    unary_input_checks(b);
+}
+
+void binary_elsementwise_input_checks(tensor* a, tensor* b){
+    binary_input_checks(a, b);
+    if (a->shape[0]!=b->shape[0] || a->shape[1]!=b->shape[1]){
+        printf("[cuda kernel] Error: expected shapes to match\n");
+        printf("a.shape=(%i, %i), b.shape=(%i, %i)\n", a->shape[0], a->shape[1], b->shape[0], b->shape[1]);
+        exit(1);
+    }
+}
+
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ backward defined in common ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+// binary elementwise
+
+
+typedef void (*BinaryElementwiseKernel)(float* a, float* b, float* out, int size);
+
+// comment: I think unnecessary to launch 2d blocks for binary/unary ops -- since data is contigious can just launch 1d blocks
+tensor* _launch_binary_elsementwise(BinaryElementwiseKernel kernel, tensor* a, tensor* b){
+    binary_elsementwise_input_checks(a, b);
+
+    tensor* out = TensorLikeFill(a, 0.0);
+
+    float num_threads = (float)NUM_THREADS;
+    dim3 dimGrid(ceil(out->size/num_threads), 1, 1);
+    dim3 dimBlock(num_threads, 1, 1);
+
+    if (CUDA_DEBUG){
+        printf("[cuda binary_elsementwise] grid: (%f, 1, 1)\n", ceil(a->size/num_threads));
+        printf("[cuda binary_elsementwise] block: (%f, 1, 1)\n", num_threads);
+    }
+
+    kernel<<<dimGrid, dimBlock>>>(a->data, b->data, out->data, out->size);
+
+    return out;
+}
+
+
+// todo-now: unify this as well
+__global__ void AddKernel(float* a, float* b, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx<size){
+        out[idx] = a[idx] + b[idx];
+    }
+}
+
+tensor* add_k(tensor* a, tensor* b){
+    if (CUDA_DEBUG) printf("[add_k]\n");
+    BinaryElementwiseKernel kernel = AddKernel;
+    return _launch_binary_elsementwise(kernel, a, b);
+}
+
+
+// binary
+
 
 // a(N, M) @ b(M, D) = out(N, D)
 __global__ void MatMulKernel(float* a, float* b, float* out, int N, int M, int D){
@@ -30,7 +106,12 @@ __global__ void MatMulKernel(float* a, float* b, float* out, int N, int M, int D
 
 // a(N, M) @ b(M, D) = out(N, D)
 tensor* matmul_k(tensor* a, tensor* b){
-    matmul_input_checks(a, b);
+    if (CUDA_DEBUG) printf("[matmul_k]\n");
+    binary_input_checks(a, b);
+    if (a->shape[1] != b->shape[0]){
+        printf("[cuda MatMul] Error: inner dim doesn't match");
+        exit(1);
+    }
 
     int N = a->shape[0], M = a->shape[1], D = b->shape[1];
     // todo: fill w 0
@@ -53,21 +134,10 @@ tensor* matmul_k(tensor* a, tensor* b){
     return out;
 }
 
-void matmul_input_checks(tensor* a, tensor* b){
-    if (a->device!=CUDA || b->device!=CUDA){
-        printf("[cuda MatMul] Error: expect device cuda");
-        exit(1);
-    }
-    if (a->num_dims!=2 || b->num_dims!=2){
-        printf("[cuda MatMul] Error: expect 2-dim inputs");
-        exit(1);
-    }
-    if (a->shape[1] != b->shape[0]){
-        printf("[cuda MatMul] Error: inner dim doesn't match");
-        exit(1);
-    }
-}
 
+// unary
+
+// todo: for transpose, launch 1d blocks so that it can re-use _launch_unary?
 
 
 // a(N, M) -> out(M, N)
@@ -81,7 +151,7 @@ __global__ void TransposeKernel(float* a, float* out, int M, int N){
 }
 
 tensor* transpose_k(tensor* a){
-    transpose_input_checks(a);
+    unary_input_checks(a);
 
     int N = a->shape[0], M = a->shape[1];
     // todo: allocate empty
@@ -101,13 +171,10 @@ tensor* transpose_k(tensor* a){
     return out;
 }
 
-void transpose_input_checks(tensor* a){
-    if (a->device!=CUDA){
-        printf("[cuda Transpose] Error: expect device cuda");
-        exit(1);
-    }
-    if (a->num_dims!=2){
-        printf("[cuda Transpose] Error: expect 2-dim inputs");
-        exit(1);
-    }
-}
+
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ backward NOT defined in common ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+

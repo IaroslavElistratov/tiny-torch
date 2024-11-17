@@ -6,26 +6,26 @@ doesn't fail bc linker can't find _k expected by these ops
 */
 
 
-// void add_bwd(tensor* upstream, tensor* out) {
-//     // out is an ouput of the op, it's used to
-//     // retrieve pointers to inputs tensors
-//     tensor* a = out->inputs[0];
-//     tensor* b = out->inputs[1];
+void add_bwd(tensor* upstream, tensor* out) {
+    // out is an ouput of the op, it's used to
+    // retrieve pointers to inputs tensors
+    tensor* a = out->inputs[0];
+    tensor* b = out->inputs[1];
 
-//     // local grad (note also allocates buff)
-//     tensor* a_local = TensorLikeFill(a, 1.0);
-//     tensor* b_local = TensorLikeFill(b, 1.0);
+    // local grad (note also allocates buff)
+    tensor* a_local = TensorLikeFill(a, 1.0);
+    tensor* b_local = TensorLikeFill(b, 1.0);
 
-//     // downstream = local * upstream
+    // downstream = local * upstream
 
-//     // todo-now: do += instead of replacing existing grad
-//     a->grad = mul_k(a_local, upstream);
-//     b->grad = mul_k(b_local, upstream);
+    // todo-now: do += instead of replacing existing grad
+    a->grad = mul_k(a_local, upstream);
+    b->grad = mul_k(b_local, upstream);
 
-//     // todo-now: is it a correct way to de-alloc a struct?
-//     //  - and all other ops below
-//     // free(a_local), free(b_local);
-// }
+    // todo-now: is it a correct way to de-alloc a struct?
+    //  - and all other ops below
+    // free(a_local), free(b_local);
+}
 
 // void sub_bwd(tensor* upstream, tensor* out) {
 //     tensor* a = out->inputs[0];

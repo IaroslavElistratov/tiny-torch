@@ -13,24 +13,24 @@
 
 // todo-now: temporarily commented out ops which don't yet have CUDA impl, so that compilation doesn't fail bc linker can't find _k expected by these ops
 
-// tensor* add(tensor* a, tensor* b) {
-//     a->num_uses++;
-//     b->num_uses++;
-//     tensor* t = add_k(a, b);
-//     t->is_leaf = false;
-//     // todo-low: check bool tensor->requires_grad before doing steps below, including allocating buffers
+tensor* add(tensor* a, tensor* b) {
+    a->num_uses++;
+    b->num_uses++;
+    tensor* t = add_k(a, b);
+    t->is_leaf = false;
+    // todo-low: check bool tensor->requires_grad before doing steps below, including allocating buffers
 
-//     // todo: this can be further abstracted -- creating a binary_op function
-//     // todo: and even further abstracted -- creating a binary_elementwise_op function
+    // todo: this can be further abstracted -- creating a binary_op function
+    // todo: and even further abstracted -- creating a binary_elementwise_op function
 
-//     // fill the additional info on out tensor
-//     t->num_inputs = 2;
-//     t->inputs[0] = a;
-//     t->inputs[1] = b;
-//     t->op_type = 0;
-//     t->grad_fn = add_bwd;
-//     return t;
-// }
+    // fill the additional info on out tensor
+    t->num_inputs = 2;
+    t->inputs[0] = a;
+    t->inputs[1] = b;
+    t->op_type = 0;
+    t->grad_fn = add_bwd;
+    return t;
+}
 
 // tensor* sub(tensor* a, tensor* b) {
 //     a->num_uses++;

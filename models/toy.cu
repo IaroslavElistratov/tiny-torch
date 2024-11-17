@@ -21,17 +21,31 @@ using namespace std;
 // todo-now:
 // Need to abstract away loop over individual elements and then can re-use most of the fwd kernels
 
-int main() {
-    // by default set to DEVICE backend
-    set_backend_device();
+void test_backends(void){
+    srand(123);
 
-    // random num generator init, must be called once
-    // srand(time(NULL));
+    int N = 16, M = 8;
+
+    set_backend_device();
+    tensor* cuda_t = Tensor(N, M);
+    set_name(cuda_t, "cuda_t"); print(cuda_t);
+
+    set_backend_cpu();
+    tensor* cpu_tens = Tensor(N, M);
+    set_name(cpu_tens, "cpu_tens"); print(cpu_tens);
+}
+
+
+
+int main() {
     srand(123);
 
     int N = 16;
     int M = 8;
     int D = 4;
+
+    // by default set to DEVICE backend
+    set_backend_device();
 
     tensor* x = Tensor(N, M);
     set_name(x, "x"); print(x);
@@ -39,19 +53,19 @@ int main() {
     tensor* w1 = Tensor(M, D);
     set_name(w1, "w1"); print(w1);
 
-    tensor* out = matmul(x, w1); // (N, D)
-    set_name(out, "out_mm"); print(out);
+    tensor* mm = matmul(x, w1);     // (N=16, D=4)
+    set_name(mm, "mm"); print(mm);
 
-    tensor* out_tr = transpose(out);       // (D, N)
-    set_name(out_tr, "out_tr"); print(out_tr);
+    tensor* tr = transpose(mm);     // (D=4, N=16)
+    set_name(tr, "tr"); print(tr);
 
-    out_tr->backward(out_tr);
-    graphviz(out_tr);
+    tensor* w2 = TensorLike(tr);     // (D=4, N=16)
+    set_name(w2, "w2"); print(w2);
+    tensor* ad = add(tr, w2);       // (D, N)
+    set_name(ad, "ad"); print(ad);
 
-
-    set_backend_cpu();
-    tensor* cpu_tens = Tensor(M, D);
-    set_name(cpu_tens, "cpu_tens"); print(cpu_tens);
+    ad->backward(ad);
+    graphviz(ad);
 
     return 0;
 }
