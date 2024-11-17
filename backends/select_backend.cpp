@@ -13,6 +13,7 @@ tensor* (*COPY_FROM_DEVICE)(tensor*) = NULL;
 #elif DEVICE == CUDA
     #include "cuda/move_data.cpp"
     #include "cuda/kernels.cu"
+    #include "cuda/kernels_conv.cu"
 #endif
 
 #include "common.cpp"

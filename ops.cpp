@@ -247,31 +247,31 @@ tensor* batched_matmul(tensor* a, tensor* b) {
 //     return t;
 // }
 
-// tensor* conv(tensor* input, tensor* kernel) {
-//     input->num_uses++;
-//     kernel->num_uses++;
-//     tensor* t = conv_k(input, kernel);
-//     t->is_leaf = false;
-//     t->num_inputs = 2;
-//     t->inputs[0] = input;
-//     t->inputs[1] = kernel;
-//     t->op_type = 9;
-//     t->grad_fn = bwd_conv_k;
-//     return t;
-// }
+tensor* conv(tensor* input, tensor* kernel) {
+    input->num_uses++;
+    kernel->num_uses++;
+    tensor* t = conv_k(input, kernel);
+    t->is_leaf = false;
+    t->num_inputs = 2;
+    t->inputs[0] = input;
+    t->inputs[1] = kernel;
+    t->op_type = 9;
+    // t->grad_fn = bwd_conv_k;
+    return t;
+}
 
-// tensor* batched_conv(tensor* input, tensor* kernel) {
-//     input->num_uses++;
-//     kernel->num_uses++;
-//     tensor* t = batched_conv_k(input, kernel);
-//     t->is_leaf = false;
-//     t->num_inputs = 2;
-//     t->inputs[0] = input;
-//     t->inputs[1] = kernel;
-//     t->op_type = 10;
-//     t->grad_fn = bwd_batched_conv_k;
-//     return t;
-// }
+tensor* batched_conv(tensor* input, tensor* kernel) {
+    input->num_uses++;
+    kernel->num_uses++;
+    tensor* t = batched_conv_k(input, kernel);
+    t->is_leaf = false;
+    t->num_inputs = 2;
+    t->inputs[0] = input;
+    t->inputs[1] = kernel;
+    t->op_type = 10;
+    // t->grad_fn = bwd_batched_conv_k;
+    return t;
+}
 
 // tensor* maxpool(tensor* input) {
 //     input->num_uses++;
