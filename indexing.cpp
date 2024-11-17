@@ -103,7 +103,7 @@ tensor* slice_3d(tensor* t, const char* dims){
 tensor* slice(tensor* t, const char* dims){
     if (t->num_dims==2) return slice_2d(t, dims);
     else if (t->num_dims==3) return slice_3d(t, dims);
-    else return NULL;
+    else exit(1);
 }
 
 
@@ -161,7 +161,7 @@ tensor* view_3d(tensor* t, const char* dims){
 tensor* view(tensor* t, const char* dims){
     if (t->num_dims==2) return view_2d(t, dims);
     else if (t->num_dims==3) return view_3d(t, dims);
-    else return NULL;
+    else exit(1);
 }
 
 

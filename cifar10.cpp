@@ -46,7 +46,7 @@ cifar10* get_cifar10(){
     FILE *fp;
     if ((fp = fopen("/Users/iaro/Desktop/cifar-10-batches-bin/data_batch_1.bin", "rb")) == NULL) {
         printf("[cifar] Error: can't access file");
-        return NULL;
+        exit(1);
     }
 
     // - byte_idx is for indexing the input buffer
@@ -70,7 +70,7 @@ cifar10* get_cifar10(){
         } else {
             if (tensor_data_idx>=input->size){
                 printf("\n[cifar10] ERR!");
-                return NULL;
+                exit(1);
             }
             // c is in range 0-255
             // printf("%f\n", c/255.);

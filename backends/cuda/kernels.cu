@@ -56,15 +56,15 @@ tensor* matmul_k(tensor* a, tensor* b){
 void matmul_input_checks(tensor* a, tensor* b){
     if (a->device!=CUDA || b->device!=CUDA){
         printf("[cuda MatMul] Error: expect device cuda");
-        return;
+        exit(1);
     }
     if (a->num_dims!=2 || b->num_dims!=2){
         printf("[cuda MatMul] Error: expect 2-dim inputs");
-        return;
+        exit(1);
     }
     if (a->shape[1] != b->shape[0]){
         printf("[cuda MatMul] Error: inner dim doesn't match");
-        return;
+        exit(1);
     }
 }
 
@@ -104,10 +104,10 @@ tensor* transpose_k(tensor* a){
 void transpose_input_checks(tensor* a){
     if (a->device!=CUDA){
         printf("[cuda Transpose] Error: expect device cuda");
-        return;
+        exit(1);
     }
     if (a->num_dims!=2){
         printf("[cuda Transpose] Error: expect 2-dim inputs");
-        return;
+        exit(1);
     }
 }

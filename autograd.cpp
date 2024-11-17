@@ -10,7 +10,7 @@ void backward(tensor* loss){
 
     if (!loss->grad_fn) {
         printf("[autograd engine] Error: tensor has no grad_fn\n");
-        return;
+        exit(1);
     }
 
     // todo: in autograd, don't overwrite grad instead do +=
@@ -58,7 +58,7 @@ void backward(tensor* loss){
 
         if (!t->grad_fn || !t->grad) {
             printf("[autograd engine] Error: tensor has no grad_fn\n");
-            return;
+            exit(1);
         }
 
         // each input of this op will have this as an upstream grad

@@ -121,7 +121,7 @@ tensor* div_k(tensor* a, tensor* b) {
     // todo-now: add these checks to every function
     if (a->num_dims!=2 || b->num_dims!=2){
         printf("[div_k] Error");
-        return NULL;
+        exit(1);
     }
 
     tensor* out = TensorLike(a);
@@ -136,7 +136,7 @@ tensor* repeat_k(tensor* a, int num_repeats) {
 
     if (a->num_dims!=2 || a->shape[1]!=1){
         printf("[repeat] Error");
-        return NULL;
+        exit(1);
     }
 
     int B = a->shape[0];
@@ -170,7 +170,7 @@ tensor* select_k(tensor* a, tensor* idx) {
     //      this latter condition is not being checked here
     if (a->num_dims!=2 || idx->num_dims!=2 || idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
         printf("[select] Error shape");
-        return NULL;
+        exit(1);
     }
 
     int B = a->shape[0];
@@ -350,7 +350,7 @@ tensor* neg_k(tensor* a) {
 tensor* exp_k(tensor* a) {
     if (a->num_dims!=2) {
         printf("[exp_k] Error shape");
-        return NULL;
+        exit(1);
     }
     tensor* out = TensorLikeFill(a, 0.0);
     for (int i=0; i<out->size; i++){
@@ -376,7 +376,7 @@ void exp_bwd(tensor* upstream, tensor* out) {
 tensor* log_k(tensor* a) {
     if (a->num_dims!=2) {
         printf("[log_k] Error shape");
-        return NULL;
+        exit(1);
     }
     tensor* out = TensorLikeFill(a, 0.0);
     for (int i=0; i<out->size; i++){
@@ -447,7 +447,7 @@ tensor* batched_flatten_k(tensor* a) {
         out_dim = a->shape[1] * a->shape[2] * a->shape[3];
     else {
         printf("[batched_flatten] Error");
-        return NULL;
+        exit(1);
     }
 
     // inputs to this kernel can be 3d, 4d -- but the output is always 2d (all dims flattened except for the batch dim)
@@ -462,8 +462,10 @@ void batched_flatten_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
 
     // todo: these copies aren't needed -- can just change strides and shapes on the upstream
-    if (!a->num_dims==3 && !a->num_dims==4)
+    if (!a->num_dims==3 && !a->num_dims==4){
         printf("[batched_flatten] Error");
+        exit(1);
+    }
     a->grad = TensorLike(a);
 
     // reshape upstream into the shape of a
@@ -478,7 +480,7 @@ tensor* batched_reduce_sum_k(tensor* a) {
 
     if (a->num_dims!=2){
         printf("[batched_reduce_sum] Error");
-        return NULL;
+        exit(1);
     }
 
     int B = a->shape[0], N = a->shape[1];
@@ -501,8 +503,10 @@ void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     int B = a->shape[0], N = a->shape[1];
 
-    if (a->num_dims!=2)
+    if (a->num_dims!=2){
         printf("[batched_reduce_sum] Error");
+        exit(1);
+    }
 
     if (!a->grad)
         // important to fill with 0's if we gonna "+=" to it below.
@@ -544,7 +548,7 @@ tensor* batched_max_k(tensor* a) {
 
     if (a->num_dims!=2){
         printf("[batched_max] Error");
-        return NULL;
+        exit(1);
     }
 
     int B = a->shape[0], N = a->shape[1];
@@ -564,8 +568,10 @@ void batched_max_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     int B = a->shape[0], N = a->shape[1];
 
-    if (a->num_dims!=2)
+    if (a->num_dims!=2){
         printf("[batched_max] Error");
+        exit(1);
+    }
 
     if (!a->grad)
         a->grad = TensorLikeFill(a, 0.0);

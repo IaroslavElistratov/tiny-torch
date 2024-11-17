@@ -21,11 +21,13 @@ void copy_to_cuda(tensor* t){
     cudaError_t err = cudaMalloc((void**)&t_device, size);
     // todo: exit from program everywhere in case of error
     if (err != cudaSuccess){
-        printf("[cuda malloc] error");
+        printf("[cuda malloc] error\n");
+        exit(1);
     }
     err = cudaMemcpy(t_device, t->data, size, cudaMemcpyHostToDevice);
     if (err != cudaSuccess){
-        printf("[cuda memcopy] error");
+        printf("[cuda memcopy] error\n");
+        exit(1);
     }
     // todo: free cpu t->data (currently memory leak)
     t->data = t_device;
@@ -42,8 +44,8 @@ tensor* copy_from_cuda(tensor* t) {
     cudaError_t err = cudaMemcpy(host_data, t->data, size, cudaMemcpyDeviceToHost);
     // todo: define a macro CUDA_CHECK for unwrapping this
     if (err != cudaSuccess){
-        printf("[cuda memcopy] error: %s",  cudaGetErrorString(err));
-        return NULL;
+        printf("[cuda memcopy] error: %s\n",  cudaGetErrorString(err));
+        exit(1);
     }
     // avoids TensorLike returning a cuda tensor (TensorLike->TensorNd->COPY_TO_DEVICE->copy_to_cuda)
     set_backend_cpu();

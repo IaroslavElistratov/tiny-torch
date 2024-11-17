@@ -25,8 +25,8 @@ int _parse_idx(const char* str, int start_idx){
 
         // err check
         if (buff_idx >= MAX_DIGIT_IDX || start_idx >= MAX_STR_LEN) {
-            printf("\n[_parse_idx] error, idx has more digits than expected");
-            return -1;
+            printf("\n[_parse_idx] error, idx has more digits than expected\n");
+            exit(1);
         }
 
         // these are the two possible separators which delimit the digits

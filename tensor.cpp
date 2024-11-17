@@ -293,7 +293,7 @@ tensor* TensorLike(tensor* t){
     else if (t->num_dims==4)
         return TensorLike4d(t);
     else
-        return NULL;
+        exit(1);
 }
 
 tensor* TensorLikeFill(tensor* t, float val){
@@ -304,5 +304,5 @@ tensor* TensorLikeFill(tensor* t, float val){
     else if (t->num_dims==4)
         return TensorLikeFill4d(t, val);
     else
-        return NULL;
+        exit(1);
 }

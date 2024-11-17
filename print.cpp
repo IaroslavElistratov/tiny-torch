@@ -26,7 +26,10 @@ void sprint(tensor* t){
     if (t->num_dims==2) sprint_2d(t);
     else if (t->num_dims==3) sprint_3d(t);
     else if (t->num_dims==4) sprint_4d(t);
-    else printf("[sprint] Error");
+    else {
+        printf("[sprint] Error");
+        exit(1);
+    }
 }
 
 
@@ -99,7 +102,10 @@ void print(tensor* t){
     if (t->num_dims==2) print_2d(t);
     else if (t->num_dims==3) print_3d(t);
     else if (t->num_dims==4) print_4d(t);
-    else printf("[print] Error");
+    else {
+        printf("[print] Error");
+        exit(1);
+    }
 }
 
 
@@ -109,7 +115,7 @@ void lsprint_2d(tensor* t){
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
     fprintf(f, "\n%s:\n", t->name);
     fprintf(f, "%s->shape: %i, %i\n", t->name, t->shape[0], t->shape[1]);
@@ -121,7 +127,7 @@ void lsprint_3d(tensor* t){
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
     fprintf(f, "\n%s:\n", t->name);
     fprintf(f, "%s->shape: %i, %i, %i\n", t->name, t->shape[0], t->shape[1], t->shape[2]);
@@ -133,7 +139,7 @@ void lsprint_4d(tensor* t){
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
     fprintf(f, "\n%s:\n", t->name);
     fprintf(f, "%s->shape: %i, %i, %i, %i\n", t->name, t->shape[0], t->shape[1],  t->shape[2],  t->shape[3]);
@@ -145,7 +151,10 @@ void lsprint(tensor* t){
     if (t->num_dims==2) lsprint_2d(t);
     else if (t->num_dims==3) lsprint_3d(t);
     else if (t->num_dims==4) lsprint_4d(t);
-    else printf("[lsprint] Error");
+    else {
+        printf("[lsprint] Error");
+        exit(1);
+    }
 }
 
 
@@ -156,7 +165,7 @@ void lprint_2d(tensor* t){
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
 
     int y = t->shape[0];
@@ -181,7 +190,7 @@ void lprint_3d(tensor* t){
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
 
     int x = t->shape[0];
@@ -210,7 +219,7 @@ void lprint_4d(tensor* t){
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
 
     int o = t->shape[0];
@@ -239,5 +248,8 @@ void lprint(tensor* t){
     if (t->num_dims==2) lprint_2d(t);
     else if (t->num_dims==3) lprint_3d(t);
     else if (t->num_dims==4) lprint_4d(t);
-    else printf("[lprint] Error");
+    else {
+        printf("[lprint] Error");
+        exit(1);
+    }
 }

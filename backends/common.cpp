@@ -138,8 +138,10 @@ void matmul_bwd(tensor* upstream, tensor* out) {
 // void repeat_bwd(tensor* upstream, tensor* out) {
 //     tensor* a = out->inputs[0];
 
-//     if (a->num_dims!=2)
+//     if (a->num_dims!=2){
 //         printf("[repeat] Error");
+//         exit(1);
+//     }
 
 //     // sum together each row of upstream
 //     a->grad = batched_reduce_sum_k(upstream);

@@ -61,7 +61,7 @@ void graphviz(tensor* tens){
     FILE *f = fopen("./generated/graph.txt", "w");
     if (f == NULL) {
         printf("[graphviz] Error opening file\n");
-        return;
+        exit(1);
     }
 
     fprintf(f, "digraph {\n");
