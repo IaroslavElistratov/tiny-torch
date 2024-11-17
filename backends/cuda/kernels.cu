@@ -34,6 +34,23 @@ void binary_elsementwise_input_checks(tensor* a, tensor* b){
 }
 
 
+void unary_batched_input_checks(tensor* a){
+    if (a->device!=CUDA){
+        printf("[cuda kernel] Error: expected device cuda\n");
+        exit(1);
+    }
+    if (a->num_dims!=3){
+        printf("[cuda kernel] Error: expected 2-dim inputs\n");
+        exit(1);
+    }
+}
+
+void binary_batched_input_checks(tensor* a, tensor* b){
+    unary_batched_input_checks(a);
+    unary_batched_input_checks(b);
+}
+
+
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ backward defined in common ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -63,7 +80,6 @@ tensor* _launch_binary_elsementwise(BinaryElementwiseKernel kernel, tensor* a, t
     }
 
     kernel<<<dimGrid, dimBlock>>>(a->data, b->data, out->data, out->size);
-
     return out;
 }
 
@@ -141,11 +157,14 @@ tensor* div_k(tensor* a, tensor* b){
 // binary
 
 
-// a(N, M) @ b(M, D) = out(N, D)
-__global__ void MatMulKernel(float* a, float* b, float* out, int N, int M, int D){
+// a(?B, N, M) @ b(?B, M, D) = out(?B, N, D)
+__global__ void MatMulKernel(float* a, float* b, float* out, int N, int M, int D, bool is_batched){
     // (block idx * num threads per block) + threadidx
     int n = blockIdx.x * blockDim.x + threadIdx.x;
     int d = blockIdx.y * blockDim.y + threadIdx.y;
+
+    // cancels out when not batched
+    int batch = blockIdx.z * is_batched;
 
     if ((n<N) && (d<D)){
         float curr_out = 0.0;
@@ -154,9 +173,9 @@ __global__ void MatMulKernel(float* a, float* b, float* out, int N, int M, int D
             //   But, it doesn't really make sense to use index_2d when you're accessing contiguous cuda memory
             //   (I belive it's contiguous as this is ouput of cuda-malloc called from inside Tensor constructor)
             // out += a->data[index_2d(a, n, k)] * b->data[index_2d(b, k, d)];
-            curr_out += a[n*M + m] * b[m*D + d];
+            curr_out += a[batch*N*M + n*M + m] * b[batch*M*D + m*D + d];
         }
-        out[n*D + d] = curr_out;
+        out[batch*N*D + n*D + d] = curr_out;
     }
 }
 
@@ -173,7 +192,7 @@ tensor* matmul_k(tensor* a, tensor* b){
     }
 
     int N = a->shape[0], M = a->shape[1], D = b->shape[1];
-    // todo: fill w 0
+    // todo: fill w 0, here and in other stubs
     tensor* out = Tensor(N, D);
 
     // todo: unify 7 lines below into a fn (e.g. compute_launch_shapes), re-use acorss all stubs
@@ -188,8 +207,33 @@ tensor* matmul_k(tensor* a, tensor* b){
     }
 
     // todo: to avoid passing shapes, cp tensor structs to cuda and pass them to the kernel?
-    MatMulKernel<<<dimGrid, dimBlock>>>(a->data, b->data, out->data, N, M, D);
+    MatMulKernel<<<dimGrid, dimBlock>>>(a->data, b->data, out->data, N, M, D, false);
+    return out;
+}
 
+// a(B, N, M) @ b(B, M, D) = out(B, N, D)
+tensor* batched_matmul_k(tensor* a, tensor* b){
+    if (CUDA_DEBUG) printf("[batched_matmul_k]\n");
+    binary_batched_input_checks(a, b);
+    if (a->shape[2] != b->shape[1]){
+        printf("[cuda BatchedMatMul] Error: inner dim doesn't match\n");
+        exit(1);
+    }
+
+    int B = a->shape[0], N = a->shape[1], M = a->shape[2], D = b->shape[2];
+    tensor* out = Tensor(B, N, D);
+
+    // important to have it float to avoid int division
+    float num_threads = (float)NUM_THREADS;
+    dim3 dimGrid(ceil(N/num_threads), ceil(D/num_threads), B);
+    dim3 dimBlock(num_threads, num_threads, 1);
+
+    if (CUDA_DEBUG){
+        printf("[cuda BatchedMatMul] grid: (%f, %f, %i)\n", ceil(N/num_threads), ceil(D/num_threads), B);
+        printf("[cuda BatchedMatMul] block: (%f, %f, 1)\n", num_threads, num_threads);
+    }
+
+    MatMulKernel<<<dimGrid, dimBlock>>>(a->data, b->data, out->data, N, M, D, true);
     return out;
 }
 
@@ -214,7 +258,6 @@ tensor* _launch_unary_elsementwise(UnaryKernel kernel, tensor* a){
     }
 
     kernel<<<dimGrid, dimBlock>>>(a->data, out->data, out->size);
-
     return out;
 }
 
@@ -280,17 +323,22 @@ tensor* neg_k(tensor* a){
 
 
 // todo: for transpose, launch 1d blocks so that it can re-use _launch_unary_elsementwise?
-// a(N, M) -> out(M, N)
-__global__ void TransposeKernel(float* a, float* out, int M, int N){
+// todo-high: this kernel (TransposeKernel, BatchedTransposeKernel) basically does: swap strides + "contigify" -- can I get rid of this kernel when
+//   - support non-contigious data in my cuda kernel (which means when use "at" instead of t[idx] to index into tensors)
+//   - which implies changing kernels to input tensors not floats, to access strides
+// a(?B, N, M) -> out(?B, M, N)
+__global__ void TransposeKernel(float* a, float* out, int M, int N, bool is_batched){
     int m = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
+    int batch = blockIdx.z * is_batched;
 
-    if ((m<M) && (n<N)){
-        out[m*N + n] = a[n*M + m];
+    if (m<M && n<N){
+        out[batch*M*N + m*N + n] = a[batch*N*M + n*M + m];
     }
 }
 
 tensor* transpose_k(tensor* a){
+    if (CUDA_DEBUG) printf("[transpose_k]\n");
     unary_input_checks(a);
 
     int N = a->shape[0], M = a->shape[1];
@@ -306,15 +354,12 @@ tensor* transpose_k(tensor* a){
         printf("[cuda Transpose] block: (%f, %f, 1)\n", num_threads, num_threads);
     }
 
-    TransposeKernel<<<dimGrid, dimBlock>>>(a->data, out->data, M, N);
-
+    TransposeKernel<<<dimGrid, dimBlock>>>(a->data, out->data, M, N, false);
     return out;
 }
 
 
 // void repeat_bwd(tensor* upstream, tensor* out)
-
-// void pow_bwd(tensor* upstream, tensor* out)
 
 // void reduce_sum_bwd(tensor* upstream, tensor* out)
 
@@ -325,4 +370,25 @@ tensor* transpose_k(tensor* a){
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ backward NOT defined in common ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ kernels that do not have op wrappers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+tensor* batched_transpose_k(tensor* a){
+    if (CUDA_DEBUG) printf("[batched_transpose_k]\n");
+    unary_batched_input_checks(a);
+
+    int B = a->shape[0], N = a->shape[1], M = a->shape[2];
+    // todo: allocate empty
+    tensor* out = Tensor(B, M, N);
+
+    float num_threads = (float)NUM_THREADS;
+    dim3 dimGrid(ceil(M/num_threads), ceil(N/num_threads), B);
+    dim3 dimBlock(num_threads, num_threads, 1);
+
+    if (CUDA_DEBUG){
+        printf("[cuda Transpose] grid: (%f, %f, %i)\n", ceil(M/num_threads), ceil(N/num_threads), B);
+        printf("[cuda Transpose] block: (%f, %f, 1)\n", num_threads, num_threads);
+    }
+
+    TransposeKernel<<<dimGrid, dimBlock>>>(a->data, out->data, M, N, true);
+    return out;
+}

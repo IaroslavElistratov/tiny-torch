@@ -58,7 +58,7 @@ tensor* mul(tensor* a, tensor* b) {
     return t;
 }
 
-tensor* matmul(tensor* a, tensor* b){
+tensor* matmul(tensor* a, tensor* b) {
     a->num_uses++;
     b->num_uses++;
     // e.g.: a(N, M) @ b(M, D) = t(N, D)
@@ -200,20 +200,19 @@ tensor* log(tensor* a) {
     return t;
 }
 
-// tensor* batched_matmul(tensor* a, tensor* b)
-// {
-//     a->num_uses++;
-//     b->num_uses++;
-//     // e.g.: a(B, N, M) @ b(B, M, D) = t(B, N, D)
-//     tensor* t = batched_matmul_k(a, b);
-//     t->is_leaf = false;
-//     t->num_inputs = 2;
-//     t->inputs[0] = a;
-//     t->inputs[1] = b;
-//     t->op_type = 8;
-//     t->grad_fn = batched_matmul_bwd;
-//     return t;
-// }
+tensor* batched_matmul(tensor* a, tensor* b) {
+    a->num_uses++;
+    b->num_uses++;
+    // e.g.: a(B, N, M) @ b(B, M, D) = t(B, N, D)
+    tensor* t = batched_matmul_k(a, b);
+    t->is_leaf = false;
+    t->num_inputs = 2;
+    t->inputs[0] = a;
+    t->inputs[1] = b;
+    t->op_type = 8;
+    t->grad_fn = batched_matmul_bwd;
+    return t;
+}
 
 // tensor* batched_flatten(tensor* a) {
 //     a->num_uses++;

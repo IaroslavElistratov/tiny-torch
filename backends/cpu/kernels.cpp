@@ -584,6 +584,7 @@ void batched_max_bwd(tensor* upstream, tensor* out) {
 }
 
 
+// todo-now: to re-use this fwd kernel for CUDA, need to use strides in cuda kernels (instead of indexing manually)
 // tensor* local_a = transpose_k(b); // (B, M, D) -> (B, D, M)
 // comment: this is equivalent to numpy's np.transpose(x, axes=(0, 2, 1))
 tensor* batched_transpose_k(tensor* x){

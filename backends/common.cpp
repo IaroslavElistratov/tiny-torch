@@ -210,28 +210,28 @@ void neg_bwd(tensor* upstream, tensor* out) {
     a->grad = mul_k(local, upstream);
 }
 
-// // comment: shapes are same as matmul_bwd, but with additional (B,) dim first
-// void batched_matmul_bwd(tensor* upstream, tensor* out) {
-//     tensor* a = out->inputs[0];
-//     tensor* b = out->inputs[1];
+// comment: shapes are same as matmul_bwd, but with additional (B,) dim first
+void batched_matmul_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    tensor* b = out->inputs[1];
 
-//     // upstream(B, N, D)   // same as t.shape
-//     //   a - ?
-//     //      a(B, N, M), so a_grad(B, N, M)
-//     //      upstream(B, N, D) @ b.t(B, D, M) = a_grad(B, N, M)
-//     //   b - ?
-//     //      b(B, M, D), so b_grad(B, M, D)
-//     //      a.t(B, M, N) @ upstream(B, N, D) = b_grad(B, M, D)
+    // upstream(B, N, D)   // same as t.shape
+    //   a - ?
+    //      a(B, N, M), so a_grad(B, N, M)
+    //      upstream(B, N, D) @ b.t(B, D, M) = a_grad(B, N, M)
+    //   b - ?
+    //      b(B, M, D), so b_grad(B, M, D)
+    //      a.t(B, M, N) @ upstream(B, N, D) = b_grad(B, M, D)
 
-//     tensor* local_a = batched_transpose_k(b); // (B, M, D) -> (B, D, M)
-//     tensor* local_b = batched_transpose_k(a); // (B, N, M) -> (B, M, N)
+    tensor* local_a = batched_transpose_k(b); // (B, M, D) -> (B, D, M)
+    tensor* local_b = batched_transpose_k(a); // (B, N, M) -> (B, M, N)
 
-//     // 2. wire local with upstream
-//     // upstream(B, N, D) @ b.t(B, D, M) = a_grad(B, N, M)
-//     a->grad = batched_matmul_k(upstream, local_a);
-//     // a.t(B, M, N) @ upstream(B, N, D) = b_grad(B, M, D)
-//     b->grad = batched_matmul_k(local_b, upstream);
+    // 2. wire local with upstream
+    // upstream(B, N, D) @ b.t(B, D, M) = a_grad(B, N, M)
+    a->grad = batched_matmul_k(upstream, local_a);
+    // a.t(B, M, N) @ upstream(B, N, D) = b_grad(B, M, D)
+    b->grad = batched_matmul_k(local_b, upstream);
 
-//     // note:
-//     // free(local_a), free(local_b);
-// }
+    // note:
+    // free(local_a), free(local_b);
+}

@@ -36,6 +36,24 @@ void test_backends(void){
 }
 
 
+int test_bmm() {
+    srand(123);
+
+    int B=3, N = 2, M = 8, D = 4;
+
+    set_backend_device();
+
+    tensor* x = Tensor(B, N, M);
+    set_name(x, "x"); print(x);
+
+    tensor* w1 = Tensor(B, M, D);
+    set_name(w1, "w1"); print(w1);
+
+    tensor* out = batched_matmul(x, w1);
+    set_name(out, "out"); print(out);
+
+    out->backward(out);
+}
 
 int main() {
     srand(123);
