@@ -32,31 +32,31 @@ tensor* add(tensor* a, tensor* b) {
     return t;
 }
 
-// tensor* sub(tensor* a, tensor* b) {
-//     a->num_uses++;
-//     b->num_uses++;
-//     tensor* t = sub_k(a, b);
-//     t->is_leaf = false;
-//     t->num_inputs = 2;
-//     t->inputs[0] = a;
-//     t->inputs[1] = b;
-//     t->op_type = 1;
-//     t->grad_fn = sub_bwd;
-//     return t;
-// }
+tensor* sub(tensor* a, tensor* b) {
+    a->num_uses++;
+    b->num_uses++;
+    tensor* t = sub_k(a, b);
+    t->is_leaf = false;
+    t->num_inputs = 2;
+    t->inputs[0] = a;
+    t->inputs[1] = b;
+    t->op_type = 1;
+    t->grad_fn = sub_bwd;
+    return t;
+}
 
-// tensor* mul(tensor* a, tensor* b) {
-//     a->num_uses++;
-//     b->num_uses++;
-//     tensor* t = mul_k(a, b);
-//     t->is_leaf = false;
-//     t->num_inputs = 2;
-//     t->inputs[0] = a;
-//     t->inputs[1] = b;
-//     t->op_type = 2;
-//     t->grad_fn = mul_bwd;
-//     return t;
-// }
+tensor* mul(tensor* a, tensor* b) {
+    a->num_uses++;
+    b->num_uses++;
+    tensor* t = mul_k(a, b);
+    t->is_leaf = false;
+    t->num_inputs = 2;
+    t->inputs[0] = a;
+    t->inputs[1] = b;
+    t->op_type = 2;
+    t->grad_fn = mul_bwd;
+    return t;
+}
 
 tensor* matmul(tensor* a, tensor* b){
     a->num_uses++;
@@ -72,18 +72,18 @@ tensor* matmul(tensor* a, tensor* b){
     return t;
 }
 
-// tensor* div(tensor* a, tensor* b) {
-//     a->num_uses++;
-//     b->num_uses++;
-//     tensor* t = div_k(a, b);
-//     t->is_leaf = false;
-//     t->num_inputs = 2;
-//     t->inputs[0] = a;
-//     t->inputs[1] = b;
-//     t->op_type = 20;
-//     t->grad_fn = div_bwd;
-//     return t;
-// }
+tensor* div(tensor* a, tensor* b) {
+    a->num_uses++;
+    b->num_uses++;
+    tensor* t = div_k(a, b);
+    t->is_leaf = false;
+    t->num_inputs = 2;
+    t->inputs[0] = a;
+    t->inputs[1] = b;
+    t->op_type = 20;
+    t->grad_fn = div_bwd;
+    return t;
+}
 
 // tensor* repeat(tensor* a, int num_repeats) {
 //     a->num_uses++;
@@ -109,18 +109,18 @@ tensor* matmul(tensor* a, tensor* b){
 //     return t;
 // }
 
-// tensor* pow(tensor* a, int exponent) {
-//     a->num_uses++;
-//     tensor* t = pow_k(a, exponent);
-//     t->is_leaf = false;
-//     //  comment: note by "inputs" I mean tensor inputs (INPUTS which I'll use compute grads wrt to)
-//     //  so here even if this op has two inputs, it really has one, for the purpose of the autograd
-//     t->num_inputs = 1;
-//     t->inputs[0] = a;
-//     t->op_type = 4;
-//     t->grad_fn = pow_bwd;
-//     return t;
-// }
+tensor* pow(tensor* a, int exponent) {
+    a->num_uses++;
+    tensor* t = pow_k(a, exponent);
+    t->is_leaf = false;
+    //  comment: note by "inputs" I mean tensor inputs (INPUTS which I'll use compute grads wrt to)
+    //  so here even if this op has two inputs, it really has one, for the purpose of the autograd
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->op_type = 4;
+    t->grad_fn = pow_bwd;
+    return t;
+}
 
 // tensor* reduce_sum(tensor* a) {
 //     a->num_uses++;
@@ -166,16 +166,16 @@ tensor* transpose(tensor* a) {
 //     return t;
 // }
 
-// tensor* neg(tensor* a) {
-//     a->num_uses++;
-//     tensor* t = neg_k(a);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = a;
-//     t->op_type = 19;
-//     t->grad_fn = neg_bwd;
-//     return t;
-// }
+tensor* neg(tensor* a) {
+    a->num_uses++;
+    tensor* t = neg_k(a);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->op_type = 19;
+    t->grad_fn = neg_bwd;
+    return t;
+}
 
 // // todo: does it conflict with C's math.exp ?
 // tensor* exp(tensor* a) {

@@ -5,6 +5,7 @@
 
 
 tensor* transpose_k(tensor*);
+// tensor* Tensor(...);
 
 
 void unary_input_checks(tensor* a){
@@ -44,10 +45,13 @@ void binary_elsementwise_input_checks(tensor* a, tensor* b){
 typedef void (*BinaryElementwiseKernel)(float* a, float* b, float* out, int size);
 
 // comment: I think unnecessary to launch 2d blocks for binary/unary ops -- since data is contigious can just launch 1d blocks
-tensor* _launch_binary_elsementwise(BinaryElementwiseKernel kernel, tensor* a, tensor* b){
+tensor* _launch_binary_elsementwise(BinaryElementwiseKernel kernel, tensor* a, tensor* b, tensor* out){
     binary_elsementwise_input_checks(a, b);
 
-    tensor* out = TensorLikeFill(a, 0.0);
+    // added out arg to _launch_binary_elsementwise, so that this fn can be re-used in add_k_
+    if (!out){
+        out = TensorLikeFill(a, 0.0);
+    }
 
     float num_threads = (float)NUM_THREADS;
     dim3 dimGrid(ceil(out->size/num_threads), 1, 1);
@@ -74,8 +78,57 @@ __global__ void AddKernel(float* a, float* b, float* out, int size){
 
 tensor* add_k(tensor* a, tensor* b){
     if (CUDA_DEBUG) printf("[add_k]\n");
-    BinaryElementwiseKernel kernel = AddKernel;
-    return _launch_binary_elsementwise(kernel, a, b);
+    return _launch_binary_elsementwise(AddKernel, a, b, NULL);
+}
+
+// need the below bc add_k_ is used in backends/common div_bwd
+// AddKernel is semantically similar to cpu's add_k_, except the
+// latter expects tensors (not *floats)
+// Maybe in the future change my cuda kernels to expect tensors to
+// get rid of this, other other hand add_k_ and mul_k_ are useful in
+// impls of some bwd funcs
+tensor* add_k_(tensor* a, tensor* b, tensor* c){
+    if (CUDA_DEBUG) printf("[add_k_]\n");
+    return _launch_binary_elsementwise(AddKernel, a, b, c);
+}
+
+
+__global__ void SubKernel(float* a, float* b, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx<size){
+        out[idx] = a[idx] - b[idx];
+    }
+}
+
+tensor* sub_k(tensor* a, tensor* b){
+    if (CUDA_DEBUG) printf("[sub_k]\n");
+    return _launch_binary_elsementwise(SubKernel, a, b, NULL);
+}
+
+
+__global__ void MulKernel(float* a, float* b, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx<size){
+        out[idx] = a[idx] * b[idx];
+    }
+}
+
+tensor* mul_k(tensor* a, tensor* b){
+    if (CUDA_DEBUG) printf("[mul_k]\n");
+    return _launch_binary_elsementwise(MulKernel, a, b, NULL);
+}
+
+
+__global__ void DivKernel(float* a, float* b, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx<size){
+        out[idx] = a[idx] / b[idx];
+    }
+}
+
+tensor* div_k(tensor* a, tensor* b){
+    if (CUDA_DEBUG) printf("[div_k]\n");
+    return _launch_binary_elsementwise(DivKernel, a, b, NULL);
 }
 
 
@@ -109,7 +162,7 @@ tensor* matmul_k(tensor* a, tensor* b){
     if (CUDA_DEBUG) printf("[matmul_k]\n");
     binary_input_checks(a, b);
     if (a->shape[1] != b->shape[0]){
-        printf("[cuda MatMul] Error: inner dim doesn't match");
+        printf("[cuda MatMul] Error: inner dim doesn't match\n");
         exit(1);
     }
 
@@ -137,9 +190,64 @@ tensor* matmul_k(tensor* a, tensor* b){
 
 // unary
 
-// todo: for transpose, launch 1d blocks so that it can re-use _launch_unary?
+
+typedef void (*UnaryKernel)(float* a, float* out, int size);
+
+tensor* _launch_unary_elsementwise(UnaryKernel kernel, tensor* a){
+    unary_input_checks(a);
+
+    tensor* out = TensorLikeFill(a, 0.0);
+
+    float num_threads = (float)NUM_THREADS;
+    dim3 dimGrid(ceil(out->size/num_threads), 1, 1);
+    dim3 dimBlock(num_threads, 1, 1);
+
+    if (CUDA_DEBUG){
+        printf("[cuda unary] grid: (%f, 1, 1)\n", ceil(a->size/num_threads));
+        printf("[cuda unary] block: (%f, 1, 1)\n", num_threads);
+    }
+
+    kernel<<<dimGrid, dimBlock>>>(a->data, out->data, out->size);
+
+    return out;
+}
 
 
+__global__ void PowKernel(float* a, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int pow_exponent = 2;
+    if (idx<size){
+        out[idx] = (float)pow(a[idx], pow_exponent);
+    }
+}
+
+tensor* pow_k(tensor* a, int exponent){
+    if (CUDA_DEBUG) printf("[pow_k]\n");
+    // cpu's pow_k expects exponent as arg, but here because of standardized _launch_unary_elsementwise interface I hardcode it
+    // todo: pass it via global argument
+    // pow_exponent = exponent;
+    if (exponent!=2){
+        printf("[cuda pow_k] currently this kernel only supports exponent=2\n");
+        exit(1);
+    }
+    return _launch_unary_elsementwise(PowKernel, a);
+}
+
+
+__global__ void NegKernel(float* a, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx<size){
+        out[idx] = -a[idx];
+    }
+}
+
+tensor* neg_k(tensor* a){
+    if (CUDA_DEBUG) printf("[neg_k]\n");
+    return _launch_unary_elsementwise(NegKernel, a);
+}
+
+
+// todo: for transpose, launch 1d blocks so that it can re-use _launch_unary_elsementwise?
 // a(N, M) -> out(M, N)
 __global__ void TransposeKernel(float* a, float* out, int M, int N){
     int m = blockIdx.x * blockDim.x + threadIdx.x;
@@ -171,6 +279,14 @@ tensor* transpose_k(tensor* a){
     return out;
 }
 
+
+// void repeat_bwd(tensor* upstream, tensor* out)
+
+// void pow_bwd(tensor* upstream, tensor* out)
+
+// void reduce_sum_bwd(tensor* upstream, tensor* out)
+
+// void batched_matmul_bwd(tensor* upstream, tensor* out) {
 
 
 

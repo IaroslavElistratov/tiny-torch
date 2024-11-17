@@ -6,7 +6,7 @@
 void set_backend_cuda(void);
 
 void copy_to_cuda(tensor* t){
-    printf("\ncopy_to_cuda\n");
+    printf("copy_to_cuda\n");
     if (t->device==CUDA){
         return;
     }
@@ -34,7 +34,7 @@ void copy_to_cuda(tensor* t){
 }
 
 tensor* copy_from_cuda(tensor* t) {
-    printf("\ncopy_from_cuda\n");
+    printf("copy_from_cuda\n");
     t->device = CUDA;
 
     // todo: can just define a macro for print to call 4 lines below and then call the orignal print2d (no need for cuda_print_2d)

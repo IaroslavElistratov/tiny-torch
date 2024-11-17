@@ -40,9 +40,7 @@ void test_backends(void){
 int main() {
     srand(123);
 
-    int N = 16;
-    int M = 8;
-    int D = 4;
+    int N = 2, M = 8, D = 4;
 
     // by default set to DEVICE backend
     set_backend_device();
@@ -53,19 +51,33 @@ int main() {
     tensor* w1 = Tensor(M, D);
     set_name(w1, "w1"); print(w1);
 
-    tensor* mm = matmul(x, w1);     // (N=16, D=4)
-    set_name(mm, "mm"); print(mm);
+    tensor* mm = matmul(x, w1);     // (N, D)
+    print(mm);
 
-    tensor* tr = transpose(mm);     // (D=4, N=16)
-    set_name(tr, "tr"); print(tr);
+    tensor* tr = transpose(mm);     // (D, N)
+    print(tr);
 
-    tensor* w2 = TensorLike(tr);     // (D=4, N=16)
+    tensor* w2 = TensorLike(tr);    // (D, N)
     set_name(w2, "w2"); print(w2);
     tensor* ad = add(tr, w2);       // (D, N)
-    set_name(ad, "ad"); print(ad);
+    print(ad);
 
-    ad->backward(ad);
-    graphviz(ad);
+    tensor* w3 = TensorLike(ad);    // (D, N)
+    set_name(w3, "w3"); print(w3);
+    // todo: hangs when replacing "ad" w "tr" below
+    tensor* su = sub(ad, w3);       // (D, N)
+    print(su);
+
+    tensor* w4 = TensorLike(su);    // (D, N)
+    set_name(w4, "w4"); print(w4);
+    tensor* di = div(su, w4);       // (D, N)
+    print(di);
+
+    tensor* pw = pow(di, 2);
+    tensor* out = neg(pw);
+
+    out->backward(out);
+    graphviz(out);
 
     return 0;
 }

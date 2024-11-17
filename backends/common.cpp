@@ -27,39 +27,39 @@ void add_bwd(tensor* upstream, tensor* out) {
     // free(a_local), free(b_local);
 }
 
-// void sub_bwd(tensor* upstream, tensor* out) {
-//     tensor* a = out->inputs[0];
-//     tensor* b = out->inputs[1];
+void sub_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    tensor* b = out->inputs[1];
 
-//     // local
-//     tensor* a_local = TensorLikeFill(a, 1.0);
-//     tensor* b_local = TensorLikeFill(b, -1.0);
+    // local
+    tensor* a_local = TensorLikeFill(a, 1.0);
+    tensor* b_local = TensorLikeFill(b, -1.0);
 
-//     // downstream = local * upstream
-//     a->grad = mul_k(a_local, upstream);
-//     b->grad = mul_k(b_local, upstream);
+    // downstream = local * upstream
+    a->grad = mul_k(a_local, upstream);
+    b->grad = mul_k(b_local, upstream);
 
-//     // free(a_local), free(b_local);
-// }
+    // free(a_local), free(b_local);
+}
 
-// void mul_bwd(tensor* upstream, tensor* out) {
-//     tensor* a = out->inputs[0];
-//     tensor* b = out->inputs[1];
+void mul_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    tensor* b = out->inputs[1];
 
-//     // todo: don't need malloc here? Bc a->data, b->data
-//     //  already malloc'ed -- can just save a pointer to them?
+    // todo: don't need malloc here? Bc a->data, b->data
+    //  already malloc'ed -- can just save a pointer to them?
 
-//     // note: no need to alloc buff for intermidiates, bc mul_k
-//     //  does not mutate its inputs
+    // note: no need to alloc buff for intermidiates, bc mul_k
+    //  does not mutate its inputs
 
-//     // local
-//     tensor* a_local = b;
-//     tensor* b_local = a;
+    // local
+    tensor* a_local = b;
+    tensor* b_local = a;
 
-//     // downstream = local * upstream
-//     a->grad = mul_k(a_local, upstream);
-//     b->grad = mul_k(b_local, upstream);
-// }
+    // downstream = local * upstream
+    a->grad = mul_k(a_local, upstream);
+    b->grad = mul_k(b_local, upstream);
+}
 
 void matmul_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
@@ -102,38 +102,38 @@ void matmul_bwd(tensor* upstream, tensor* out) {
     // free(local_a), free(local_b);
 }
 
-// void div_bwd(tensor* upstream, tensor* out) {
-//     tensor* a = out->inputs[0];
-//     tensor* b = out->inputs[1];
+void div_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    tensor* b = out->inputs[1];
 
-//     // local
-//     tensor* a_local = div_k(TensorLikeFill(a, 1.0), b);
-//     tensor* b_local = neg_k(div_k(a, pow_k(b, 2)));
+    // local
+    tensor* a_local = div_k(TensorLikeFill(a, 1.0), b);
+    tensor* b_local = neg_k(div_k(a, pow_k(b, 2)));
 
-//     // downstream
+    // downstream
 
-//     // comment: 
-//     // "a->grad = mul_k(a_local, upstream)" overwrite's input grad, the below does "+=" to it
-//     if (!a->grad)
-//         a->grad = TensorLikeFill(a, 0.0);
-//     else {
-//         printf("[div_bwd] a->grad exists!\n");
-//     }
+    // comment: 
+    // "a->grad = mul_k(a_local, upstream)" overwrite's input grad, the below does "+=" to it
+    if (!a->grad)
+        a->grad = TensorLikeFill(a, 0.0);
+    else {
+        printf("[div_bwd] a->grad exists!\n");
+    }
 
-//     if (!b->grad)
-//         b->grad = TensorLikeFill(b, 0.0);
-//     else {
-//         printf("[div_bwd] b->grad exists!\n");
-//     }
+    if (!b->grad)
+        b->grad = TensorLikeFill(b, 0.0);
+    else {
+        printf("[div_bwd] b->grad exists!\n");
+    }
 
-//     tensor* a_grad = mul_k(a_local, upstream);
-//     tensor* b_grad = mul_k(b_local, upstream);
-//     // does "+="
-//     add_k_(a->grad, a_grad, a->grad);
-//     add_k_(b->grad, b_grad, b->grad);
+    tensor* a_grad = mul_k(a_local, upstream);
+    tensor* b_grad = mul_k(b_local, upstream);
+    // does "+="
+    add_k_(a->grad, a_grad, a->grad);
+    add_k_(b->grad, b_grad, b->grad);
 
-//     // free(a_local), free(b_local);
-// }
+    // free(a_local), free(b_local);
+}
 
 // void repeat_bwd(tensor* upstream, tensor* out) {
 //     tensor* a = out->inputs[0];
@@ -149,16 +149,17 @@ void matmul_bwd(tensor* upstream, tensor* out) {
 //     // free(local);
 // }
 
-// void pow_bwd(tensor* upstream, tensor* out) {
-//     tensor* a = out->inputs[0];
-//     // 1. local
-//     // store local in grad in the grad field
-//     // todo-low: mem leak
-//     tensor* local = mul_k(TensorLikeFill(a, 2.0), a);
-//     // 2. wire local with upstream
-//     a->grad = mul_k(local, upstream);
-//     // free(local);
-// }
+void pow_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    // 1. local
+    // store local in grad in the grad field
+    // todo-low: mem leak
+    // todo: below assumes exponent=2 ?
+    tensor* local = mul_k(TensorLikeFill(a, 2.0), a);
+    // 2. wire local with upstream
+    a->grad = mul_k(local, upstream);
+    // free(local);
+}
 
 // void reduce_sum_bwd(tensor* upstream, tensor* out) {
 //     tensor* a = out->inputs[0];
@@ -178,13 +179,13 @@ void transpose_bwd(tensor* upstream, tensor* out) {
     a->grad = transpose_k(upstream);
 }
 
-// void neg_bwd(tensor* upstream, tensor* out) {
-//     tensor* a = out->inputs[0];
-//     tensor* local = NULL;
+void neg_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    tensor* local = NULL;
 
-//     local = TensorLikeFill(a, -1.0);
-//     a->grad = mul_k(local, upstream);
-// }
+    local = TensorLikeFill(a, -1.0);
+    a->grad = mul_k(local, upstream);
+}
 
 // // comment: shapes are same as matmul_bwd, but with additional (B,) dim first
 // void batched_matmul_bwd(tensor* upstream, tensor* out) {
