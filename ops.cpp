@@ -214,16 +214,16 @@ tensor* reduce_sum(tensor* a) {
     return t;
 }
 
-// tensor* batched_reduce_sum(tensor* a) {
-//     a->num_uses++;
-//     tensor* t = batched_reduce_sum_k(a);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = a;
-//     t->op_type = 17;
-//     t->grad_fn = batched_reduce_sum_bwd;
-//     return t;
-// }
+tensor* batched_reduce_sum(tensor* a) {
+    a->num_uses++;
+    tensor* t = batched_reduce_sum_k(a);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->op_type = 17;
+    // t->grad_fn = batched_reduce_sum_bwd;
+    return t;
+}
 
 tensor* reduce_max(tensor* a) {
     a->num_uses++;
@@ -236,16 +236,16 @@ tensor* reduce_max(tensor* a) {
     return t;
 }
 
-// tensor* batched_reduce_max(tensor* a) {
-//     a->num_uses++;
-//     tensor* t = batched_reduce_max_k(a);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = a;
-//     t->op_type = 22;
-//     t->grad_fn = batched_reduce_max_bwd;
-//     return t;
-// }
+tensor* batched_reduce_max(tensor* a) {
+    a->num_uses++;
+    tensor* t = batched_reduce_max_k(a);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->op_type = 22;
+    // t->grad_fn = batched_reduce_max_bwd;
+    return t;
+}
 
 tensor* conv(tensor* input, tensor* kernel) {
     input->num_uses++;

@@ -22,23 +22,45 @@ using namespace std;
 // Need to abstract away loop over individual elements and then can re-use most of the fwd kernels
 
 
+// // test_reduce
+// int main() {
+//     srand(123);
+//     set_backend_device();
+
+//     int B = 2, H = 16;
+
+//     // todo-high: currently don't support num_elements lower than NUM_THREADS*2 -- add guards to the kernel
+//     tensor* x = Tensor(B, H);
+//     set_name(x, "x"); print(x);
+
+//     // tensor* out = reduce_sum(x);
+//     tensor* out = reduce_max(x);
+//     set_name(out, "out"); print(out);
+
+//     out->backward(out);
+//     return 0;
+// }
+
+
+
+// test_batched_reduce
 int main() {
     srand(123);
     set_backend_device();
 
-    int B = 2, H = 16, W = 16;
+    int B = 2, H = 32;
 
+    // todo-high: currently don't support 2nd dim lower than NUM_THREADS*2 -- add guards to the kernel
     tensor* x = Tensor(B, H);
     set_name(x, "x"); print(x);
 
-    // tensor* out = reduce_sum(x);
-    tensor* out = reduce_max(x);
+    // tensor* out = batched_reduce_sum(x);
+    tensor* out = batched_reduce_max(x);
     set_name(out, "out"); print(out);
 
-    out->backward(out);
+    // out->backward(out);
     return 0;
 }
-
 
 // int test_backends(){
 //     srand(123);

@@ -46,10 +46,20 @@ __device__ AtomicFn atomic_fns[3] = {atomicMax, atomicAdd};
 
 
 // features: convergent (active threads are close to each other), with privatization (shared memory), segmented (multi-block)
-__global__ void ReductionKernel(int op_idx, float* input, float* out){
+__global__ void ReductionKernel(int op_idx, float* input, float* out, int stride_to_next_b){
+
+    // recover is_batched from stride_to_next_b to avoid passing 2
+    // arguments (is_batched, stride_to_next_b) which mostly mean the same thing
+    bool is_batched = stride_to_next_b ? true : false;
+    // cancels out when not batched
+    unsigned int batch = blockIdx.y * is_batched;
 
     // variable t is the start in the shared array, variable "start" is the start in the input array
     unsigned int t = threadIdx.x;
+
+    // todo-now:
+    // Add guards to the kernel so that if the input is smaller than 2*NUM_THREADS, it should not access it's these locations;
+    // Even non-batched version of this kernel has this bug; remove exit from the stub
 
     // *** privatization ***
 
@@ -60,12 +70,18 @@ __global__ void ReductionKernel(int op_idx, float* input, float* out){
     // thus when we multiply the size of each input segment by blockIdx.x
     // of a block, we have the starting location of the segment to be
     // processed by the block
-    unsigned int start = 2*blockIdx.x*blockDim.x;
+    unsigned int start = batch*stride_to_next_b + 2*blockIdx.x*blockDim.x;
 
     // each thread loads 2 elements into shared memory
     //  set thread_idx in the shared array to start_idx+thread_idx in the global array
     partialSum[t] = input[start+t];
     partialSum[t + blockDim.x] = input[start+t + blockDim.x];
+
+    if (CUDA_DEBUG){
+        printf("[ReductionKernel] batch: %i\n", batch);
+        printf("[ReductionKernel blockIdx.y=%i] partialSum[t=%i] = input[(start + t)=%i];\n", blockIdx.y, t, start+t);
+        printf("[ReductionKernel blockIdx.y=%i] partialSum[(t + blockDim.x)=%i] = input[(start+t + blockDim.x)=%i];\n", blockIdx.y, t + blockDim.x, start+t + blockDim.x);
+    }
 
     // *** convergent reduction kernel ***
 
@@ -98,12 +114,12 @@ __global__ void ReductionKernel(int op_idx, float* input, float* out){
     */
     if (t==0){
         // question-now: float atomic add doesn't work for shared memory -- https://github.com/treecode/Bonsai/blob/581fa8e70501ce85660c7eac0d61c0e5c5bece4a/runtime/profiling/derived_atomic_functions.h#L14-L17
-        atomic_fns[op_idx](out, partialSum[t]);
+        atomic_fns[op_idx](&out[batch], partialSum[t]);
     }
 }
 
 
-tensor* _launch_reduction_kernel(int op_idx, tensor* input){
+tensor* _launch_reduction_kernel(int op_idx, tensor* input, bool is_batched){
     // todo:
     // unary_input_checks(input);
 
@@ -117,32 +133,64 @@ tensor* _launch_reduction_kernel(int op_idx, tensor* input){
         printf("[cuda reduction_kernel] unsupported op_idx\n");
         exit(1);
     }
-    tensor* out = TensorScalarFill(fill_value);
 
     float num_threads = (float)NUM_THREADS;
-    // each thread block consumes num_threads*2 inputs
-    int num_blocks = ceil(input->size/(num_threads*2));
-    dim3 dimGrid(num_blocks, 1, 1);
+    int num_blocks, B, stride_to_next_b;
+    tensor* out;
+    if (!is_batched){
+        B = 1;
+        // used as (bool is_batch) inside the kernel
+        stride_to_next_b = 0;
+
+        out = TensorScalarFill(fill_value);
+        // each thread block consumes num_threads*2 inputs
+        num_blocks = ceil(input->size/(num_threads*2));
+        if (input->size < num_threads*2){
+            printf("[temporary] shape err: %i(input->size) < %i(num_threads*2)\n", input->size, (int)num_threads*2);
+            exit(1);
+        }
+    } else {
+        B = input->shape[0];
+        stride_to_next_b = input->stride[0];
+
+        // defining the second tensor is needed so that you can use Fill (currently I don't
+        // conveniently support initializing non 1d tensor and filling it)
+        out = TensorLikeFill(Tensor(B, 1), fill_value);
+
+        // In non-batched kernel each thread block consumes num_threads*2 inputs;
+        // Additionally, divide by B so that each block doesn't see all the elements
+        // (input->size), but instead it only sees elements in a single batch element (b);
+        // And because you have B as additional dim of the grid -- these elements
+        // will still be covered (but by blocks with different blockIdx.y)
+        num_blocks = ceil(input->size/B/(num_threads*2));
+        if (input->shape[1] < num_threads*2){
+            printf("[temporary] shape err:  %i(input->shape[1]) < %i(num_threads*2)\n", input->shape[1], (int)num_threads*2);
+            exit(1);
+        }
+    }
+
+    dim3 dimGrid(num_blocks, B, 1);
     dim3 dimBlock(num_threads, 1, 1);
 
     if (CUDA_DEBUG){
-        printf("[cuda reduction_kernel] grid: (%i, 1, 1)\n", num_blocks);
+        printf("[cuda reduction_kernel] grid: (%i, %i, 1)\n", num_blocks, B);
         printf("[cuda reduction_kernel] block: (%f, 1, 1)\n", num_threads);
+        printf("stride_to_next_b: %i\n", stride_to_next_b);
     }
 
-    ReductionKernel<<<dimGrid, dimBlock>>>(op_idx, input->data, out->data);
+    ReductionKernel<<<dimGrid, dimBlock>>>(op_idx, input->data, out->data, stride_to_next_b);
     return out;
 }
 
 
 tensor* reduce_max_k(tensor* a){
     if (CUDA_DEBUG) printf("[reduce_max_k]\n");
-    return _launch_reduction_kernel(0, a);
+    return _launch_reduction_kernel(0, a, false);
 }
 
 tensor* reduce_sum_k(tensor* a){
     if (CUDA_DEBUG) printf("[reduce_sum_k]\n");
-    return _launch_reduction_kernel(1, a);
+    return _launch_reduction_kernel(1, a, false);
 }
 
 
@@ -243,4 +291,16 @@ void reduce_max_bwd(tensor* upstream, tensor* out){
     COPY_TO_DEVICE(local_host); // semantically this is "local"
 
     a->grad = mul_k(local_host, broadcasted_upstream);
+}
+
+
+
+tensor* batched_reduce_max_k(tensor* a){
+    if (CUDA_DEBUG) printf("[batched_reduce_max_k]\n");
+    return _launch_reduction_kernel(0, a, true);
+}
+
+tensor* batched_reduce_sum_k(tensor* a){
+    if (CUDA_DEBUG) printf("[batched_reduce_sum_k]\n");
+    return _launch_reduction_kernel(1, a, true);
 }
