@@ -96,18 +96,19 @@ tensor* repeat(tensor* a, int num_repeats) {
     return t;
 }
 
-// tensor* select(tensor* a, tensor* idx) {
-//     a->num_uses++;
-//     idx->num_uses++;
-//     tensor* t = select_k(a, idx);
-//     t->is_leaf = false;
-//     t->num_inputs = 2;
-//     t->inputs[0] = a;
-//     t->inputs[1] = idx;
-//     t->op_type = 14;
-//     t->grad_fn = select_bwd;
-//     return t;
-// }
+tensor* select(tensor* a, tensor* idx) {
+    a->num_uses++;
+    idx->num_uses++;
+    tensor* t = select_k(a, idx);
+    t->is_leaf = false;
+    t->num_inputs = 2;
+    t->inputs[0] = a;
+    t->inputs[1] = idx;
+    t->op_type = 14;
+    // todo-now:
+    // t->grad_fn = select_bwd;
+    return t;
+}
 
 tensor* pow(tensor* a, int exponent) {
     a->num_uses++;
@@ -243,6 +244,7 @@ tensor* batched_reduce_max(tensor* a) {
     t->num_inputs = 1;
     t->inputs[0] = a;
     t->op_type = 22;
+    // todo-now:
     // t->grad_fn = batched_reduce_max_bwd;
     return t;
 }

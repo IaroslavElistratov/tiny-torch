@@ -42,9 +42,35 @@ using namespace std;
 // }
 
 
-
-// test_batched_reduce
+// test_select
 int main() {
+    srand(123);
+    set_backend_device();
+
+    tensor* a = Tensor(4, 2);
+    set_name(a, "a"), print(a);
+    tensor* idx = COPY_FROM_DEVICE(Tensor(4, 1));
+    idx->data[0] = 1.0;
+    idx->data[1] = 0.0;
+    idx->data[2] = 0.0;
+    idx->data[3] = 1.0;
+    COPY_TO_DEVICE(idx);
+
+    tensor* out = select(a, idx);
+    set_name(out, "out"), print(out);
+
+    // tensor* w = Tensor(1, 5);
+    // set_name(w, "w"), print(w);
+
+    // tensor* out2 = matmul(out, w);
+    // print(out2);
+
+    // out2->backward(out2);
+    // set_name(a->grad, "a_grad"), print(a->grad);
+}
+
+
+int test_batched_reduce() {
     srand(123);
     set_backend_device();
 

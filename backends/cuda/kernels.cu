@@ -410,14 +410,44 @@ tensor* repeat_k(tensor* a, int num_repeats){
 }
 
 
-
-
-// void reduce_sum_bwd(tensor* upstream, tensor* out)
-
-
-
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ backward NOT defined in common ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
+// input(s1, s2), idx(s1, 1) -> out(s1, 1)
+__global__ void SelectKernel(float* input, float* idx, float* out, int B, int N){
+    int b = blockIdx.x * blockDim.x + threadIdx.x;
+    if (b<B){
+        int input_idx = idx[b];
+        // bc out and idx are (B, 1), can simply index into each of them with arr[b]
+        out[b] = input[b*N + input_idx];
+    }
+}
+
+// input(s1, s2), idx(s1, 1) -> out(s1, 1)
+tensor* select_k(tensor* a, tensor* idx){
+    if (CUDA_DEBUG) printf("[select_k]\n");
+    // todo:
+    // unary_input_checks(a);
+    if (a->num_dims!=2 || idx->num_dims!=2 || idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
+        printf("[select] Error shape\n");
+        exit(1);
+    }
+
+    int B = a->shape[0], N = a->shape[1];
+    tensor* out = Tensor(B, 1);
+
+    float num_threads = (float)NUM_THREADS;
+    dim3 dimGrid(ceil(B/num_threads), 1, 1);
+    dim3 dimBlock(num_threads, 1, 1);
+
+    if (CUDA_DEBUG){
+        printf("[cuda SelectKernel] grid: (%f, 1, 1)\n", ceil(B/num_threads));
+        printf("[cuda SelectKernel] block: (%f, 1, 1)\n", num_threads);
+    }
+
+    SelectKernel<<<dimGrid, dimBlock>>>(a->data, idx->data, out->data, B, N);
+    return out;
+}
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ kernels that do not have op wrappers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
