@@ -3,6 +3,14 @@
 #define MAX_NODES 30
 
 
+void maybe_init_grad(tensor* t){
+    if (!t->grad){
+        t->grad = TensorLikeFill(t, 0.0);
+    } else {
+        printf("[maybe_init_grad] %s->grad exists!\n", t->name);
+    }
+}
+
 void GetRandomFloat(float* dst, int num)
 {
     for (int i=0; i<num; i++)

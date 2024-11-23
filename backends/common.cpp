@@ -112,19 +112,9 @@ void div_bwd(tensor* upstream, tensor* out) {
 
     // downstream
 
-    // comment: 
     // "a->grad = mul_k(a_local, upstream)" overwrite's input grad, the below does "+=" to it
-    if (!a->grad)
-        a->grad = TensorLikeFill(a, 0.0);
-    else {
-        printf("[div_bwd] a->grad exists!\n");
-    }
-
-    if (!b->grad)
-        b->grad = TensorLikeFill(b, 0.0);
-    else {
-        printf("[div_bwd] b->grad exists!\n");
-    }
+    maybe_init_grad(a);
+    maybe_init_grad(b);
 
     tensor* a_grad = mul_k(a_local, upstream);
     tensor* b_grad = mul_k(b_local, upstream);
@@ -157,15 +147,11 @@ void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
         exit(1);
     }
 
-    if (!a->grad){
-        // important to fill with 0's if we gonna "+=" to it below.
-        // If we instead simply overwrite it, then wouldn't matter,
-        // but bc we do "+=" it does matter (if there's any garbage
-        // data, the grad will be += to it)
-        a->grad = TensorLikeFill(a, 0.0);
-    } else {
-        printf("[batched_reduce_sum_bwd] a->grad exists!\n");
-    }
+    // important to fill with 0's if we gonna "+=" to it below.
+    // If we instead simply overwrite it, then wouldn't matter,
+    // but bc we do "+=" it does matter (if there's any garbage
+    // data, the grad will be += to it)
+    maybe_init_grad(a);
 
     int N = a->shape[1];
     tensor* local = TensorLikeFill(a, 1.0); // (B, 1)
@@ -191,12 +177,8 @@ void pow_bwd(tensor* upstream, tensor* out) {
 }
 
 void exp_bwd(tensor* upstream, tensor* out) {
-    tensor* a=out->inputs[0];
-    if (!a->grad)
-        a->grad = TensorLikeFill(a, 0.0);
-    else
-        printf("[exp_bwd] a->grad exists!\n");
-
+    tensor* a = out->inputs[0];
+    maybe_init_grad(a);
     tensor* local = out;
     mul_k_(local, upstream, a->grad);
 }

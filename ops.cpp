@@ -1,7 +1,7 @@
 #include "nn.h"
 #include "indexing.cpp"
+#include "utils.cpp"
 #include "backends/select_backend.cpp"
-
 
 // **** operations ****
 //   - shared between CUDA and CPU kernels

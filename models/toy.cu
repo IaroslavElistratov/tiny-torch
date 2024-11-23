@@ -6,7 +6,6 @@ using namespace std;
 #include "../nn.h"
 #include "../tensor.cpp"
 #include "../ops.cpp"
-#include "../utils.cpp" // graphviz
 #include "../print.cpp"
 
 // todo-now:

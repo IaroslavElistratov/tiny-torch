@@ -4,7 +4,6 @@ using namespace std;
 // #include "nn.h"
 #include "../tensor.cpp"
 #include "../ops.cpp"
-#include "../utils.cpp"
 #include "../cifar10.cpp"
 #include "../print.cpp"
 
