@@ -44,6 +44,10 @@ struct tensor {
     tensor* inputs[MAX_INPUTS];
     int num_uses; // for the AG engine: num outputs of the this tensor left to call their out->grad_fn, before calling grad_fn on the current tensor
 
+    // to store data recorded in fwd and used in bwd (wt needing to recompute it in bwd)
+    // e.g. in relu, reduce_max, maxpool: idxs recorded during forward _k and used in its corresponding _bwd fn
+    tensor* scratch_space[1];
+
     char* name;
     // use char as small int
     int op_type;

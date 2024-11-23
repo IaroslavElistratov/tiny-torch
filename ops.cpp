@@ -243,8 +243,7 @@ tensor* batched_reduce_max(tensor* a) {
     t->num_inputs = 1;
     t->inputs[0] = a;
     t->op_type = 22;
-    // todo-now:
-    // t->grad_fn = batched_reduce_max_bwd;
+    t->grad_fn = batched_reduce_max_bwd;
     return t;
 }
 

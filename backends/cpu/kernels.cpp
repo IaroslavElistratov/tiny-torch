@@ -306,34 +306,16 @@ tensor* transpose_k(tensor* x) {
 tensor* reduce_max_k(tensor* a) {
     // set inital minimum to the first element
     tensor* out = TensorScalarFill(a->data[0]);
+    // store at 0-th location in the scratch space array
+    out->scratch_space[0] = TensorLikeFill(out, 0.);
     for (int i=0; i<a->size; i++) {
-        out->data[0] = (a->data[i] > out->data[0]) ? a->data[i] : out->data[0];
-    }
-    return out;
-}
-
-// todo-now:
-// can make reduce_max_bwd and relu_bwd to be shared between gpu and cpu if allow kernels
-// to record some additional info during fwd kernel, and simply access and use this
-// filed in bwd
-void reduce_max_bwd(tensor* upstream, tensor* out) {
-    tensor* a = out->inputs[0];
-    // 1. local
-    tensor* local = TensorLikeFill(a, 0.0);
-    int idx_max = 0;
-    float max = a->data[idx_max];
-    for (int i=0; i<a->size; i++) {
-        if (a->data[i] > max){
-            max = a->data[i];
-            idx_max = i;
+        if (a->data[i] > out->data[0]){
+            out->data[0] = a->data[i];
+            // will be used in reduce_max_bwd
+            out->scratch_space[0]->data[0] = i;
         }
     }
-    local->data[idx_max] = 1.0;
-    // 2. wire local with upstream
-    // make upstream and local to be same shape (currently upstream is a scalar, while local is a 2d tensor)
-    tensor* broadcasted_upstream = TensorLikeFill(a, upstream->data[0]);
-    a->grad = mul_k(local, broadcasted_upstream);
-    // free(local);
+    return out;
 }
 
 
@@ -479,6 +461,7 @@ tensor* batched_reduce_max_k(tensor* a) {
 
     int B = a->shape[0], N = a->shape[1];
     tensor* out = Tensor(B, 1);
+    out->scratch_space[0] = TensorLikeFill(out, 0.);
 
     for (int b=0; b<B; b++){
         tensor* curr_a = TensorNoData(1, N);
@@ -486,6 +469,7 @@ tensor* batched_reduce_max_k(tensor* a) {
 
         tensor* curr_out = reduce_max_k(curr_a);
         out->data[b] = curr_out->data[0];
+        out->scratch_space[0]->data[b] = curr_out->scratch_space[0]->data[0];
     }
     return out;
 }

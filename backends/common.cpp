@@ -275,7 +275,7 @@ void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
 void select_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     tensor* idx = out->inputs[1];
-    int B = a->shape[0], N = a->shape[1];
+    int N = a->shape[1];
 
     // local
     tensor* local = TensorLikeFill(a, 0.0); // (B, N)
@@ -297,36 +297,60 @@ void select_bwd(tensor* upstream, tensor* out) {
     add_k_(idx->grad, idx_grad, idx->grad);
 }
 
-// // select: a(B, N), idx(B, 1) = out(B, 1)
-// void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
-//     tensor* a = out->inputs[0];
-//     int B = a->shape[0], N = a->shape[1];
+// made reduce_max_bwd shared between gpu and cpu by allowing kernels to record
+// some additional info during fwd kernel, and simply access and use this field in bwd
 
-//     if (a->num_dims!=2){
-//         printf("[batched_max] Unexpected num_dims\n");
-//         exit(1);
-//     }
+// todo-high: too many copy_to/from
+void reduce_max_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    // todo-now: use select_set? This will also avoid needing to call COPY_TO_DEVICE, FROM_DEVICE here (when setting local->data[idx]=1)
+    int idx = (int)out->scratch_space[0]->data[0];
+    // 1. local
+    tensor* local = TensorLikeFill(a, 0.0);
+    tensor* local_host = COPY_FROM_DEVICE(local);
+    local_host->data[idx] = 1.0;
+    COPY_TO_DEVICE(local_host); // semantically this is "local"
 
-//     // todo-now: extend _launch_max_bwd_kernel to reduce per elements in a single batch
-//     int* idx = _launch_max_bwd_kernel(a); // (B, 1)
+    // 2. wire local with upstream
+    // copy to cpu before accessing t->data
+    tensor* upstream_host = COPY_FROM_DEVICE(upstream);
+    // make upstream and local to be same shape (currently upstream is a scalar, while local is a 2d tensor)
+    tensor* broadcasted_upstream = TensorLikeFill(a, upstream_host->data[0]);
 
-//     // local
-//     // need to set to ones at these idxs, bc previously repeat_k will return a new tensor
-//     // with these elements at indexes (from the original tensor) copied -- so it's not a
-//     // view on the original elements and therefore can't set it by modifying output of
-//     // select_k elements
-//     tensor* local = TensorLikeFill(a, 0.0); // (B, N)
-//     select_set_(local, idx, 1.);
 
-//     // downstream
-//     tensor* upstream_broadcasted = repeat_k(upstream, N); // (B, 1) -> (B, N);
-//     tensor* a_grad = mul_k(local, upstream_broadcasted);
+    a->grad = mul_k(local_host, broadcasted_upstream);
+    // free(local);
+}
 
-//     // add to existing grad
-//     maybe_init_grad(a);
-//     add_k_(a->grad, a_grad, a->grad);
+// select: a(B, N), idx(B, 1) = out(B, 1)
+void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    if (a->num_dims!=2){
+        printf("[batched_max] Unexpected num_dims\n");
+        exit(1);
+    }
 
-//     // free(local);
-//     // free(a_grad);
-//     // free(upstream_broadcasted);
-// }
+    int N = a->shape[1];
+    tensor* idx = out->scratch_space[0]; // (B, 1)
+
+    // local
+    // need to set to ones at these idxs, bc previously repeat_k will return a new tensor
+    // with these elements at indexes (from the original tensor) copied -- so it's not a
+    // view on the original elements and therefore can't set it by modifying output of
+    // select_k elements
+    tensor* local = TensorLikeFill(a, 0.0); // (B, N)
+    select_set_(local, idx, 1.);
+
+    // downstream
+    tensor* upstream_broadcasted = repeat_k(upstream, N); // (B, 1) -> (B, N);
+    tensor* a_grad = mul_k(local, upstream_broadcasted);
+
+    // add to existing grad
+    maybe_init_grad(a);
+    add_k_(a->grad, a_grad, a->grad);
+
+    // free(local);
+    // free(a_grad);
+    // free(upstream_broadcasted);
+}
+

@@ -23,6 +23,10 @@ tensor* TensorNoData2d(int y, int z)
 
     t->data = NULL;
 
+    // todo: put the fields below into an autograd_op struct,
+    // and store a single pointer to that struct on the tensor
+    // -- this way more organized
+
     // for autograd engine:
 
     // true by default, modified in an op impl if that tensor was produced by an op

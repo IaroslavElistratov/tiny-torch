@@ -41,8 +41,7 @@ using namespace std;
 // }
 
 
-// test_select
-int main() {
+int test_select() {
     srand(123);
     set_backend_device();
 
@@ -65,10 +64,12 @@ int main() {
     print(out2);
 
     out2->backward(out2);
+    return 0;
 }
 
 
-int test_batched_reduce() {
+// test_batched_reduce
+int main() {
     srand(123);
     set_backend_device();
 
@@ -78,8 +79,8 @@ int test_batched_reduce() {
     tensor* x = Tensor(B, H);
     set_name(x, "x"); print(x);
 
-    tensor* out = batched_reduce_sum(x);
-    // tensor* out = batched_reduce_max(x);
+    // tensor* out = batched_reduce_sum(x);
+    tensor* out = batched_reduce_max(x);
     set_name(out, "out"); print(out);
 
     // out->backward(out);
