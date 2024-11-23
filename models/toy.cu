@@ -43,22 +43,48 @@ using namespace std;
 
 
 
-// test_batched_reduce
+// // test_batched_reduce
+// int main() {
+//     srand(123);
+//     set_backend_device();
+
+//     int B = 2, H = 32;
+
+//     // todo-high: currently don't support 2nd dim lower than NUM_THREADS*2 -- add guards to the kernel
+//     tensor* x = Tensor(B, H);
+//     set_name(x, "x"); print(x);
+
+//     // tensor* out = batched_reduce_sum(x);
+//     tensor* out = batched_reduce_max(x);
+//     set_name(out, "out"); print(out);
+
+//     // out->backward(out);
+//     return 0;
+// }
+
+
+// test_repeat
 int main() {
     srand(123);
     set_backend_device();
 
-    int B = 2, H = 32;
+    tensor* a = Tensor(4, 1);
+    set_name(a, "a"); print(a);
 
-    // todo-high: currently don't support 2nd dim lower than NUM_THREADS*2 -- add guards to the kernel
-    tensor* x = Tensor(B, H);
-    set_name(x, "x"); print(x);
-
-    // tensor* out = batched_reduce_sum(x);
-    tensor* out = batched_reduce_max(x);
+    // todo-high:
+    // out(a, 2) and w(2, 5) -- err
+    //  [_launch_reduction_kernel] shape err:  2(input->shape[1]) < 32(num_threads*2)
+    tensor* out = repeat(a, 32);
     set_name(out, "out"); print(out);
 
-    // out->backward(out);
+    tensor* w = Tensor(32, 5);
+    set_name(w, "w"); print(w);
+
+    tensor* out2 = matmul(out, w);
+    set_name(out2, "out2"); print(out2);
+
+    out2->backward(out2);
+
     return 0;
 }
 

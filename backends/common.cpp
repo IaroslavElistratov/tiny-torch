@@ -135,19 +135,19 @@ void div_bwd(tensor* upstream, tensor* out) {
     // free(a_local), free(b_local);
 }
 
-// void repeat_bwd(tensor* upstream, tensor* out) {
-//     tensor* a = out->inputs[0];
+void repeat_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
 
-//     if (a->num_dims!=2){
-//         printf("[repeat] Error");
-//         exit(1);
-//     }
+    if (a->num_dims!=2){
+        printf("[repeat] Error");
+        exit(1);
+    }
 
-//     // sum together each row of upstream
-//     a->grad = batched_reduce_sum_k(upstream);
+    // sum together each row of upstream
+    a->grad = batched_reduce_sum_k(upstream);
 
-//     // free(local);
-// }
+    // free(local);
+}
 
 void pow_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];

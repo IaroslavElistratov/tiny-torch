@@ -356,11 +356,63 @@ tensor* transpose_k(tensor* a){
 }
 
 
-// void repeat_bwd(tensor* upstream, tensor* out)
+
+
+// a(B, 1) -> out(B, N)
+__global__ void RepeatKernel(float* a, float* out, int num_repeats, int B){
+    // (block idx * num threads per block) + thread idx
+    int b = blockIdx.x * blockDim.x + threadIdx.x;
+    // this is repeat_idx (0-num_repeats) that this thread represents
+    int i = blockIdx.y; // * blockDim.y + threadIdx.y;
+    if (b<B && i<num_repeats){
+        out[b*num_repeats + i] = a[b];
+    }
+}
+
+// question-now: or use this kernel?
+// // a(B, 1) -> out(B, N)
+// __global__ void RepeatKernel(float* a, float* out, int num_repeats, int B){
+//     // (block idx * num threads per block) + thread idx
+//     int b = blockIdx.x * blockDim.x + threadIdx.x;
+//     printf("[kernel] b=%i\n", b);
+//     if (b<B){
+//         for (int i=0; i<num_repeats; i++){
+//             // Indexing into out: since out(B, num_repeats), to get to the next batch element
+//             // (IOW out->stride[0]) need to skip "num_repeats" locations in memory;
+//             // Indexing into a: since a(B, 1), stride a->stride[0] is just 1 so can omit it
+//             out[b*num_repeats + i] = a[b];
+//         }
+//     }
+// }
+
+tensor* repeat_k(tensor* a, int num_repeats){
+    if (CUDA_DEBUG) printf("[repeat_k]\n");
+    unary_input_checks(a);
+    if (a->num_dims!=2 || a->shape[1]!=1){
+        printf("[CUDA RepeatKernel] Shape error\n");
+        exit(1);
+    }
+
+    int B = a->shape[0], N = a->shape[1];
+    tensor* out = Tensor(B, num_repeats);
+
+    float num_threads = (float)NUM_THREADS;
+    dim3 dimGrid(ceil(B/num_threads), num_repeats, 1);
+    dim3 dimBlock(num_threads, 1, 1);
+
+    if (CUDA_DEBUG){
+        printf("[cuda RepeatKernel] grid: (%f, 1, 1)\n", ceil(B/num_threads));
+        printf("[cuda RepeatKernel] block: (%f, 1, 1)\n", num_threads);
+    }
+
+    RepeatKernel<<<dimGrid, dimBlock>>>(a->data, out->data, num_repeats, B);
+    return out;
+}
+
+
+
 
 // void reduce_sum_bwd(tensor* upstream, tensor* out)
-
-// void batched_matmul_bwd(tensor* upstream, tensor* out) {
 
 
 

@@ -85,16 +85,16 @@ tensor* div(tensor* a, tensor* b) {
     return t;
 }
 
-// tensor* repeat(tensor* a, int num_repeats) {
-//     a->num_uses++;
-//     tensor* t = repeat_k(a, num_repeats);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = a;
-//     t->op_type = 18;
-//     t->grad_fn = repeat_bwd;
-//     return t;
-// }
+tensor* repeat(tensor* a, int num_repeats) {
+    a->num_uses++;
+    tensor* t = repeat_k(a, num_repeats);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->op_type = 18;
+    t->grad_fn = repeat_bwd;
+    return t;
+}
 
 // tensor* select(tensor* a, tensor* idx) {
 //     a->num_uses++;
