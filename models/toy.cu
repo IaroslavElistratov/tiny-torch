@@ -79,8 +79,8 @@ int main() {
     tensor* x = Tensor(B, H);
     set_name(x, "x"); print(x);
 
-    // tensor* out = batched_reduce_sum(x);
-    tensor* out = batched_reduce_max(x);
+    tensor* out = batched_reduce_sum(x);
+    // tensor* out = batched_reduce_max(x);
     set_name(out, "out"); print(out);
 
     // out->backward(out);
@@ -116,7 +116,6 @@ int test_repeat() {
     set_name(out2, "out2"); print(out2);
 
     out2->backward(out2);
-
     return 0;
 }
 

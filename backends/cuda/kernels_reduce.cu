@@ -5,21 +5,11 @@
 // requires a lot of atomic operations (poor perf -- worse than CPU), so
 // use parallel reduction pattern
 
-// question-now: float atomic add doesn't work for shared memory -- https://github.com/treecode/Bonsai/blob/581fa8e70501ce85660c7eac0d61c0e5c5bece4a/runtime/profiling/derived_atomic_functions.h#L14-L17
-// https://github.com/treecode/Bonsai/blob/581fa8e70501ce85660c7eac0d61c0e5c5bece4a/runtime/profiling/derived_atomic_functions.h#L199C1-L209C2
-__device__ float atomicMax(float *address, float val){
-    int ret = __float_as_int(*address);
-    while(val > __int_as_float(ret)){
-        int old = ret;
-        if((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
-            break;
-    }
-    return __int_as_float(ret);
-}
 
 
+// todo: the disadvantage of passing "value structs" around is that for reduce_sum idxs effectively do nothing, but do compute shared memory
 // modified _launch_reduction_kernel to save idxs to be used for _bwd
-struct value {
+struct __align__(8) value { // CUDA specific syntax needed to that this struct can be re-interpreted as ULL
     float val;
     int idx;
 };
@@ -38,6 +28,63 @@ __device__ value add(value a, value b){
     return value{a.val + b.val, -1};
 }
 
+typedef unsigned long long int atomic_t;
+
+// Only compare old.val >= val.val instead of comparing the entire struct.
+// When a larger value is found, the entire struct (including the idx) is atomically updated
+__device__ value atomicMaxValue(value* address, value val) {
+    bool done = false;
+    value old, assumed;
+
+    do {
+        old = *address;
+
+        // compare only the val fields
+        if (old.val >= val.val) {
+            // current value is larger or equal, no need to update
+            break;
+        }
+
+        assumed = old;
+
+        atomic_t* address_ull = (atomic_t*)address;
+        atomic_t assumed_ull = *(atomic_t*)&assumed;
+        atomic_t val_ull = *(atomic_t*)&val;
+
+        atomic_t old_ull = atomicCAS(address_ull, assumed_ull, val_ull);
+        done = (old_ull == assumed_ull);
+        old = *(value*)&old_ull;
+
+    } while (!done);
+
+    return old;
+}
+
+// mostly copy of atomicMaxValue
+__device__ value atomicAddValue(value* address, value val) {
+    bool done = false;
+    value old, assumed;
+
+    do {
+        old = *address;
+        assumed = old;
+
+        // if, at address_ull, find assumed_ull then overwrite it with val_ull
+        // (which is the sum of assumed and val)
+        val.val += assumed.val;
+
+        atomic_t* address_ull = (atomic_t*)address;
+        atomic_t assumed_ull = *(atomic_t*)&assumed;
+        atomic_t val_ull = *(atomic_t*)&val;
+
+        atomic_t old_ull = atomicCAS(address_ull, assumed_ull, val_ull);
+        done = (old_ull == assumed_ull);
+        old = *(value*)&old_ull;
+
+    } while (!done);
+
+    return old;
+}
 
 /*
 more generic form to support different reduce funcs with the same kernel
@@ -56,14 +103,14 @@ Resulted in err below, likely because the function pointers passed were allocate
     (cuda-gdb)  Program terminated with signal CUDA_EXCEPTION_8, Warp Invalid PC.
 */
 typedef value (*OpFn)(value, value);
-// typedef float (*AtomicFn)(float *, float);
+typedef value (*AtomicFn)(value *, value);
 __device__ OpFn op_fns[2] = {max, add};
-// __device__ AtomicFn atomic_fns[2] = {atomicMax, atomicAdd};
+__device__ AtomicFn atomic_fns[2] = {atomicMaxValue, atomicAddValue};
 
 
 // features: convergent (active threads are close to each other), with privatization (shared memory), segmented (multi-block);
 // scratch_space (used when ReductionKernel is used to compute reduce_max) to store idxs of max values, needed for the reduce_max_bwd and reduce_max_batched_bwd
-__global__ void ReductionKernel(int op_idx, float* input, value* out, int stride_to_next_b, int num_blocks){
+__global__ void ReductionKernel(int op_idx, float* input, value* out, int stride_to_next_b){
 
     // recover is_batched from stride_to_next_b to avoid passing 2
     // arguments (is_batched, stride_to_next_b) which mostly mean the same thing
@@ -93,7 +140,6 @@ __global__ void ReductionKernel(int op_idx, float* input, value* out, int stride
     //  set thread_idx in the shared array to start_idx+thread_idx in the global array
 
     // initialize value struct, with the index of that value in the input tensor -- needs to be idx of input tensor not local tensor (partial_sum)
-    // note: the disadvantage of passing "value structs" around is that for reduce_sum idxs effectively do nothing, but do compute shared memory
     partialSum[t] = {input[start+t], start+t};
     partialSum[t + blockDim.x] = {input[start+t + blockDim.x], start+t + blockDim.x};
 
@@ -134,15 +180,12 @@ __global__ void ReductionKernel(int op_idx, float* input, value* out, int stride
 
     But then extended to propagate value structs though the reduction kernel, and it's not clear
     how to use atomics to reduce two value structs. So ended up pass array of b*num_blocks to back
-    to the stub and do the reduction across the blocks there
-    todo-now:
-    Perform atomic reductions on custom structures -- bc I want to update two adjacent 32-bit items,
-    can use a generalized 64-bit atomic operation, treat the entire struct as a single 64-bit value
-    (unsigned long long)
+    to the stub and do the reduction across the blocks there. Perform atomic reductions on custom
+    structures -- bc I want to update two adjacent 32-bit items, can use a generalized 64-bit atomic
+    operation, treat the entire struct as a single 64-bit value (unsigned long long)
     */
     if (t==0){
-        out[batch*num_blocks + blockIdx.x] = partialSum[t];
-        // atomic_fns[op_idx](&out[batch], partialSum[t].val);
+        atomic_fns[op_idx](&out[batch], partialSum[t]);
     }
 }
 
@@ -208,45 +251,35 @@ tensor* _launch_reduction_kernel(int op_idx, tensor* input, bool is_batched){
     }
 
     // copy to cuda, then copy out back to cpu -- maybe a better solution is to launch 2nd kernel (to do the work in reduce_max_bwd)/
-    value* out_device; // (B, num_blocks)
-    int size = B * num_blocks * sizeof(value);
+    value* out_device; // (B, 1)
+    int size = B * sizeof(value);
     checkCudaErrors(cudaMalloc((void**)&out_device, size));
 
-    ReductionKernel<<<dimGrid, dimBlock>>>(op_idx, input->data, out_device, stride_to_next_b, num_blocks);
+    ReductionKernel<<<dimGrid, dimBlock>>>(op_idx, input->data, out_device, stride_to_next_b);
 
     // copy out back to cpu
     value* out_host = (value*)malloc(size);
     checkCudaErrors(cudaMemcpy(out_host, out_device, size, cudaMemcpyDeviceToHost));
 
-    // reduction over IDX
-    // aggregate values from multiple blocks into a single value
-    // use this because not sure how to use max_with_idxs with atomics
-    // (to be used inside the kernel)
-
     // copy to host because below I modify its ->data attribute
-    tensor* scratch_space = COPY_FROM_DEVICE(TensorLike(out));
+    tensor* scratch = COPY_FROM_DEVICE(TensorLike(out));
     out = COPY_FROM_DEVICE(out);
 
+    // separate members of the struct into the two tensors
     for (int b=0; b<B; b++){
-        // blocks for the current b
-        value* curr_blocks = out_host + b*num_blocks; // (B, num_blocks) -> (num_blocks, )
-        value max = curr_blocks[0]; // (num_blocks, )[0]
-        for (int i=1; i<num_blocks; i++){
-            value curr = curr_blocks[i]; // (num_blocks, )[i]
-            // todo-now: support other reduction, based on op_idx
-            // can't re-use max_with_idxs since it's a device function, but this is host code (not inside the kernel)
-            max = (max.val > curr.val) ? max : curr;
-        }
-        out->data[b] = max.val;
-        scratch_space->data[b] = (float)max.idx;
+        out->data[b] = out_host[b].val;
+        // convert global input idx (in range 0-B*N) into per b idx (in range 0-N),
+        // bc select_set_ in reduce_max_bwd expects each element of the idx to be in range 0-N
+        scratch->data[b] = (float)(out_host[b].idx - b*input->stride[0]);
+        // printf("[idx] b=%i, val=%f, idx=%i\n", b, out_host[b].val, out_host[b].idx);
     }
 
-    COPY_TO_DEVICE(scratch_space);
-    out->scratch_space[0] = scratch_space;
+    COPY_TO_DEVICE(scratch);
+    out->scratch_space[0] = scratch;
 
     COPY_TO_DEVICE(out);
     return out;
-}   
+}
 
 tensor* reduce_max_k(tensor* a){
     if (CUDA_DEBUG) printf("[reduce_max_k]\n");
