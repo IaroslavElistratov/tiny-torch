@@ -105,8 +105,7 @@ tensor* select(tensor* a, tensor* idx) {
     t->inputs[0] = a;
     t->inputs[1] = idx;
     t->op_type = 14;
-    // todo-now:
-    // t->grad_fn = select_bwd;
+    t->grad_fn = select_bwd;
     return t;
 }
 

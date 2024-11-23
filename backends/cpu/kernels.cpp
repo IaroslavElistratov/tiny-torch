@@ -193,28 +193,18 @@ tensor* select_k(tensor* a, tensor* idx) {
     return out;
 }
 
-// a:   (s1, s2)
-// idx: (s1, 1)
-// out: (s1, 1)
-void select_bwd(tensor* upstream, tensor* out) {
 
-    tensor* a=out->inputs[0];
-    tensor* idx=out->inputs[1];
-    int B = a->shape[0];
-
-    // comment: this is not supported in torch "RuntimeError: only Tensors of floating point and complex dtype can require gradients"
-    idx->grad = TensorLikeFill(idx, 1.0);  // (s1, 1)
-    for (int i=0; i<idx->grad->size; i++)
-        idx->grad->data[i] = idx->grad->data[i] * upstream->data[i];
-
-    a->grad = TensorLikeFill(a, 0.0);      // (s1, s2)
-    // this represents gradient checkpoint (other ops that recompute values of fwd in bwd are: relu, maxpool)
-    for (int b=0; b<B; b++) {
-        int offset_batch = b * a->grad->stride[0];
-        float* curr_a_grad = a->grad->data + offset_batch;
-        // 1.0 is local
-        *(curr_a_grad + (int)idx->data[b]) = 1.0 * upstream->data[b];
+tensor* select_set_(tensor* a, tensor* idx, int value) {
+    if (a->num_dims!=2 || idx->num_dims!=2 || idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
+        printf("[select_set_] Error shape");
+        exit(1);
     }
+    int B = a->shape[0];
+    for (int b=0; b<B; b++){
+        float* curr_a = a->data + (a->stride[0]*b);
+        *(curr_a + (int)idx->data[b]) = value;
+    }
+    return out;
 }
 
 
@@ -501,46 +491,6 @@ tensor* batched_reduce_max_k(tensor* a) {
 }
 
 // todo-now: for all "batched" kernels can I just reshape input to (B*first_dim), run regular max kernel and then reshape back?
-void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
-    tensor* a = out->inputs[0];
-    int B = a->shape[0], N = a->shape[1];
-
-    if (a->num_dims!=2){
-        printf("[batched_max] Error");
-        exit(1);
-    }
-
-    if (!a->grad)
-        a->grad = TensorLikeFill(a, 0.0);
-    else {
-        printf("[batched_reduce_max_bwd] a->grad exists!\n");
-    }
-
-    for (int b=0; b<B; b++){
-        tensor* curr_a = TensorNoData(1, N);
-        curr_a->data = a->data + (b * a->stride[0]);    // grad will be set by reduce_max_bwd
-
-        tensor* curr_out = TensorNoData(1, 1);
-        curr_out->data = out->data + (b * out->stride[0]);
-
-        curr_out->inputs[0] = curr_a;
-
-        tensor* curr_upstream = TensorNoData(1, 1);
-        curr_upstream->data = upstream->data + (b * upstream->stride[0]);
-
-        reduce_max_bwd(curr_upstream, curr_out);
-
-        for (int i=0; i<curr_a->grad->size; i++){
-            int offset_batch = b * a->grad->stride[0];
-            // a->grad->data[offset_batch + i] = curr_a->grad->data[i];
-            // comment: the above overwrites input's grad, the below does "+=" to it
-            a->grad->data[offset_batch + i] = a->grad->data[offset_batch + i] + curr_a->grad->data[i];
-        }
-    }
-
-    // free(local);
-}
-
 
 // todo-now: to re-use this fwd kernel for CUDA, need to use strides in cuda kernels (instead of indexing manually)
 // tensor* local_a = transpose_k(b); // (B, M, D) -> (B, D, M)

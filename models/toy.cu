@@ -58,14 +58,13 @@ int main() {
     tensor* out = select(a, idx);
     set_name(out, "out"), print(out);
 
-    // tensor* w = Tensor(1, 5);
-    // set_name(w, "w"), print(w);
+    tensor* w = Tensor(1, 5);
+    set_name(w, "w"), print(w);
 
-    // tensor* out2 = matmul(out, w);
-    // print(out2);
+    tensor* out2 = matmul(out, w);
+    print(out2);
 
-    // out2->backward(out2);
-    // set_name(a->grad, "a_grad"), print(a->grad);
+    out2->backward(out2);
 }
 
 

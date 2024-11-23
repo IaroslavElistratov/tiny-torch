@@ -37,6 +37,8 @@ int index(tensor* t, ...){
         idx = index_4d(t, s0, s1, s2, s3);
     } else {
         idx = -1;
+        printf("[index] unexpected t->num_dims\n");
+        exit(1);
     }
     va_end(args);
     return idx;
@@ -103,7 +105,10 @@ tensor* slice_3d(tensor* t, const char* dims){
 tensor* slice(tensor* t, const char* dims){
     if (t->num_dims==2) return slice_2d(t, dims);
     else if (t->num_dims==3) return slice_3d(t, dims);
-    else exit(1);
+    else {
+        printf("[slice] unexpected t->num_dims\n");
+        exit(1);
+    };
 }
 
 
@@ -161,7 +166,10 @@ tensor* view_3d(tensor* t, const char* dims){
 tensor* view(tensor* t, const char* dims){
     if (t->num_dims==2) return view_2d(t, dims);
     else if (t->num_dims==3) return view_3d(t, dims);
-    else exit(1);
+    else {
+        printf("[view] unexpected t->num_dims\n");
+        exit(1);
+    };
 }
 
 
@@ -203,5 +211,9 @@ int at_3d(tensor* t, int idx){
 int at(tensor* t, int idx){
     if (t->num_dims==2) return at_2d(t, idx);
     else if (t->num_dims==3) return at_3d(t, idx);
-    else return -1;
+    else {
+        printf("[at] unexpected t->num_dims\n");
+        exit(1);
+        // return -1;
+    };
 }

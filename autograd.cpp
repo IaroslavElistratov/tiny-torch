@@ -69,6 +69,14 @@ void backward(tensor* loss){
         for (int i=0; i<t->num_inputs; i++){
             tensor* inp = t->inputs[i];
 
+            // this condition can be used if decide to not compute ->grad
+            // for some of the inputs to an op (e.g. idx->grad in select_bwd)
+            // printf("[autograd engine] pushing: %s\n", inp->name);
+            // if (!inp->grad){
+            //     printf("[autograd engine] %s has no ->grad field\n", inp->name);
+            //     continue;
+            // }
+
             // will record pointers to all seen names -- to avid visiting same nodes twice, when
             //       exp
             //     /    \

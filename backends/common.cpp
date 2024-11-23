@@ -251,3 +251,82 @@ void batched_matmul_bwd(tensor* upstream, tensor* out) {
     // note:
     // free(local_a), free(local_b);
 }
+
+/*
+answer-now:
+these are almost identical and it makes sense: select_bwd batched_reduce_max_bwd -- for reduce_max_bwd you just need to make one more step to get the idxs, and for select_bwd they are already provided as arguments
+
+void select_bwd(tensor* upstream, tensor* out) {
+    idxs = out->inputs[1];
+    a->grad = TensorLikeFill(a, 0.0);
+    select_set(a->grad, idxs, 1);
+    mul_k(upstream, a->grad);
+}
+
+void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
+    idxs = // get_max_idx ...
+    a->grad = TensorLikeFill(a, 0.0);
+    select_set(a->grad, idxs, 1);
+    mul_k(upstream, a->grad);
+}
+*/
+
+// a(B, N), idx(B, 1) = out(B, 1)
+void select_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    tensor* idx = out->inputs[1];
+    int B = a->shape[0], N = a->shape[1];
+
+    // local
+    tensor* local = TensorLikeFill(a, 0.0); // (B, N)
+    select_set_(local, idx, 1.);
+
+    // downstream
+    tensor* upstream_broadcasted = repeat_k(upstream, N); // (B, 1) -> (B, N);
+    tensor* a_grad = mul_k(local, upstream_broadcasted);
+
+    // add to existing grad
+    maybe_init_grad(a);
+    add_k_(a->grad, a_grad, a->grad);
+
+    // todo: rm?
+    // grad wrt idx
+    maybe_init_grad(idx);
+    local = TensorLikeFill(idx, 1.0);
+    tensor* idx_grad = mul_k(local, upstream);
+    add_k_(idx->grad, idx_grad, idx->grad);
+}
+
+// // select: a(B, N), idx(B, 1) = out(B, 1)
+// void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
+//     tensor* a = out->inputs[0];
+//     int B = a->shape[0], N = a->shape[1];
+
+//     if (a->num_dims!=2){
+//         printf("[batched_max] Unexpected num_dims\n");
+//         exit(1);
+//     }
+
+//     // todo-now: extend _launch_max_bwd_kernel to reduce per elements in a single batch
+//     int* idx = _launch_max_bwd_kernel(a); // (B, 1)
+
+//     // local
+//     // need to set to ones at these idxs, bc previously repeat_k will return a new tensor
+//     // with these elements at indexes (from the original tensor) copied -- so it's not a
+//     // view on the original elements and therefore can't set it by modifying output of
+//     // select_k elements
+//     tensor* local = TensorLikeFill(a, 0.0); // (B, N)
+//     select_set_(local, idx, 1.);
+
+//     // downstream
+//     tensor* upstream_broadcasted = repeat_k(upstream, N); // (B, 1) -> (B, N);
+//     tensor* a_grad = mul_k(local, upstream_broadcasted);
+
+//     // add to existing grad
+//     maybe_init_grad(a);
+//     add_k_(a->grad, a_grad, a->grad);
+
+//     // free(local);
+//     // free(a_grad);
+//     // free(upstream_broadcasted);
+// }

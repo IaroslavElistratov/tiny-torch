@@ -413,8 +413,41 @@ tensor* repeat_k(tensor* a, int num_repeats){
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ backward NOT defined in common ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
+__global__ void SelectKernel(float* input, float* idx, int B, int N, float* out);
+__global__ void SelectSetKernel(float* input, float* idx, int B, int N, float value);
+
+// using pointer to value, so that I can pass NULL from select_k (to be able re-use this fn)
+tensor* _launch_select(tensor* a, tensor* idx, float value){
+    if (CUDA_DEBUG) printf("[_launch_select]\n");
+    // todo: assert t->device is CUDA
+    if (a->num_dims!=2 || idx->num_dims!=2 || idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
+        printf("[_launch_select] Error shape\n");
+        exit(1);
+    }
+
+    int B = a->shape[0], N = a->shape[1];
+
+    float num_threads = (float)NUM_THREADS;
+    dim3 dimGrid(ceil(B/num_threads), 1, 1);
+    dim3 dimBlock(num_threads, 1, 1);
+
+    if (CUDA_DEBUG){
+        printf("[cuda _launch_select] grid: (%f, 1, 1)\n", ceil(B/num_threads));
+        printf("[cuda _launch_select] block: (%f, 1, 1)\n", num_threads);
+    }
+
+    if (value==-1){
+        tensor* out = Tensor(B, 1);
+        SelectKernel<<<dimGrid, dimBlock>>>(a->data, idx->data, B, N, out->data);
+        return out;
+    } else {
+        SelectSetKernel<<<dimGrid, dimBlock>>>(a->data, idx->data, B, N, value);
+        return a;
+    }
+}
+
 // input(s1, s2), idx(s1, 1) -> out(s1, 1)
-__global__ void SelectKernel(float* input, float* idx, float* out, int B, int N){
+__global__ void SelectKernel(float* input, float* idx, int B, int N, float* out){
     int b = blockIdx.x * blockDim.x + threadIdx.x;
     if (b<B){
         int input_idx = idx[b];
@@ -422,31 +455,19 @@ __global__ void SelectKernel(float* input, float* idx, float* out, int B, int N)
         out[b] = input[b*N + input_idx];
     }
 }
-
-// input(s1, s2), idx(s1, 1) -> out(s1, 1)
 tensor* select_k(tensor* a, tensor* idx){
-    if (CUDA_DEBUG) printf("[select_k]\n");
-    // todo:
-    // unary_input_checks(a);
-    if (a->num_dims!=2 || idx->num_dims!=2 || idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
-        printf("[select] Error shape\n");
-        exit(1);
+    return _launch_select(a, idx, -1);
+}
+
+__global__ void SelectSetKernel(float* input, float* idx, int B, int N, float value){
+    int b = blockIdx.x * blockDim.x + threadIdx.x;
+    if (b<B){
+        int input_idx = idx[b];
+        input[b*N + input_idx] = value;
     }
-
-    int B = a->shape[0], N = a->shape[1];
-    tensor* out = Tensor(B, 1);
-
-    float num_threads = (float)NUM_THREADS;
-    dim3 dimGrid(ceil(B/num_threads), 1, 1);
-    dim3 dimBlock(num_threads, 1, 1);
-
-    if (CUDA_DEBUG){
-        printf("[cuda SelectKernel] grid: (%f, 1, 1)\n", ceil(B/num_threads));
-        printf("[cuda SelectKernel] block: (%f, 1, 1)\n", num_threads);
-    }
-
-    SelectKernel<<<dimGrid, dimBlock>>>(a->data, idx->data, out->data, B, N);
-    return out;
+}
+tensor* select_set_(tensor* a, tensor* idx, float value){
+    return _launch_select(a, idx, value);
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ kernels that do not have op wrappers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
