@@ -10,12 +10,13 @@ tensor* (*COPY_FROM_DEVICE)(tensor*) = NULL;
 #if DEVICE == CPU
     #include "cpu/kernels.cpp"
     #include "cpu/kernels_conv.cpp"
+    #define set_backend_device() set_backend_cpu()
 #elif DEVICE == CUDA
-    #include "cuda/move_data.cpp"
+    #include "cuda/move_data.cu"
     #include "cuda/kernels.cu"
     #include "cuda/kernels_conv.cu"
+    #include "cuda/kernels_reduce.cu"
+    #define set_backend_device() set_backend_cuda()
 #endif
 
 #include "common.cpp"
-
-#define set_backend_device() ((DEVICE==CUDA) ? set_backend_cuda() : set_backend_cpu())

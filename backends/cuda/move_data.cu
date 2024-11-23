@@ -3,6 +3,14 @@
 // keep in mind that there's an asymmetry between copy_to_device (which
 // actually overwrites t->data), and copy_to_host (which returns a new tensor)
 
+inline void checkCudaErrors(cudaError_t err) {
+    // todo: exit from program everywhere in case of error
+    if (err != cudaSuccess){
+        printf("[cuda malloc/memcopy] error: %s\n",  cudaGetErrorString(err));
+        exit(1);
+    }
+}
+
 void set_backend_cuda(void);
 
 void copy_to_cuda(tensor* t){
@@ -18,18 +26,10 @@ void copy_to_cuda(tensor* t){
 
     float* t_device;
     int size = t->size * sizeof(float);
-    cudaError_t err = cudaMalloc((void**)&t_device, size);
+    checkCudaErrors(cudaMalloc((void**)&t_device, size));
     // todo: exit from program everywhere in case of error
-    if (err != cudaSuccess){
-        printf("[cuda malloc] error: %s\n",  cudaGetErrorString(err));
-        exit(1);
-    }
     // question-now: should I do contigify before cudaMemcpy?
-    err = cudaMemcpy(t_device, t->data, size, cudaMemcpyHostToDevice);
-    if (err != cudaSuccess){
-        printf("[cuda memcopy] error: %s\n",  cudaGetErrorString(err));
-        exit(1);
-    }
+    checkCudaErrors(cudaMemcpy(t_device, t->data, size, cudaMemcpyHostToDevice));
     // todo: free cpu t->data (currently memory leak)
     t->data = t_device;
 }
@@ -42,12 +42,7 @@ tensor* copy_from_cuda(tensor* t) {
     cudaDeviceSynchronize();
     int size = t->size * sizeof(float);
     float* host_data = (float*)malloc(size);
-    cudaError_t err = cudaMemcpy(host_data, t->data, size, cudaMemcpyDeviceToHost);
-    // todo: define a macro CUDA_CHECK for unwrapping this
-    if (err != cudaSuccess){
-        printf("[cuda memcopy] error: %s\n",  cudaGetErrorString(err));
-        exit(1);
-    }
+    checkCudaErrors(cudaMemcpy(host_data, t->data, size, cudaMemcpyDeviceToHost));
     // avoids TensorLike returning a cuda tensor (TensorLike->TensorNd->COPY_TO_DEVICE->copy_to_cuda)
     set_backend_cpu();
     tensor* t_copy = TensorLike(t);
