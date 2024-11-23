@@ -94,7 +94,7 @@ tensor* forward(tensor* input, state* params) {
 
     // min-max trick for numerical stability, python: "mm3 -= np.max(mm3, axis=1, keepdims=True)"
     int n_repeats = mm3->shape[1];
-    tensor* maxes = repeat(batched_max(mm3), n_repeats);
+    tensor* maxes = repeat(batched_reduce_max(mm3), n_repeats);
     set_name(maxes, "maxes"); // sprint(maxes);
     tensor* su = sub(mm3, maxes);
     set_name(su, "su"); // sprint(su);

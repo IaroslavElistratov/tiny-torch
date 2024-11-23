@@ -1,5 +1,4 @@
-#define NUM_THREADS 32
-#define CUDA_DEBUG true
+#include "../../nn.h"
 
 
 // input(B, C, H, W) kernel(F, C, HH, WW) = out(B, F, h_out, w_out)

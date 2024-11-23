@@ -62,6 +62,10 @@ struct tensor {
 #define CPU 0
 #define CUDA 1
 
+// these two will only be used if DEVICE == CUDA
+#define NUM_THREADS 16
+#define CUDA_DEBUG true
+
 void GetRandomFloat(float*, int);
 void set_name(tensor*, const char*);
 char* random_chars(int);

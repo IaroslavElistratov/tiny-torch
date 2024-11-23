@@ -313,7 +313,7 @@ tensor* transpose_k(tensor* x) {
 //  todo-high: add some common logic to abstract this repeated stuff away.
 //    - e.g. lua-torch implements a macro, where you only need to specify body of the for loop (op-specific),
 //      the rest (common logic) is in the code of the macro itself and thus doens't need to duplciated for each new op
-tensor* max_k(tensor* a) {
+tensor* reduce_max_k(tensor* a) {
     // set inital minimum to the first element
     tensor* out = TensorScalarFill(a->data[0]);
     for (int i=0; i<a->size; i++) {
@@ -323,10 +323,10 @@ tensor* max_k(tensor* a) {
 }
 
 // todo-now:
-// can make max_bwd and relu_bwd to be shared between gpu and cpu if allow kernels
+// can make reduce_max_bwd and relu_bwd to be shared between gpu and cpu if allow kernels
 // to record some additional info during fwd kernel, and simply access and use this
 // filed in bwd
-void max_bwd(tensor* upstream, tensor* out) {
+void reduce_max_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     // 1. local
     tensor* local = TensorLikeFill(a, 0.0);
@@ -524,7 +524,7 @@ void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
 }
 
 
-tensor* batched_max_k(tensor* a) {
+tensor* batched_reduce_max_k(tensor* a) {
 
     if (a->num_dims!=2){
         printf("[batched_max] Error");
@@ -538,14 +538,14 @@ tensor* batched_max_k(tensor* a) {
         tensor* curr_a = TensorNoData(1, N);
         curr_a->data = a->data + (b * a->stride[0]);
 
-        tensor* curr_out = max_k(curr_a);
+        tensor* curr_out = reduce_max_k(curr_a);
         out->data[b] = curr_out->data[0];
     }
     return out;
 }
 
 // todo-now: for all "batched" kernels can I just reshape input to (B*first_dim), run regular max kernel and then reshape back?
-void batched_max_bwd(tensor* upstream, tensor* out) {
+void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     int B = a->shape[0], N = a->shape[1];
 
@@ -557,12 +557,12 @@ void batched_max_bwd(tensor* upstream, tensor* out) {
     if (!a->grad)
         a->grad = TensorLikeFill(a, 0.0);
     else {
-        printf("[batched_max_bwd] a->grad exists!\n");
+        printf("[batched_reduce_max_bwd] a->grad exists!\n");
     }
 
     for (int b=0; b<B; b++){
         tensor* curr_a = TensorNoData(1, N);
-        curr_a->data = a->data + (b * a->stride[0]);    // grad will be set by max_bwd
+        curr_a->data = a->data + (b * a->stride[0]);    // grad will be set by reduce_max_bwd
 
         tensor* curr_out = TensorNoData(1, 1);
         curr_out->data = out->data + (b * out->stride[0]);
@@ -572,7 +572,7 @@ void batched_max_bwd(tensor* upstream, tensor* out) {
         tensor* curr_upstream = TensorNoData(1, 1);
         curr_upstream->data = upstream->data + (b * upstream->stride[0]);
 
-        max_bwd(curr_upstream, curr_out);
+        reduce_max_bwd(curr_upstream, curr_out);
 
         for (int i=0; i<curr_a->grad->size; i++){
             int offset_batch = b * a->grad->stride[0];

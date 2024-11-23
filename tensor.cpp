@@ -220,11 +220,12 @@ tensor* TensorScalarFill(float value)
 {
     // todo: wasteful to init w random value using GetRandomFloat
     //  and then overwrite them anyway
-    tensor* t = Tensor2d(1, 1);
+    tensor* device_t_new = Tensor2d(1, 1);
+    tensor* t_new = COPY_FROM_DEVICE(device_t_new);
     // needed bc Tensor initializes to random value
-    t->data[0] = value;
-    COPY_TO_DEVICE(t);
-    return t;
+    t_new->data[0] = value;
+    COPY_TO_DEVICE(t_new);
+    return t_new;
 }
 
 

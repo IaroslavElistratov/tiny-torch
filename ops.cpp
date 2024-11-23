@@ -122,17 +122,6 @@ tensor* pow(tensor* a, int exponent) {
     return t;
 }
 
-// tensor* reduce_sum(tensor* a) {
-//     a->num_uses++;
-//     tensor* t = reduce_sum_k(a);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = a;
-//     t->op_type = 5;
-//     t->grad_fn = reduce_sum_bwd;
-//     return t;
-// }
-
 // tensor* relu(tensor* a) {
 //     a->num_uses++;
 //     tensor* t = relu_k(a);
@@ -154,17 +143,6 @@ tensor* transpose(tensor* a) {
     t->grad_fn = transpose_bwd;
     return t;
 }
-
-// tensor* max(tensor* a) {
-//     a->num_uses++;
-//     tensor* t = max_k(a);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = a;
-//     t->op_type = 21;
-//     t->grad_fn = max_bwd;
-//     return t;
-// }
 
 tensor* neg(tensor* a) {
     a->num_uses++;
@@ -225,6 +203,17 @@ tensor* batched_matmul(tensor* a, tensor* b) {
 //     return t;
 // }
 
+tensor* reduce_sum(tensor* a) {
+    a->num_uses++;
+    tensor* t = reduce_sum_k(a);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->op_type = 5;
+    t->grad_fn = reduce_sum_bwd;
+    return t;
+}
+
 // tensor* batched_reduce_sum(tensor* a) {
 //     a->num_uses++;
 //     tensor* t = batched_reduce_sum_k(a);
@@ -236,14 +225,25 @@ tensor* batched_matmul(tensor* a, tensor* b) {
 //     return t;
 // }
 
-// tensor* batched_max(tensor* a) {
+tensor* reduce_max(tensor* a) {
+    a->num_uses++;
+    tensor* t = reduce_max_k(a);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->op_type = 21;
+    t->grad_fn = reduce_max_bwd;
+    return t;
+}
+
+// tensor* batched_reduce_max(tensor* a) {
 //     a->num_uses++;
-//     tensor* t = batched_max_k(a);
+//     tensor* t = batched_reduce_max_k(a);
 //     t->is_leaf = false;
 //     t->num_inputs = 1;
 //     t->inputs[0] = a;
 //     t->op_type = 22;
-//     t->grad_fn = batched_max_bwd;
+//     t->grad_fn = batched_reduce_max_bwd;
 //     return t;
 // }
 

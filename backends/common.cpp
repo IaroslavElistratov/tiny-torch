@@ -184,16 +184,21 @@ void log_bwd(tensor* upstream, tensor* out) {
     mul_k_(local, upstream, a->grad);
 }
 
-// void reduce_sum_bwd(tensor* upstream, tensor* out) {
-//     tensor* a = out->inputs[0];
-//     // 1. local
-//     tensor* local = TensorLikeFill(a, 1.0);
-//     // 2. wire local with upstream
-//     // make upstream and local to be same shape (currently upstream is a scalar, while local is a 2d tensor)
-//     tensor* broadcasted_upstream = TensorLikeFill(a, upstream->data[0]);
-//     a->grad = mul_k(local, broadcasted_upstream);
-//     // free(local);
-// }
+void reduce_sum_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+    // 1. local
+    tensor* local = TensorLikeFill(a, 1.0);
+    // 2. wire local with upstream
+    // make upstream and local to be same shape (currently upstream is a scalar, while local is a 2d tensor)
+
+    // Note: cannot just "upstream->data[0]", because the data can be on CUDA;
+    // Also there's no need to call "COPY_TO_DEVICE", as it will be called from TensorLikeFill
+    tensor* upstream_host = COPY_FROM_DEVICE(upstream);
+
+    tensor* broadcasted_upstream = TensorLikeFill(a, upstream_host->data[0]);
+    a->grad = mul_k(local, broadcasted_upstream);
+    // free(local);
+}
 
 // todo-high: it doesn't make sense to have a transpose_bwd bc it just calls transpose -- at the moment this fn is used bc calling convention (args signature) for _bwd funcs is different from the fwd funcs
 // todo: bwd formula

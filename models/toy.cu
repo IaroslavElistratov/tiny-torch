@@ -21,40 +21,60 @@ using namespace std;
 // todo-now:
 // Need to abstract away loop over individual elements and then can re-use most of the fwd kernels
 
-void test_backends(void){
+
+int main() {
     srand(123);
-
-    int N = 16, M = 8;
-
-    set_backend_device();
-    tensor* cuda_t = Tensor(N, M);
-    set_name(cuda_t, "cuda_t"); print(cuda_t);
-
-    set_backend_cpu();
-    tensor* cpu_tens = Tensor(N, M);
-    set_name(cpu_tens, "cpu_tens"); print(cpu_tens);
-}
-
-
-int test_bmm() {
-    srand(123);
-
-    int B=3, N = 2, M = 8, D = 4;
-
     set_backend_device();
 
-    tensor* x = Tensor(B, N, M);
+    int B = 2, H = 16, W = 16;
+
+    tensor* x = Tensor(B, H);
     set_name(x, "x"); print(x);
 
-    tensor* w1 = Tensor(B, M, D);
-    set_name(w1, "w1"); print(w1);
-
-    tensor* out = batched_matmul(x, w1);
+    // tensor* out = reduce_sum(x);
+    tensor* out = reduce_max(x);
     set_name(out, "out"); print(out);
 
     out->backward(out);
     return 0;
 }
+
+
+// int test_backends(){
+//     srand(123);
+
+//     int N = 16, M = 8;
+
+//     set_backend_device();
+//     tensor* cuda_t = Tensor(N, M);
+//     set_name(cuda_t, "cuda_t"); print(cuda_t);
+
+//     set_backend_cpu();
+//     tensor* cpu_tens = Tensor(N, M);
+//     set_name(cpu_tens, "cpu_tens"); print(cpu_tens);
+//     return 0;
+// }
+
+
+// int test_bmm() {
+//     srand(123);
+
+//     int B=3, N = 2, M = 8, D = 4;
+
+//     set_backend_device();
+
+//     tensor* x = Tensor(B, N, M);
+//     set_name(x, "x"); print(x);
+
+//     tensor* w1 = Tensor(B, M, D);
+//     set_name(w1, "w1"); print(w1);
+
+//     tensor* out = batched_matmul(x, w1);
+//     set_name(out, "out"); print(out);
+
+//     out->backward(out);
+//     return 0;
+// }
 
 
 
@@ -75,6 +95,7 @@ int test_bmm() {
 //     set_name(out, "out"); print(out);
 
 //     out->backward(out);
+//     return 0;
 // }
 
 
@@ -96,11 +117,11 @@ int test_bmm() {
 //     set_name(out, "out"); print(out);
 
 //     out->backward(out);
+//     return 0;
 // }
 
 
-// // test_pool
-// int main() {
+// int test_pool() {
 //     srand(123);
 
 //     int H = 4, W = 4, C = 3, K = 2;
@@ -114,25 +135,26 @@ int test_bmm() {
 //     set_name(out, "out"); print(out);
 
 //     out->backward(out);
+//     return 0;
 // }
 
 
-// test_batched_pool
-int main() {
-    srand(123);
+// int test_batched_pool() {
+//     srand(123);
 
-    int B = 2, H = 4, W = 4, C = 3, K = 2;
+//     int B = 2, H = 4, W = 4, C = 3, K = 2;
 
-    set_backend_device();
+//     set_backend_device();
 
-    tensor* x = Tensor(B, C, H, W);
-    set_name(x, "x"); print(x);
+//     tensor* x = Tensor(B, C, H, W);
+//     set_name(x, "x"); print(x);
 
-    tensor* out = batched_maxpool(x);
-    set_name(out, "out"); print(out);
+//     tensor* out = batched_maxpool(x);
+//     set_name(out, "out"); print(out);
 
-    out->backward(out);
-}
+//     out->backward(out);
+//     return 0;
+// }
 
 
 

@@ -21,13 +21,13 @@ void copy_to_cuda(tensor* t){
     cudaError_t err = cudaMalloc((void**)&t_device, size);
     // todo: exit from program everywhere in case of error
     if (err != cudaSuccess){
-        printf("[cuda malloc] error\n");
+        printf("[cuda malloc] error: %s\n",  cudaGetErrorString(err));
         exit(1);
     }
     // question-now: should I do contigify before cudaMemcpy?
     err = cudaMemcpy(t_device, t->data, size, cudaMemcpyHostToDevice);
     if (err != cudaSuccess){
-        printf("[cuda memcopy] error\n");
+        printf("[cuda memcopy] error: %s\n",  cudaGetErrorString(err));
         exit(1);
     }
     // todo: free cpu t->data (currently memory leak)

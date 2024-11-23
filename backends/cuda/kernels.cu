@@ -1,8 +1,5 @@
 #include "../../nn.h"
 
-#define NUM_THREADS 32
-#define CUDA_DEBUG true
-
 
 tensor* transpose_k(tensor*);
 // tensor* Tensor(...);
