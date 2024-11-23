@@ -149,6 +149,35 @@ void repeat_bwd(tensor* upstream, tensor* out) {
     // free(local);
 }
 
+// reduce_sum: (B, N) -> (B, 1)
+void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0]; // (B, N)
+    if (a->num_dims!=2){
+        printf("[batched_reduce_sum] Error\n");
+        exit(1);
+    }
+
+    if (!a->grad){
+        // important to fill with 0's if we gonna "+=" to it below.
+        // If we instead simply overwrite it, then wouldn't matter,
+        // but bc we do "+=" it does matter (if there's any garbage
+        // data, the grad will be += to it)
+        a->grad = TensorLikeFill(a, 0.0);
+    } else {
+        printf("[batched_reduce_sum_bwd] a->grad exists!\n");
+    }
+
+    int N = a->shape[1];
+    tensor* local = TensorLikeFill(a, 1.0); // (B, 1)
+    tensor* upstream_broadcasted = repeat_k(upstream, N); // (B, 1) -> (B,N)
+    tensor* a_grad = mul_k(local, upstream_broadcasted);
+
+    // add to existing a grad
+    add_k_(a->grad, a_grad, a->grad);
+
+    // free(local);
+}
+
 void pow_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     // 1. local

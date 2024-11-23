@@ -479,50 +479,6 @@ tensor* batched_reduce_sum_k(tensor* a) {
     return out;
 }
 
-void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
-    tensor* a = out->inputs[0];
-    int B = a->shape[0], N = a->shape[1];
-
-    if (a->num_dims!=2){
-        printf("[batched_reduce_sum] Error");
-        exit(1);
-    }
-
-    if (!a->grad)
-        // important to fill with 0's if we gonna "+=" to it below.
-        // If we instead simply overwrite it, then wouldn't matter,
-        // but bc we do "+=" it does matter (if there's any garbage
-        // data, the grad will be += to it)
-        a->grad = TensorLikeFill(a, 0.0);
-    else {
-        printf("[batched_reduce_sum_bwd] a->grad exists!\n");
-    }
-
-    for (int b=0; b<B; b++){
-        tensor* curr_a = TensorNoData(1, N);
-        curr_a->data = a->data + (b * a->stride[0]);    // grad will be set by reduce_sum_bwd
-
-        tensor* curr_out = TensorNoData(1, 1);
-        curr_out->data = out->data + (b * out->stride[0]);
-
-        curr_out->inputs[0] = curr_a;
-
-        tensor* curr_upstream = TensorNoData(1, 1);
-        curr_upstream->data = upstream->data + (b * upstream->stride[0]);
-
-        reduce_sum_bwd(curr_upstream, curr_out);
-
-        for (int i=0; i<curr_a->grad->size; i++){
-            int offset_batch = b * a->grad->stride[0];
-            // a->grad->data[offset_batch + i] = curr_a->grad->data[i];
-            // comment: the above overwrites input's grad, the below does "+=" to it
-            a->grad->data[offset_batch + i] = a->grad->data[offset_batch + i] + curr_a->grad->data[i];
-        }
-    }
-
-    // free(local);
-}
-
 
 tensor* batched_reduce_max_k(tensor* a) {
 
@@ -576,6 +532,8 @@ void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
 
         for (int i=0; i<curr_a->grad->size; i++){
             int offset_batch = b * a->grad->stride[0];
+            // a->grad->data[offset_batch + i] = curr_a->grad->data[i];
+            // comment: the above overwrites input's grad, the below does "+=" to it
             a->grad->data[offset_batch + i] = a->grad->data[offset_batch + i] + curr_a->grad->data[i];
         }
     }

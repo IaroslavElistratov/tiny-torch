@@ -221,7 +221,7 @@ tensor* batched_reduce_sum(tensor* a) {
     t->num_inputs = 1;
     t->inputs[0] = a;
     t->op_type = 17;
-    // t->grad_fn = batched_reduce_sum_bwd;
+    t->grad_fn = batched_reduce_sum_bwd;
     return t;
 }
 
