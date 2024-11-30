@@ -34,7 +34,7 @@ typedef unsigned long long int atomic_t;
 // When a larger value is found, the entire struct (including the idx) is atomically updated
 __device__ value atomicMaxValue(value* address, value val) {
     bool done = false;
-    value old, assumed;
+    value old;
 
     do {
         old = *address;
@@ -45,10 +45,8 @@ __device__ value atomicMaxValue(value* address, value val) {
             break;
         }
 
-        assumed = old;
-
         atomic_t* address_ull = (atomic_t*)address;
-        atomic_t assumed_ull = *(atomic_t*)&assumed;
+        atomic_t assumed_ull = *(atomic_t*)&old;
         atomic_t val_ull = *(atomic_t*)&val;
 
         atomic_t old_ull = atomicCAS(address_ull, assumed_ull, val_ull);
@@ -57,28 +55,34 @@ __device__ value atomicMaxValue(value* address, value val) {
 
     } while (!done);
 
+    // returns old by convention for atomic operations
     return old;
 }
 
 // mostly copy of atomicMaxValue
 __device__ value atomicAddValue(value* address, value val) {
     bool done = false;
-    value old, assumed;
+    value old;
 
     do {
+        // whatever value at that address now
         old = *address;
-        assumed = old;
 
         // if, at address_ull, find assumed_ull then overwrite it with val_ull
         // (which is the sum of assumed and val)
-        val.val += assumed.val;
+        val.val += old.val;
 
         atomic_t* address_ull = (atomic_t*)address;
-        atomic_t assumed_ull = *(atomic_t*)&assumed;
+        atomic_t assumed_ull = *(atomic_t*)&old;
         atomic_t val_ull = *(atomic_t*)&val;
 
         atomic_t old_ull = atomicCAS(address_ull, assumed_ull, val_ull);
         done = (old_ull == assumed_ull);
+
+        // undo your modification to val if update failed
+        // (update can fail because observed value was != assumed value)
+        val.val -= old.val;
+
         old = *(value*)&old_ull;
 
     } while (!done);
