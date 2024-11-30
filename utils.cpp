@@ -88,6 +88,7 @@ char* random_chars(int num){
     char offset = 'a';
     for (int i=0; i<num-1; i++){
         // my first thought was to use modulus, but it's wrong https://stackoverflow.com/a/6852396
+        // todo: still see non-printable chars in the tensor names
         char sampled = rand() % 26; // 'z' - 'a' // 26 letters
         s[i] = offset + sampled;
     }
@@ -98,7 +99,9 @@ char* random_chars(int num){
 void set_name(tensor* t, const char* name){
     // free the automatically set random name
     // added by the constructor
-    free(t->name);
+    if (t->name){
+        free(t->name);
+    }
 
     // todo-low: small inefficiency of always allocating MAX_TENSOR_NAME
     //  even if user provided str is shorter

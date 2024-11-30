@@ -14,7 +14,7 @@ inline void checkCudaErrors(cudaError_t err) {
 void set_backend_cuda(void);
 
 void copy_to_cuda(tensor* t){
-    printf("copy_to_cuda\n");
+    if (DATA_COPY_DEBUG) printf("copy_to_cuda\n");
 
     // question-now: should I do contigify before cudaMemcpy?
     assert_contiguous(t);
@@ -38,7 +38,7 @@ void copy_to_cuda(tensor* t){
 }
 
 tensor* copy_from_cuda(tensor* t) {
-    printf("copy_from_cuda\n");
+    if (DATA_COPY_DEBUG) printf("copy_from_cuda\n");
 
     assert_contiguous(t);
     t->device = CUDA;

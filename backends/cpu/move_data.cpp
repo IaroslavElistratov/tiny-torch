@@ -1,13 +1,13 @@
 
 // noop
 void copy_to_cpu(tensor* t){
-    printf("copy_to_cpu\n");
+    if (DATA_COPY_DEBUG) printf("copy_to_cpu\n");
     t->device = CPU;
 }
 
 // noop
 tensor* copy_from_cpu(tensor* t) {
-    printf("copy_from_cpu\n");
+    if (DATA_COPY_DEBUG) printf("copy_from_cpu\n");
     t->device = CPU;
     return t;
 }

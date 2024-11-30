@@ -112,6 +112,7 @@ tensor* TensorNoData4d(int o, int x, int y, int z)
     return t;
 }
 
+// todo: EmptyTensor constructors at the moment do not call COPY_TO_DEVICE
 
 // empty means non-initalized, but with data allocated to it
 tensor* EmptyTensor2d(int s1, int s2)

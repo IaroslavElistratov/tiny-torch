@@ -68,7 +68,8 @@ struct tensor {
 
 // these two will only be used if DEVICE == CUDA
 #define NUM_THREADS 16
-#define CUDA_DEBUG true
+#define CUDA_DEBUG false
+#define DATA_COPY_DEBUG false
 
 void GetRandomFloat(float*, int);
 void set_name(tensor*, const char*);
@@ -81,5 +82,6 @@ tensor* TensorLike(tensor* t);
 void print(tensor*);
 void lprint(tensor*);
 void cuda_lprint(tensor*);
+void sprint(tensor* t);
 
 #endif

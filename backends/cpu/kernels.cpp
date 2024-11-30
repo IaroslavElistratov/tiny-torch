@@ -181,7 +181,7 @@ tensor* select_k(tensor* a, tensor* idx) {
 }
 
 
-tensor* select_set_(tensor* a, tensor* idx, int value) {
+void select_set_(tensor* a, tensor* idx, int value) {
     if (a->num_dims!=2 || idx->num_dims!=2 || idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
         printf("[select_set_] Error shape");
         exit(1);
@@ -191,7 +191,6 @@ tensor* select_set_(tensor* a, tensor* idx, int value) {
         float* curr_a = a->data + (a->stride[0]*b);
         *(curr_a + (int)idx->data[b]) = value;
     }
-    return out;
 }
 
 

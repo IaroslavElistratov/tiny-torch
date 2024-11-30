@@ -21,25 +21,54 @@ using namespace std;
 // Need to abstract away loop over individual elements and then can re-use most of the fwd kernels
 
 
-// // test_reduce
-// int main() {
-//     srand(123);
-//     set_backend_device();
+// todo-now: bug in reduce_sum_bwd
+int main() {
+    srand(123);
+    set_backend_device();
 
-//     int B = 2, H = 16;
+    // todo: original
+    // int B = 2, H = 32;
 
-//     // todo-high: currently don't support num_elements lower than NUM_THREADS*2 -- add guards to the kernel
-//     tensor* x = Tensor(B, H);
-//     set_name(x, "x"); print(x);
+    int B = 2, H = 3;
 
-//     // tensor* out = reduce_sum(x);
-//     tensor* out = reduce_max(x);
-//     set_name(out, "out"); print(out);
+    tensor* x = Tensor(B, H);
+    set_name(x, "x"); lprint(x);
 
-//     out->backward(out);
-//     return 0;
-// }
+    tensor* out = reduce_sum(x);
+    // tensor* out = reduce_max(x);
+    set_name(out, "out"); print(out);
 
+    // out->backward(out);
+    return 0;
+}
+
+int test_batched_reduce() {
+    srand(123);
+    set_backend_device();
+
+    // int B = 2, H = 32;
+    // int B = 2, H = 3;
+    // todo-now: bug
+    int B = 3, H = 100;
+
+    tensor* x = Tensor(B, H);
+    set_name(x, "x"); print(x);
+
+    tensor* out = batched_reduce_sum(x);
+    // tensor* out = batched_reduce_max(x);
+    set_name(out, "out"); print(out);
+
+    // out->backward(out);
+
+    tensor* w = Tensor(1, 5);
+    set_name(w, "w"); print(w);
+
+    tensor* out2 = matmul(out, w);
+    set_name(out2, "out2"); print(out2);
+
+    out2->backward(out2);
+    return 0;
+}
 
 int test_select() {
     srand(123);
@@ -69,8 +98,7 @@ int test_select() {
 
 
 // [test copied from tests.cpp]
-// test_flatten
-int main() {
+int test_flatten() {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -97,38 +125,11 @@ int main() {
 
     tensor* out_flat = batched_flatten(out_conv1);
     set_name(out_flat, "out_flat"); sprint(out_flat);
-    // print(out_flat);
+    print(out_flat);
 
     out_flat->backward(out_flat);
     return 0;
 }
-
-int test_batched_reduce() {
-    srand(123);
-    set_backend_device();
-
-    int B = 2, H = 32;
-
-    // todo-high: currently don't support 2nd dim lower than NUM_THREADS*2 -- add guards to the kernel
-    tensor* x = Tensor(B, H);
-    set_name(x, "x"); print(x);
-
-    tensor* out = batched_reduce_sum(x);
-    // tensor* out = batched_reduce_max(x);
-    set_name(out, "out"); print(out);
-
-    // out->backward(out);
-
-    tensor* w = Tensor(1, 5);
-    set_name(w, "w"); print(w);
-
-    tensor* out2 = matmul(out, w);
-    set_name(out2, "out2"); print(out2);
-
-    out2->backward(out2);
-    return 0;
-}
-
 
 int test_repeat() {
     srand(123);
@@ -137,9 +138,6 @@ int test_repeat() {
     tensor* a = Tensor(4, 1);
     set_name(a, "a"); print(a);
 
-    // todo-high:
-    // out(a, 2) and w(2, 5) -- err
-    //  [_launch_reduction_kernel] shape err:  2(input->shape[1]) < 32(num_threads*2)
     tensor* out = repeat(a, 32);
     set_name(out, "out"); print(out);
 
@@ -153,123 +151,115 @@ int test_repeat() {
     return 0;
 }
 
-// int test_backends(){
-//     srand(123);
+int test_backends(){
+    srand(123);
 
-//     int N = 16, M = 8;
+    int N = 16, M = 8;
 
-//     set_backend_device();
-//     tensor* cuda_t = Tensor(N, M);
-//     set_name(cuda_t, "cuda_t"); print(cuda_t);
+    set_backend_device();
+    tensor* cuda_t = Tensor(N, M);
+    set_name(cuda_t, "cuda_t"); print(cuda_t);
 
-//     set_backend_cpu();
-//     tensor* cpu_tens = Tensor(N, M);
-//     set_name(cpu_tens, "cpu_tens"); print(cpu_tens);
-//     return 0;
-// }
+    set_backend_cpu();
+    tensor* cpu_tens = Tensor(N, M);
+    set_name(cpu_tens, "cpu_tens"); print(cpu_tens);
+    return 0;
+}
 
+int test_bmm() {
+    srand(123);
 
-// int test_bmm() {
-//     srand(123);
+    int B=3, N = 2, M = 8, D = 4;
 
-//     int B=3, N = 2, M = 8, D = 4;
+    set_backend_device();
 
-//     set_backend_device();
+    tensor* x = Tensor(B, N, M);
+    set_name(x, "x"); print(x);
 
-//     tensor* x = Tensor(B, N, M);
-//     set_name(x, "x"); print(x);
+    tensor* w1 = Tensor(B, M, D);
+    set_name(w1, "w1"); print(w1);
 
-//     tensor* w1 = Tensor(B, M, D);
-//     set_name(w1, "w1"); print(w1);
+    tensor* out = batched_matmul(x, w1);
+    set_name(out, "out"); print(out);
 
-//     tensor* out = batched_matmul(x, w1);
-//     set_name(out, "out"); print(out);
+    out->backward(out);
+    return 0;
+}
 
-//     out->backward(out);
-//     return 0;
-// }
+int test_conv() {
+    srand(123);
 
+    int H = 4, W = 4, C = 3, F = 5, K = 2;
 
+    set_backend_device();
 
-// int test_conv() {
-//     srand(123);
+    tensor* x = Tensor(C, H, W);
+    set_name(x, "x"); print(x);
 
-//     int H = 4, W = 4, C = 3, F = 5, K = 2;
+    tensor* kernels = Tensor(F, C, K, K);
+    set_name(kernels, "kernels"); print(kernels);
 
-//     set_backend_device();
+    tensor* out = conv(x, kernels);
+    set_name(out, "out"); print(out);
 
-//     tensor* x = Tensor(C, H, W);
-//     set_name(x, "x"); print(x);
+    out->backward(out);
+    return 0;
+}
 
-//     tensor* kernels = Tensor(F, C, K, K);
-//     set_name(kernels, "kernels"); print(kernels);
+int test_batched_conv() {
+    srand(123);
 
-//     tensor* out = conv(x, kernels);
-//     set_name(out, "out"); print(out);
+    // int B = 3000, H = 128, W = 128, C = 3, F = 5, K = 2;
+    int B = 2, H = 4, W = 4, C = 3, F = 5, K = 2;
 
-//     out->backward(out);
-//     return 0;
-// }
+    set_backend_device();
 
+    tensor* x = Tensor(B, C, H, W);
+    set_name(x, "x"); print(x);
 
-// int test_batched_conv() {
-//     srand(123);
+    tensor* kernels = Tensor(F, C, K, K);
+    set_name(kernels, "kernels"); print(kernels);
 
-//     // int B = 3000, H = 128, W = 128, C = 3, F = 5, K = 2;
-//     int B = 2, H = 4, W = 4, C = 3, F = 5, K = 2;
+    tensor* out = batched_conv(x, kernels);
+    set_name(out, "out"); print(out);
 
-//     set_backend_device();
+    out->backward(out);
+    return 0;
+}
 
-//     tensor* x = Tensor(B, C, H, W);
-//     set_name(x, "x"); print(x);
+int test_pool() {
+    srand(123);
 
-//     tensor* kernels = Tensor(F, C, K, K);
-//     set_name(kernels, "kernels"); print(kernels);
+    int H = 4, W = 4, C = 3, K = 2;
 
-//     tensor* out = batched_conv(x, kernels);
-//     set_name(out, "out"); print(out);
+    set_backend_device();
 
-//     out->backward(out);
-//     return 0;
-// }
+    tensor* x = Tensor(C, H, W);
+    set_name(x, "x"); print(x);
 
+    tensor* out = maxpool(x);
+    set_name(out, "out"); print(out);
 
-// int test_pool() {
-//     srand(123);
+    out->backward(out);
+    return 0;
+}
 
-//     int H = 4, W = 4, C = 3, K = 2;
+int test_batched_pool() {
+    srand(123);
 
-//     set_backend_device();
+    int B = 2, H = 4, W = 4, C = 3, K = 2;
 
-//     tensor* x = Tensor(C, H, W);
-//     set_name(x, "x"); print(x);
+    set_backend_device();
 
-//     tensor* out = maxpool(x);
-//     set_name(out, "out"); print(out);
+    tensor* x = Tensor(B, C, H, W);
+    set_name(x, "x"); print(x);
 
-//     out->backward(out);
-//     return 0;
-// }
+    tensor* out = batched_maxpool(x);
+    set_name(out, "out"); print(out);
 
-
-// int test_batched_pool() {
-//     srand(123);
-
-//     int B = 2, H = 4, W = 4, C = 3, K = 2;
-
-//     set_backend_device();
-
-//     tensor* x = Tensor(B, C, H, W);
-//     set_name(x, "x"); print(x);
-
-//     tensor* out = batched_maxpool(x);
-//     set_name(out, "out"); print(out);
-
-//     out->backward(out);
-//     return 0;
-// }
-
-
+    out->backward(out);
+    return 0;
+}
 
 int test_simple_ops() {
     srand(123);

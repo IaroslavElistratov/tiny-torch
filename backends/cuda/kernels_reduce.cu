@@ -62,7 +62,7 @@ __device__ value atomicMaxValue(value* address, value val) {
 // mostly copy of atomicMaxValue
 __device__ value atomicAddValue(value* address, value val) {
     bool done = false;
-    value old;
+    value old, sum;
 
     do {
         // whatever value at that address now
@@ -70,18 +70,17 @@ __device__ value atomicAddValue(value* address, value val) {
 
         // if, at address_ull, find assumed_ull then overwrite it with val_ull
         // (which is the sum of assumed and val)
-        val.val += old.val;
+
+        // has semantics of undoing modification to val if update failed
+        // (update can fail because observed value was != assumed value)
+        sum = add(old, val);
 
         atomic_t* address_ull = (atomic_t*)address;
         atomic_t assumed_ull = *(atomic_t*)&old;
-        atomic_t val_ull = *(atomic_t*)&val;
+        atomic_t val_ull = *(atomic_t*)&sum;
 
         atomic_t old_ull = atomicCAS(address_ull, assumed_ull, val_ull);
         done = (old_ull == assumed_ull);
-
-        // undo your modification to val if update failed
-        // (update can fail because observed value was != assumed value)
-        val.val -= old.val;
 
         old = *(value*)&old_ull;
 
@@ -146,20 +145,19 @@ __global__ void ReductionKernel(int op_idx, float* input, value* out, int stride
     // be idx of input tensor not local tensor (partial_sum);
     // no need to check for "&&(start+t)<next_power"
     if ((start+t)>=(batch*single_example_len + single_example_len)){
-        // signal an invalid idx with -1
-        if (CUDA_DEBUG) printf("if! b: %i, start+t: %i\n", batch, start+t);
+        // if (CUDA_DEBUG) printf("if! b: %i, start+t: %i\n", batch, start+t);
         partialSum[t] = {fill_value, -1};
     } else {
-        if (CUDA_DEBUG) printf("else! b: %i, start+t: %i\n", batch, start+t);
+        // if (CUDA_DEBUG) printf("else! b: %i, start+t: %i\n", batch, start+t);
         partialSum[t] = {input[start+t], start+t};
     }
-    // "+ single_example_len" because when batch=0, the max num elements should be: "single_example_len",
+    // "+ single_example_len" because when batch=0, the max num elements should be "single_example_len",
     // and not 0 (which it would be if multiplied by batch=0)
     if ((start+t + blockDim.x)>=(batch*single_example_len + single_example_len)){
-        if (CUDA_DEBUG) printf("if! b: %i, t+blockDim.x: %i\n", batch,t  + blockDim.x);
+        // if (CUDA_DEBUG) printf("if! b: %i, t+blockDim.x: %i\n", batch,t  + blockDim.x);
         partialSum[t + blockDim.x] = {fill_value, -1};
     } else {
-        if (CUDA_DEBUG) printf("else! b: %i, t+blockDim.x: %i\n", batch,t  + blockDim.x);
+        // if (CUDA_DEBUG) printf("else! b: %i, t+blockDim.x: %i\n", batch,t  + blockDim.x);
         partialSum[t + blockDim.x] = {input[start+t + blockDim.x], start+t + blockDim.x};
     }
 
