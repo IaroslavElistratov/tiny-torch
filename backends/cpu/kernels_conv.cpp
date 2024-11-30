@@ -4,6 +4,8 @@
 #define IS_DEBUG false
 #define IS_DEBUG_MP false
 
+#define STRIDE 2
+
 
 /*
 x: Input data of shape (C, H, W)
@@ -22,9 +24,8 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
-    int stride = 2, pad = 0;
-    int h_out = 1 + (H + 2 * pad - HH) / stride;
-    int w_out = 1 + (W + 2 * pad - WW) / stride;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     if (IS_DEBUG){
         printf("[conv_k_] h_out: %i\n", h_out);
@@ -104,9 +105,8 @@ tensor* conv_k(tensor* input, tensor* kernel) {
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
     // todo: de-duplicate same calculations of h_out, w_out for all the kernels in this file
-    int stride = 2, pad = 0;
-    int h_out = 1 + (H + 2 * pad - HH) / stride;
-    int w_out = 1 + (W + 2 * pad - WW) / stride;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     if (IS_DEBUG){
         printf("[conv_k] h_out: %i\n", h_out);
@@ -129,9 +129,8 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
-    int stride = 2, pad = 0;
-    int h_out = 1 + (H + 2 * pad - HH) / stride;
-    int w_out = 1 + (W + 2 * pad - WW) / stride;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     // make sure it's not initialised with garbage
     tensor* grad_kernels = TensorLikeFill(kernel, 0.0);
@@ -225,9 +224,8 @@ tensor* batched_conv_k(tensor* input, tensor* kernel){
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
-    int stride = 2, pad = 0;
-    int h_out = 1 + (H + 2 * pad - HH) / stride;
-    int w_out = 1 + (W + 2 * pad - WW) / stride;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     if (IS_DEBUG){
         printf("[batched_conv_k] h_out: %i\n", h_out);
@@ -262,9 +260,8 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
-    int stride = 2, pad = 0;
-    int h_out = 1 + (H + 2 * pad - HH) / stride;
-    int w_out = 1 + (W + 2 * pad - WW) / stride;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
     if (IS_DEBUG){
         printf("[bwd_batched_conv_k] h_out: %i\n", h_out);
         printf("[bwd_batched_conv_k] w_out: %i\n", w_out);
@@ -323,10 +320,9 @@ tensor* maxpool_k_(tensor* input, tensor* out) {
 
     // hyperparameters
     int HH = 2, WW = 2;
-    int stride = 2, pad = 0;
 
-    int h_out = 1 + (H + 2 * pad - HH) / stride;
-    int w_out = 1 + (W + 2 * pad - WW) / stride;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     if (IS_DEBUG_MP){
         printf("[maxpool_k_] h_out: %i\n", h_out);
@@ -384,10 +380,9 @@ tensor* maxpool_k(tensor* input) {
 
     // hyperparameters
     int HH = 2, WW = 2;
-    int stride = 2, pad = 0;
 
-    int h_out = 1 + (H + 2 * pad - HH) / stride;
-    int w_out = 1 + (W + 2 * pad - WW) / stride;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     if (IS_DEBUG_MP){
         printf("[maxpool_k] h_out: %i\n", h_out);
@@ -409,10 +404,9 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
 
     // hyperparams
     int HH = 2, WW = 2;
-    int stride = 2, pad = 0;
 
-    int h_out = 1 + (H + 2 * pad - HH) / stride;
-    int w_out = 1 + (W + 2 * pad - WW) / stride;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     tensor* downstream = TensorLikeFill(input, 0.0);
 
@@ -483,10 +477,9 @@ tensor* batched_maxpool_k(tensor* input){
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
 
     int HH = 2, WW = 2;
-    int stride = 2, pad = 0;
 
-    int h_out = 1 + (H + 2 * pad - HH) / stride;
-    int w_out = 1 + (W + 2 * pad - WW) / stride;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     if (IS_DEBUG_MP){
         printf("[batched_maxpool_k] h_out: %i\n", h_out);
@@ -515,10 +508,9 @@ void bwd_batched_maxpool_k(tensor* upstream, tensor* out) {
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
 
     int HH = 2, WW = 2;
-    int stride = 2, pad = 0;
 
-    int h_out = 1 + (H + 2 * pad - HH) / stride;
-    int w_out = 1 + (W + 2 * pad - WW) / stride;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
     if (IS_DEBUG_MP){
         printf("[bwd_batched_maxpool_k] h_out: %i\n", h_out);
         printf("[bwd_batched_maxpool_k] w_out: %i\n", w_out);

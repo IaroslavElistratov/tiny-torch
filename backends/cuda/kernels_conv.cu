@@ -1,6 +1,8 @@
 #include "../../nn.h"
 
 
+#define STRIDE 2
+
 // input(B, C, H, W) kernel(F, C, HH, WW) = out(B, F, h_out, w_out)
 // input(B, C, H, W) kernel(F, C, HH, WW) = out(B, F, h_out, w_out)
 __global__ void ConvKernel(float* x, float* kernel, float* out, int F, int H_OUT, int W_OUT, int H, int W, int C, int HH, int WW, bool is_batched){
@@ -14,14 +16,8 @@ __global__ void ConvKernel(float* x, float* kernel, float* out, int F, int H_OUT
 
     if (curr_height<H_OUT && curr_width<W_OUT){
 
-        // e.g. 5/2=2 (with int division)
-
-        // todo-now: bug was here.
-        // int h_start = curr_height - (HH/2);
-        // int w_start = curr_width - (WW/2);
-
-        int h_start = curr_height - ((HH-1)/2);
-        int w_start = curr_width - ((WW-1)/2);
+        int h_start = curr_height * STRIDE;
+        int w_start = curr_width * STRIDE;
 
         for (int f=0; f<F; f++){
 
@@ -82,11 +78,8 @@ tensor* conv_k(tensor* input, tensor* kernel) {
     if (CUDA_DEBUG) printf("[conv_k]\n");
     input_checks_conv(input, kernel, WW, HH);
 
-    // todo: change h_out, w_out computation?
-    // int h_out = (H - HH + 1) / stride;
-    // int w_out = (W - WW + 1) / stride;
-    int h_out = H - HH + 1;
-    int w_out = W - WW + 1;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     // todo: allocate empty, here and other kenrels
     tensor* out = Tensor(F, h_out, w_out);
@@ -136,8 +129,8 @@ tensor* batched_conv_k(tensor* input, tensor* kernel){
     if (CUDA_DEBUG) printf("[batched_conv_k]\n");
     input_checks_batched_conv(input, kernel, WW, HH);
 
-    int h_out = H - HH + 1;
-    int w_out = W - WW + 1;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     tensor* out = Tensor(B, F, h_out, w_out);
 
@@ -165,8 +158,8 @@ __global__ void BwdConvKernel(float* x, float* kernel, float* upstream, float* g
 
     if (curr_height<H_OUT && curr_width<W_OUT){
 
-        int h_start = curr_height - ((HH-1)/2);
-        int w_start = curr_width - ((WW-1)/2);
+        int h_start = curr_height * STRIDE;
+        int w_start = curr_width * STRIDE;
 
         for (int f=0; f<F; f++){
 
@@ -221,8 +214,8 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
     kernel->grad = TensorLikeFill(kernel, 0.0);
     input->grad = TensorLikeFill(input, 0.0);
 
-    int h_out = H - HH + 1;
-    int w_out = W - WW + 1;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     float num_threads = (float)NUM_THREADS;
     dim3 dimGrid(ceil(h_out/num_threads), ceil(w_out/num_threads), 1);
@@ -249,8 +242,8 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out){
     kernel->grad = TensorLikeFill(kernel, 0.0);
     input->grad = TensorLikeFill(input, 0.0);
 
-    int h_out = H - HH + 1;
-    int w_out = W - WW + 1;
+    int h_out = 1 + (H - HH) / STRIDE;
+    int w_out = 1 + (W - WW) / STRIDE;
 
     float num_threads = (float)NUM_THREADS;
     dim3 dimGrid(ceil(h_out/num_threads), ceil(w_out/num_threads), B);
@@ -278,14 +271,13 @@ __global__ void MaxPoolKernel(float* x, float* out, int H_OUT, int W_OUT, int H,
 
     if (curr_height<H_OUT && curr_width<W_OUT){
 
-        int h_start = curr_height - ((K-1)/2);
-        int w_start = curr_width - ((K-1)/2);
-
+        int h_start = curr_height * STRIDE;
+        int w_start = curr_width * STRIDE;
 
         // for each input channel
         for (int c=0; c<C; c++){
 
-            // todo-now: set to 0-th element, here and in bwd_
+            // todo-now: set to 0-th element, here and in bwd_: set to -INFINITY
             float max = -1000.0;
 
             // kernel's idxs
@@ -326,8 +318,8 @@ tensor* maxpool_k(tensor* input) {
     }
 
     int K = 2;
-    int h_out = H - K + 1;
-    int w_out = W - K + 1;
+    int h_out = 1 + (H - K) / STRIDE;
+    int w_out = 1 + (W - K) / STRIDE;
 
     tensor* out = Tensor(C, h_out, w_out);
 
@@ -357,8 +349,8 @@ tensor* batched_maxpool_k(tensor* input) {
     }
 
     int K = 2;
-    int h_out = H - K + 1;
-    int w_out = W - K + 1;
+    int h_out = 1 + (H - K) / STRIDE;
+    int w_out = 1 + (W - K) / STRIDE;
 
     tensor* out = Tensor(B, C, h_out, w_out);
 
@@ -392,8 +384,8 @@ __global__ void BwdMaxPoolKernel(float* x, float* upstream, float* grad_x, int H
 
     if (curr_height<H_OUT && curr_width<W_OUT){
 
-        int h_start = curr_height - ((K-1)/2);
-        int w_start = curr_width - ((K-1)/2);
+        int h_start = curr_height * STRIDE;
+        int w_start = curr_width * STRIDE;
 
         // for each input channel
         for (int c=0; c<C; c++){
@@ -447,8 +439,8 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
     // input_checks_maxpool(tensor* input)
 
     int K = 2;
-    int h_out = H - K + 1;
-    int w_out = W - K + 1;
+    int h_out = 1 + (H - K) / STRIDE;
+    int w_out = 1 + (W - K) / STRIDE;
 
     input->grad = TensorLikeFill(input, 0.0);
 
@@ -474,8 +466,8 @@ void bwd_batched_maxpool_k(tensor* upstream, tensor* out) {
     // input_checks_maxpool(tensor* input)
 
     int K = 2;
-    int h_out = H - K + 1;
-    int w_out = W - K + 1;
+    int h_out = 1 + (H - K) / STRIDE;
+    int w_out = 1 + (W - K) / STRIDE;
 
     input->grad = TensorLikeFill(input, 0.0);
 
