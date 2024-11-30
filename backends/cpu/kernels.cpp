@@ -9,18 +9,6 @@ tensor* batched_transpose_k(tensor*);
 tensor* batched_reduce_sum_k(tensor*);
 
 
-void _strcp(char* src, char* dst, int size){
-    for (int i=0; i<size; i++) {
-        dst[i] = src[i];
-        printf("%c\n", src[i]);
-    }
-}
-
-void _copy_arr(float* src, float* dst, int size) {
-    for (int i=0; i<size; i++)
-        dst[i] = src[i];
-}
-
 // todo:
 // - to preserve old behavior, change ops to:
 //     - index from the right (inner most dims), NOT from the left (outer most)
@@ -387,45 +375,6 @@ tensor* batched_matmul_k(tensor* a, tensor* b)
     }
     return out;
 }
-
-
-tensor* batched_flatten_k(tensor* a) {
-    int B = a->shape[0], out_dim = -1;
-
-    if (a->num_dims==3)
-        out_dim = a->shape[1] * a->shape[2];
-    else if (a->num_dims==4)
-        out_dim = a->shape[1] * a->shape[2] * a->shape[3];
-    else {
-        printf("[batched_flatten] Error");
-        exit(1);
-    }
-
-    // inputs to this kernel can be 3d, 4d -- but the output is always 2d (all dims flattened except for the batch dim)
-    tensor* out = Tensor(B, out_dim);
-
-    for (int i=0; i<a->size; i++)
-        out->data[i] = a->data[i];
-    return out;
-}
-
-void batched_flatten_bwd(tensor* upstream, tensor* out) {
-    tensor* a = out->inputs[0];
-
-    // todo: these copies aren't needed -- can just change strides and shapes on the upstream
-    if (!a->num_dims==3 && !a->num_dims==4){
-        printf("[batched_flatten] Error");
-        exit(1);
-    }
-    a->grad = TensorLike(a);
-
-    // reshape upstream into the shape of a
-    for (int i=0; i<upstream->size; i++)
-        a->grad->data[i] = upstream->data[i];
-
-    // free(local);
-}
-
 
 tensor* batched_reduce_sum_k(tensor* a) {
 

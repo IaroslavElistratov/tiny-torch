@@ -11,7 +11,7 @@ void unary_input_checks(tensor* a){
         exit(1);
     }
     if (a->num_dims!=2){
-        printf("[cuda kernel] Error: expected 2-dim inputs\n");
+        printf("[cuda kernel] Error: expected 2-dim inputs, saw %i-dim\n", a->num_dims);
         exit(1);
     }
 }

@@ -354,3 +354,41 @@ void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
     // free(upstream_broadcasted);
 }
 
+
+void batched_flatten_bwd(tensor* upstream, tensor* out) {
+    tensor* a = out->inputs[0];
+
+    // these copies aren't needed -- can just change strides and shapes on the upstream?
+    // But do need to +=
+    maybe_init_grad(a);
+
+    // reshape upstream into the shape of a
+    add_k_(a->grad, upstream, a->grad);
+
+    // free(local);
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ fwd kernels ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+tensor* batched_flatten_k(tensor* a) {
+    int B = a->shape[0];
+
+    if (!a->num_dims==3 && !a->num_dims==4){
+        printf("[batched_flatten] Shape error\n");
+        exit(1);
+    }
+
+    // collapsing all dims of the tensor except B (0-th dim);
+    // this line is more concise then iterating over a.shape[1:] and multiplying them
+    int out_dim = a->size / a->shape[0];
+
+    // inputs to this kernel can be 3d, 4d -- but the output is always 2d (all dims flattened except for the batch dim)
+    // todo: memory leak
+    tensor* out = TensorLikeFill(Tensor(B, out_dim), 0.);
+
+    // use add_k_ on zero initialized out, instead of needing to impl for-loop copy as separate primitive (e.g. _copy_arr)
+    add_k_(out, a, out);
+    return out;
+}

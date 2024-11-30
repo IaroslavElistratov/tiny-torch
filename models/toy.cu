@@ -68,8 +68,42 @@ int test_select() {
 }
 
 
-// test_batched_reduce
+// [test copied from tests.cpp]
+// test_flatten
 int main() {
+    // random num generator init, must be called once
+    // srand(time(NULL));
+    srand(123);
+    set_backend_device();
+
+    int B = 2;
+    int C = 2;
+    int H = 8;
+    int W = 8;
+
+    int F = 2;
+    int HH = 2;
+    int WW = 2;
+
+    // *** Init ***
+    tensor* input = Tensor(B, C, H, W);
+    set_name(input, "input"); print(input);
+
+    tensor* kernel = Tensor(F, C, HH, WW);
+    set_name(kernel, "kernel"); print(kernel);
+
+    tensor* out_conv1 = batched_conv(input, kernel);
+    set_name(out_conv1, "out_conv1"); sprint(out_conv1);
+
+    tensor* out_flat = batched_flatten(out_conv1);
+    set_name(out_flat, "out_flat"); sprint(out_flat);
+    // print(out_flat);
+
+    out_flat->backward(out_flat);
+    return 0;
+}
+
+int test_batched_reduce() {
     srand(123);
     set_backend_device();
 

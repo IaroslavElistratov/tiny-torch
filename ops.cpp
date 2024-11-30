@@ -192,16 +192,16 @@ tensor* batched_matmul(tensor* a, tensor* b) {
     return t;
 }
 
-// tensor* batched_flatten(tensor* a) {
-//     a->num_uses++;
-//     tensor* t = batched_flatten_k(a);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = a;
-//     t->op_type = 13;
-//     t->grad_fn = batched_flatten_bwd;
-//     return t;
-// }
+tensor* batched_flatten(tensor* a) {
+    a->num_uses++;
+    tensor* t = batched_flatten_k(a);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->op_type = 13;
+    t->grad_fn = batched_flatten_bwd;
+    return t;
+}
 
 tensor* reduce_sum(tensor* a) {
     a->num_uses++;
