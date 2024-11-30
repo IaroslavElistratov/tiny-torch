@@ -1,7 +1,10 @@
 #include <iostream> // todo: use C only
 using namespace std;
 
-// #include "nn.h"
+#define DEVICE CUDA
+
+
+#include "../nn.h"
 #include "../tensor.cpp"
 #include "../ops.cpp"
 #include "../cifar10.cpp"
@@ -16,8 +19,15 @@ using namespace std;
 
 // todo-low: mv to optim.cpp
 void sgd(tensor* w) {
+    tensor* w_local = COPY_FROM_DEVICE(w);
+    tensor* w_grad_local = COPY_FROM_DEVICE(w->grad);
+
     for (int i=0; i<w->size; i++)
-        w->data[i] -= w->grad->data[i] * LR;
+        w_local->data[i] -= w_grad_local->data[i] * LR;
+
+    COPY_TO_DEVICE(w_local);
+    // todo: memory leak
+    w->data = w_local->data;
 }
 
 
@@ -87,7 +97,7 @@ tensor* forward(tensor* input, state* params) {
     set_name(relu4, "relu4"); // sprint(relu4);
 
     tensor* mm3 = matmul(relu4, params->w3);
-    set_name(mm3, "mm3"); // sprint(out);
+    set_name(mm3, "mm3"); // sprint(mm3);
 
     // *** Softmax ***
 
@@ -150,13 +160,14 @@ tensor* train_step(cifar10* data, state* params) {
     sgd(params->w2);
     sgd(params->w3);
 
-    return loss;
+    return COPY_FROM_DEVICE(loss);
 }
 
 int main() {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
+    set_backend_device();
 
     int C = 3;
     int F = 6;
@@ -204,14 +215,7 @@ int main() {
         printf("ep: %i; loss: %f;\n", ep_idx, loss->data[0]);
     }
 
-    // todo: write to file
-    // FILE *f = fopen("./generated/log.txt", "w");
-    // if (f == NULL) {
-    //     printf("[main] Error opening file\n");
-    //     return 1;
-    // }
-    // fprintf(f, "my_tensor\n");
-    // fclose(f);
+    print(params.kernel1->grad);
     print(kernel1);
     print(kernel2);
     print(w1);
