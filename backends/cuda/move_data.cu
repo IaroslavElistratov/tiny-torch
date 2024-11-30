@@ -15,9 +15,14 @@ void set_backend_cuda(void);
 
 void copy_to_cuda(tensor* t){
     printf("copy_to_cuda\n");
+
+    // question-now: should I do contigify before cudaMemcpy?
+    assert_contiguous(t);
+
     if (t->device==CUDA){
         return;
     }
+
     // not needed for copying data itself,
     // but need it bc this fn can be called
     // from inside a tensor constructor --
@@ -27,8 +32,6 @@ void copy_to_cuda(tensor* t){
     float* t_device;
     int size = t->size * sizeof(float);
     checkCudaErrors(cudaMalloc((void**)&t_device, size));
-    // todo: exit from program everywhere in case of error
-    // question-now: should I do contigify before cudaMemcpy?
     checkCudaErrors(cudaMemcpy(t_device, t->data, size, cudaMemcpyHostToDevice));
     // todo: free cpu t->data (currently memory leak)
     t->data = t_device;
@@ -36,6 +39,8 @@ void copy_to_cuda(tensor* t){
 
 tensor* copy_from_cuda(tensor* t) {
     printf("copy_from_cuda\n");
+
+    assert_contiguous(t);
     t->device = CUDA;
 
     // todo: can just define a macro for print to call 4 lines below and then call the orignal print2d (no need for cuda_print_2d)

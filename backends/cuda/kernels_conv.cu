@@ -54,10 +54,9 @@ __global__ void ConvKernel(float* x, float* kernel, float* out, int F, int H_OUT
 
 void input_checks_conv(tensor* input, tensor* kernel, int WW, int HH) {
 
-    if (input->num_dims!=3 || kernel->num_dims!=4){
-        printf("[cuda conv_k] expected 3-d input and 4-d kernel\n");
-        exit(1);
-    }
+    assert_input(input, 3);
+    assert_input(kernel, 4);
+
     if (WW!=HH){
         printf("[cuda conv_k] for now conv assumes square kernels\n");
         exit(1);
@@ -105,10 +104,10 @@ tensor* conv_k(tensor* input, tensor* kernel) {
 
 
 void input_checks_batched_conv(tensor* input, tensor* kernel, int WW, int HH) {
-    if (input->num_dims!=4 || kernel->num_dims!=4){
-        printf("[cuda batched_conv_k] expected 3-d input and 4-d kernel\n");
-        exit(1);
-    }
+
+    assert_input(input, 4);
+    assert_input(kernel, 4);
+
     if (input->shape[1]!=kernel->shape[1]){
         printf("[cuda batched_conv_k] C-dim doesn't match\n");
         exit(1);
@@ -210,6 +209,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
 
     if (CUDA_DEBUG) printf("[bwd_conv_k]\n");
     input_checks_conv(input, kernel, WW, HH);
+    assert_input(upstream, 3);
 
     kernel->grad = TensorLikeFill(kernel, 0.0);
     input->grad = TensorLikeFill(input, 0.0);
@@ -238,6 +238,7 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out){
 
     if (CUDA_DEBUG) printf("[batched_conv_k]\n");
     input_checks_batched_conv(input, kernel, WW, HH);
+    assert_input(upstream, 4);
 
     kernel->grad = TensorLikeFill(kernel, 0.0);
     input->grad = TensorLikeFill(input, 0.0);
@@ -312,10 +313,7 @@ tensor* maxpool_k(tensor* input) {
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
 
     if (CUDA_DEBUG) printf("[maxpool_k]\n");
-    if (input->num_dims!=3){
-        printf("[cuda maxpool_k] expected 3-d input\n");
-        exit(1);
-    }
+    assert_input(input, 3);
 
     int K = 2;
     int h_out = 1 + (H - K) / STRIDE;
@@ -343,10 +341,7 @@ tensor* batched_maxpool_k(tensor* input) {
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
 
     if (CUDA_DEBUG) printf("[maxpool_k]\n");
-    if (input->num_dims!=4){
-        printf("[cuda maxpool_k] expected 3-d input\n");
-        exit(1);
-    }
+    assert_input(input, 4);
 
     int K = 2;
     int h_out = 1 + (H - K) / STRIDE;
@@ -436,7 +431,8 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
 
     if (CUDA_DEBUG) printf("[bwd_maxpool_k]\n");
-    // input_checks_maxpool(tensor* input)
+    assert_input(input, 3);
+    assert_input(upstream, 3);
 
     int K = 2;
     int h_out = 1 + (H - K) / STRIDE;
@@ -463,7 +459,8 @@ void bwd_batched_maxpool_k(tensor* upstream, tensor* out) {
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
 
     if (CUDA_DEBUG) printf("[bwd_maxpool_k]\n");
-    // input_checks_maxpool(tensor* input)
+    assert_input(input, 4);
+    assert_input(upstream, 4);
 
     int K = 2;
     int h_out = 1 + (H - K) / STRIDE;

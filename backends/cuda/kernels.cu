@@ -1,51 +1,33 @@
 #include "../../nn.h"
 
 
-tensor* transpose_k(tensor*);
-// tensor* Tensor(...);
+void assert_binary_elementwise(tensor* a, tensor* b){
+    // don't assert n_dim == 2, bc mul_k_ is used in many bwd functions; add_k_ is used in batched_flatten_bwd -- thus expected that 3d and 4d input will be fed to them;
+    assert_contiguous(a);
+    assert_device(a);
 
+    assert_contiguous(b);
+    assert_device(b);
 
-void unary_input_checks(tensor* a){
-    if (a->device!=CUDA){
-        printf("[cuda kernel] Error: expected device cuda\n");
+    if (a->num_dims != b->num_dims){
+        printf("[assert_binary_elementwise] Error: expected inputs of same dimensionality. Saw:\n");
+        sprint(a);
+        sprint(b);
         exit(1);
     }
-    if (a->num_dims!=2){
-        printf("[cuda kernel] Error: expected 2-dim inputs, saw %i-dim\n", a->num_dims);
-        exit(1);
-    }
-}
 
-void binary_input_checks(tensor* a, tensor* b){
-    unary_input_checks(a);
-    unary_input_checks(b);
-}
-
-void binary_elementwise_input_checks(tensor* a, tensor* b){
-    binary_input_checks(a, b);
-    if (a->shape[0]!=b->shape[0] || a->shape[1]!=b->shape[1]){
-        printf("[cuda kernel] Error: expected shapes to match\n");
-        printf("a.shape=(%i, %i), b.shape=(%i, %i)\n", a->shape[0], a->shape[1], b->shape[0], b->shape[1]);
+    for (int i=0; i<a->num_dims; i++){
+        if (a->shape[i] == b->shape[i]){
+            continue;
+        }
+        printf("[assert_binary_elementwise] Error: expected input shapes to match. Saw:\n");
+        sprint(a);
+        sprint(b);
         exit(1);
     }
 }
 
 
-void unary_batched_input_checks(tensor* a){
-    if (a->device!=CUDA){
-        printf("[cuda kernel] Error: expected device cuda\n");
-        exit(1);
-    }
-    if (a->num_dims!=3){
-        printf("[cuda kernel] Error: expected 2-dim inputs\n");
-        exit(1);
-    }
-}
-
-void binary_batched_input_checks(tensor* a, tensor* b){
-    unary_batched_input_checks(a);
-    unary_batched_input_checks(b);
-}
 
 
 
@@ -60,7 +42,8 @@ typedef void (*BinaryElementwiseKernel)(float* a, float* b, float* out, int size
 
 // comment: I think unnecessary to launch 2d blocks for binary/unary ops -- since data is contigious can just launch 1d blocks
 tensor* _launch_binary_elementwise(BinaryElementwiseKernel kernel, tensor* a, tensor* b, tensor* out){
-    binary_elementwise_input_checks(a, b);
+
+    assert_binary_elementwise(a, b);
 
     // added out arg to _launch_binary_elementwise, so that this fn can be re-used in add_k_
     if (!out){
@@ -81,7 +64,7 @@ tensor* _launch_binary_elementwise(BinaryElementwiseKernel kernel, tensor* a, te
 }
 
 
-// todo-now: unify this as well
+// todo: unify this as well
 __global__ void AddKernel(float* a, float* b, float* out, int size){
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx<size){
@@ -182,7 +165,8 @@ __global__ void MatMulKernel(float* a, float* b, float* out, int N, int M, int D
 // a(N, M) @ b(M, D) = out(N, D)
 tensor* matmul_k(tensor* a, tensor* b){
     if (CUDA_DEBUG) printf("[matmul_k]\n");
-    binary_input_checks(a, b);
+    assert_input(a, 2);
+    assert_input(b, 2);
     if (a->shape[1] != b->shape[0]){
         printf("[cuda MatMul] Error: inner dim doesn't match, saw: a(%i, %i) b(%i, %i)\n", a->shape[0], a->shape[1], b->shape[0], b->shape[1]);
         exit(1);
@@ -211,7 +195,8 @@ tensor* matmul_k(tensor* a, tensor* b){
 // a(B, N, M) @ b(B, M, D) = out(B, N, D)
 tensor* batched_matmul_k(tensor* a, tensor* b){
     if (CUDA_DEBUG) printf("[batched_matmul_k]\n");
-    binary_batched_input_checks(a, b);
+    assert_input(a, 3);
+    assert_input(b, 3);
     if (a->shape[2] != b->shape[1]){
         printf("[cuda BatchedMatMul] Error: inner dim doesn't match\n");
         exit(1);
@@ -241,7 +226,10 @@ tensor* batched_matmul_k(tensor* a, tensor* b){
 typedef void (*UnaryKernel)(float* a, float* out, int size);
 
 tensor* _launch_unary_elementwise(UnaryKernel kernel, tensor* a){
-    unary_input_checks(a);
+
+    // don't assert n_dims == 2, bc in conv_net.cu 4d input is fed to relu kernel, which calls _launch_unary_elementwise;
+    assert_device(a);
+    assert_contiguous(a);
 
     tensor* out = TensorLikeFill(a, 0.0);
 
@@ -366,7 +354,7 @@ __global__ void TransposeKernel(float* a, float* out, int M, int N, bool is_batc
 
 tensor* transpose_k(tensor* a){
     if (CUDA_DEBUG) printf("[transpose_k]\n");
-    unary_input_checks(a);
+    assert_input(a, 2);
 
     int N = a->shape[0], M = a->shape[1];
     // todo: allocate empty
@@ -417,8 +405,8 @@ __global__ void RepeatKernel(float* a, float* out, int num_repeats, int B){
 
 tensor* repeat_k(tensor* a, int num_repeats){
     if (CUDA_DEBUG) printf("[repeat_k]\n");
-    unary_input_checks(a);
-    if (a->num_dims!=2 || a->shape[1]!=1){
+    assert_input(a, 2);
+    if (a->shape[1]!=1){
         printf("[CUDA RepeatKernel] Shape error\n");
         exit(1);
     }
@@ -449,8 +437,9 @@ __global__ void SelectSetKernel(float* input, float* idx, int B, int N, float va
 // using pointer to value, so that I can pass NULL from select_k (to be able re-use this fn)
 tensor* _launch_select(tensor* a, tensor* idx, float value){
     if (CUDA_DEBUG) printf("[_launch_select]\n");
-    // todo: assert t->device is CUDA
-    if (a->num_dims!=2 || idx->num_dims!=2 || idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
+    assert_input(a, 2);
+    assert_input(idx, 2);
+    if (idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
         printf("[_launch_select] Error shape\n");
         exit(1);
     }
@@ -504,7 +493,7 @@ tensor* select_set_(tensor* a, tensor* idx, float value){
 
 tensor* batched_transpose_k(tensor* a){
     if (CUDA_DEBUG) printf("[batched_transpose_k]\n");
-    unary_batched_input_checks(a);
+    assert_input(a, 3);
 
     int B = a->shape[0], N = a->shape[1], M = a->shape[2];
     // todo: allocate empty

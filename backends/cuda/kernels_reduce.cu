@@ -222,8 +222,9 @@ int round_to_power_of_2(int x){
 }
 
 tensor* _launch_reduction_kernel(int op_idx, tensor* input, bool is_batched){
-    // todo:
-    // unary_input_checks(input);
+
+    // regardless batched or not
+    assert_input(input, 2);
 
     float fill_value;
     // todo-high: ugly, but the teaching kit says to initialize to the smallest possible value
