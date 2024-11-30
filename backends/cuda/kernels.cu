@@ -1,13 +1,28 @@
 #include "../../nn.h"
 
 
+bool IS_INPUT_DIM_CHECK = true;
+
 void assert_binary_elementwise(tensor* a, tensor* b){
-    // don't assert n_dim == 2, bc mul_k_ is used in many bwd functions; add_k_ is used in batched_flatten_bwd -- thus expected that 3d and 4d input will be fed to them;
+    // don't assert n_dim == 2, it's expected that 3d and 4d input will be fed to them,
+    // e.g. mul_k_ is used in many bwd functions; add_k_ is used in batched_flatten_bwd
     assert_contiguous(a);
     assert_device(a);
 
     assert_contiguous(b);
     assert_device(b);
+
+    // batched_flatten_k calls add_k_ with a(B, 24) b(B, 6, 2, 2)
+    // because kernels iterate over size, seems the below is more suitable check when comparing shapes
+    if (!IS_INPUT_DIM_CHECK){
+        if (a->size != b->size){
+            printf("[assert_binary_elementwise] Error: expected inputs sizes to match. Saw:\n");
+            sprint(a);
+            sprint(b);
+            exit(1);
+        }
+        return;
+    }
 
     if (a->num_dims != b->num_dims){
         printf("[assert_binary_elementwise] Error: expected inputs of same dimensionality. Saw:\n");
@@ -88,6 +103,15 @@ tensor* add_k_(tensor* a, tensor* b, tensor* c){
     return _launch_binary_elementwise(AddKernel, a, b, c);
 }
 
+// does not verify input shape similarity, only verifies input size similarity
+// another way to name this fn is "unsafe_add_k_"
+tensor* unsafe_add_k_(tensor* a, tensor* b, tensor* c){
+    if (CUDA_DEBUG) printf("[unsafe_add_k_]\n");
+    IS_INPUT_DIM_CHECK = false;
+    tensor* out = _launch_binary_elementwise(AddKernel, a, b, c);
+    IS_INPUT_DIM_CHECK = true;
+    return out;
+}
 
 __global__ void SubKernel(float* a, float* b, float* out, int size){
     int idx = blockIdx.x * blockDim.x + threadIdx.x;

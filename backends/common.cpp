@@ -358,12 +358,10 @@ void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
 void batched_flatten_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
 
-    // these copies aren't needed -- can just change strides and shapes on the upstream?
-    // But do need to +=
     maybe_init_grad(a);
 
     // reshape upstream into the shape of a
-    add_k_(a->grad, upstream, a->grad);
+    unsafe_add_k_(a->grad, upstream, a->grad);
 
     // free(local);
 }
@@ -385,10 +383,18 @@ tensor* batched_flatten_k(tensor* a) {
     int out_dim = a->size / a->shape[0];
 
     // inputs to this kernel can be 3d, 4d -- but the output is always 2d (all dims flattened except for the batch dim)
+    // todo: these copies aren't needed -- can just change strides on the upstream, but
+    //   in this case the rest of kernels need to support strided input (output of this kernel)
     // todo: memory leak
     tensor* out = TensorLikeFill(Tensor(B, out_dim), 0.);
 
-    // use add_k_ on zero initialized out, instead of needing to impl for-loop copy as separate primitive (e.g. _copy_arr)
-    add_k_(out, a, out);
+    // use add_k_ on zero initialized out, to avoid needing to
+    // impl for-loop copy (_copy_arr) as separate primitive in both backends;
+    // 
+    // I ended up special casing this fn anyway (using "unsafe_add_k_" instead of using "add_k_"),
+    // bc the former only needs to assert same input->size, but the latter needs to assert
+    // same input->shape (more restrictive) -- but in general (for all other cuda kernels
+    // using _launch_binary_elementwise) the more restrictive checks are helpful
+    unsafe_add_k_(out, a, out);
     return out;
 }
