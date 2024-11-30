@@ -219,8 +219,15 @@ tensor* reduce_sum_k(tensor* a) {
 
 tensor* relu_k(tensor* a) {
     tensor* out = TensorLike(a);
+    // todo: this kernel is more complicated to record idxs into
+    // scratch space, bc don't know size of this tensor in advance (data-dependant size)
+    // tensor* scratch_space = TensorLikeFill(out, 0.);
     for (int i=0; i<out->size; i++)
-        out->data[i] = a->data[i] > 0.0 ? a->data[i] : 0.0;
+        if (a->data[i] < 0.0){
+            out->data[i] = 0.0;
+            // scratch_space->data[]
+        }
+    // out->scratch_space[0] = scratch_space;
     return out;
 }
 

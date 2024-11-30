@@ -184,7 +184,7 @@ tensor* matmul_k(tensor* a, tensor* b){
     if (CUDA_DEBUG) printf("[matmul_k]\n");
     binary_input_checks(a, b);
     if (a->shape[1] != b->shape[0]){
-        printf("[cuda MatMul] Error: inner dim doesn't match\n");
+        printf("[cuda MatMul] Error: inner dim doesn't match, saw: a(%i, %i) b(%i, %i)\n", a->shape[0], a->shape[1], b->shape[0], b->shape[1]);
         exit(1);
     }
 
@@ -319,6 +319,36 @@ tensor* neg_k(tensor* a){
 }
 
 
+__global__ void ReluKernel(float* a, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx<size){
+        out[idx] = (a[idx] < 0.0) ? 0.0 : a[idx];
+    }
+}
+
+tensor* relu_k(tensor* a){
+    if (CUDA_DEBUG) printf("[relu_k]\n");
+    return _launch_unary_elsementwise(ReluKernel, a);
+}
+
+
+__global__ void ReluBwdKernel(float* a, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx<size){
+        out[idx] = (a[idx] > 0.0) ? 1.0 : 0.0;
+    }
+}
+
+void relu_bwd(tensor* upstream, tensor* out) {
+    if (CUDA_DEBUG) printf("[relu_bwd]\n");
+    tensor* a = out->inputs[0];
+    tensor* local = _launch_unary_elsementwise(ReluBwdKernel, a);
+    a->grad = mul_k(local, upstream);
+    // free(local);
+}
+
+
+
 // todo: for transpose, launch 1d blocks so that it can re-use _launch_unary_elsementwise?
 // todo-high: this kernel (TransposeKernel, BatchedTransposeKernel) basically does: swap strides + "contigify" -- can I get rid of this kernel when
 //   - support non-contigious data in my cuda kernel (which means when use "at" instead of t[idx] to index into tensors)
@@ -393,7 +423,7 @@ tensor* repeat_k(tensor* a, int num_repeats){
         exit(1);
     }
 
-    int B = a->shape[0], N = a->shape[1];
+    int B = a->shape[0];
     tensor* out = Tensor(B, num_repeats);
 
     float num_threads = (float)NUM_THREADS;

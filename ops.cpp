@@ -122,16 +122,16 @@ tensor* pow(tensor* a, int exponent) {
     return t;
 }
 
-// tensor* relu(tensor* a) {
-//     a->num_uses++;
-//     tensor* t = relu_k(a);
-//     t->is_leaf = false;
-//     t->num_inputs = 1;
-//     t->inputs[0] = a;
-//     t->op_type = 6;
-//     t->grad_fn = relu_bwd;
-//     return t;
-// }
+tensor* relu(tensor* a) {
+    a->num_uses++;
+    tensor* t = relu_k(a);
+    t->is_leaf = false;
+    t->num_inputs = 1;
+    t->inputs[0] = a;
+    t->op_type = 6;
+    t->grad_fn = relu_bwd;
+    return t;
+}
 
 tensor* transpose(tensor* a) {
     a->num_uses++;
