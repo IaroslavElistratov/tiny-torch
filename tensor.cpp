@@ -1,11 +1,9 @@
 #include "nn.h"
 #include "autograd.cpp"
 
-
-// todo-now: assert callback func pointers are not NULL, before calling them
-
 extern void (*COPY_TO_DEVICE)(tensor*);
 extern tensor* (*COPY_FROM_DEVICE)(tensor*);
+
 
 
 tensor* TensorNoData2d(int y, int z)
@@ -23,34 +21,20 @@ tensor* TensorNoData2d(int y, int z)
 
     t->data = NULL;
 
-    // todo: put the fields below into an autograd_op struct,
-    // and store a single pointer to that struct on the tensor
-    // -- this way more organized
-
     // for autograd engine:
 
-    // true by default, modified in an op impl if that tensor was produced by an op
     t->is_leaf = true;
     t->num_inputs = -1;
-    // unlike num_inputs (which I can't set here in the constructor,
-    // bc it's unknown at this moment, bc depends on whatever ops is
-    // being called on that tensor), num_uses is 1nown from the start
-    // -- it's 0 for all ops
     t->num_uses = 0;
     t->name = random_chars(3);
 
     t->grad_fn = NULL;
     t->grad = NULL;
-    // note: it makes more sense to set this in ops, because
-    // there I set all other autograd attributes on tensors.
-    // But it would be repetitive to set the same attr
-    // (t->backward) in every op, so set it here
     t->backward = backward;
 
     return t;
 }
 
-// todo: add EmptyTensor, EmptyTensorLike, make TensorLikeFill use EmptyTensorLike (instead of TensorLike)
 tensor* TensorNoData3d(int x, int y, int z)
 {
     tensor* t = (tensor*)malloc(sizeof(tensor));
@@ -61,7 +45,6 @@ tensor* TensorNoData3d(int x, int y, int z)
     t->shape[1] = y;
     t->shape[2] = z;
 
-    // todo-high: should express later outer strides in terms of inner strides?
     t->stride[0] = y*z;
     t->stride[1] = z;
     t->stride[2] = 1;
@@ -80,7 +63,7 @@ tensor* TensorNoData3d(int x, int y, int z)
     return t;
 }
 
-// todo: minimize duplication (this vs other constructors) this was copy-pasted from TensorNoData3d
+
 tensor* TensorNoData4d(int o, int x, int y, int z)
 {
     tensor* t = (tensor*)malloc(sizeof(tensor));
@@ -112,7 +95,6 @@ tensor* TensorNoData4d(int o, int x, int y, int z)
     return t;
 }
 
-// todo: EmptyTensor constructors at the moment do not call COPY_TO_DEVICE
 
 // empty means non-initalized, but with data allocated to it
 tensor* EmptyTensor2d(int s1, int s2)
@@ -141,7 +123,6 @@ tensor* Tensor2d(int s1, int s2)
 {
     tensor* t = EmptyTensor2d(s1, s2);
     GetRandomFloat(t->data, t->size);
-    // todo-low: directly initialize random floats on gpu (avoid initializing on cpu, and then moving)
     COPY_TO_DEVICE(t);
     return t;
 }
@@ -187,15 +168,14 @@ tensor* TensorLike4d(tensor* t)
 }
 
 
-// todo: in each TensorLikeFill wasteful to init w random value
-// using GetRandomFloat and then overwrite them anyway
 tensor* TensorLikeFill2d(tensor* t, float value)
 {
     tensor* device_t_new = TensorLike2d(t);
     tensor* t_new = COPY_FROM_DEVICE(device_t_new);
     for (int i=0; i<t_new->size; i++)
         t_new->data[i] = value;
-    // todo-high: all TensorLikeFillNd constructors (and TensorScalarFill) invoke COPY_TO_DEVICE twice -- once here, another time in TensorLike2d -> Tensor2d -> COPY_TO_DEVICE
+    // todo : all TensorLikeFillNd constructors (and TensorScalarFill) invoke COPY_TO_DEVICE
+    // twice -- once here, another time in TensorLike2d -> Tensor2d -> COPY_TO_DEVICE
     COPY_TO_DEVICE(t_new);
     return t_new;
 }
@@ -223,7 +203,7 @@ tensor* TensorLikeFill4d(tensor* t, float value)
 
 tensor* TensorScalarFill(float value)
 {
-    // todo: wasteful to init w random value using GetRandomFloat
+    // todo : wasteful to init w random value using GetRandomFloat
     //  and then overwrite them anyway
     tensor* device_t_new = Tensor2d(1, 1);
     tensor* t_new = COPY_FROM_DEVICE(device_t_new);
@@ -249,47 +229,9 @@ tensor* TensorScalarFill(float value)
 
 #define MAX_DIM 4
 
-// todo: static_assert(VA_NARGS(__VA_ARGS__) <= MAX_DIM, "[constructor] error")
 #define TensorNoData(...) CONCAT(TensorNoData, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
 #define EmptyTensor(...) CONCAT(EmptyTensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
 #define Tensor(...) CONCAT(Tensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
-
-/*
-// question-now: 
-//  use funcs of this form instead of the macros above?
-//  This will also allow to call e.g. COPY_TO_DEVICE only once in e.g. Tensor fn, instead of needing to call it multiple times from each impl (e.g. Tensor2d)
-
-#include <stdarg.h>
-
-#define COUNT_ARGS(...) \
-    (sizeof((int[]){__VA_ARGS__})/sizeof(int))
-
-#define Tensor(...) TensorImpl(COUNT_ARGS(__VA_ARGS__), __VA_ARGS__)
-
-tensor* TensorImpl(int num_args, ...){
-    va_list args;
-    va_start(args, num_args);
-
-    int s0 = va_arg(args, int);
-    int s1 = va_arg(args, int);
-
-    if (num_args == 2){
-        return Tensor2d(s0, s1);
-    } else if (num_args == 3){
-        int s2 = va_arg(args, int);
-        return Tensor3d(s0, s1, s2);
-    } else if (num_args == 4){
-        int s2 = va_arg(args, int);
-        int s3 = va_arg(args, int);
-        return Tensor3d(s0, s1, s2, s3);
-    }
-    va_end(args);
-}
-*/
-
-// comment:
-//  use functions (instead of macros) for TensorLike, TensorLikeFill, bc preprocessor can't
-//  evaluate runtime value from a struct member at pre-processing time, so handle it in a fn
 
 tensor* TensorLike(tensor* t){
     if (t->num_dims==2)

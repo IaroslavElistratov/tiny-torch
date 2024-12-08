@@ -6,16 +6,6 @@
 
 
 void assert_contiguous(tensor* a){
-    // https://github.com/pytorch/pytorch/blob/dc7461d6f571abb8a6649d0c026793e77d0fd411/torch/_prims_common/__init__.py#L249-L271
-
-    // iterate in the reverse order of shapes and strides
-
-    // a tensor is not contiguous if (to access elements in next dim)
-    // you need to skip more/less elements, than num elements in all
-    // the previous dims of the tensor
-
-    // "-1" bc if e.g. t->num_dims is 2, then only valid locations
-    // for shape are t->shape[0] and t->shape[1] -- IOW t->num_dims - 1
     for (int expected_stride = 1, i=a->num_dims-1; i>=0; i--){
         int x = a->shape[i];
         int y = a->stride[i];
@@ -23,7 +13,6 @@ void assert_contiguous(tensor* a){
         if (x == 1){
             continue;
         }
-        if (UTILS_DEBUG) printf("[assert_contiguous] (i=%i) y=%i , expected_stride=%i\n", i, y, expected_stride);
         if (y != expected_stride){
             printf("[assert_contiguous] Error: expected contiguous data. Saw:\n");
             sprint(a);
@@ -48,8 +37,6 @@ void assert_dim(tensor* a, int expected_dim){
     }
 }
 
-// todo-low: would be convenient if this fn also expected a string to be printed (in case of err raised) as an argument
-//  e.g. "[cuda conv_k] expected 3-d input and 4-d kernel\n"
 void assert_input(tensor* a, int expected_dim){
     assert_contiguous(a);
     assert_device(a);
@@ -62,7 +49,7 @@ void maybe_init_grad(tensor* t){
     if (!t->grad){
         t->grad = TensorLikeFill(t, 0.0);
     } else {
-        printf("[maybe_init_grad] %s->grad exists!\n", t->name);
+        if (UTILS_DEBUG) printf("[maybe_init_grad] %s->grad exists!\n", t->name);
     }
 }
 
@@ -70,25 +57,15 @@ void GetRandomFloat(float* dst, int num)
 {
     for (int i=0; i<num; i++)
     {
-        // https://linux.die.net/man/3/random
-        // returns a pseudo-random int between 0 and RAND_MAX
-        // normalize to: 0 - 1
-        // shift to: -0.5 - 0.5
-
-        // not truncating to 0 due to int division, bc C promotes args
         dst[i] = ((float)rand() / RAND_MAX) - 0.5;
     }
 }
 
 char* random_chars(int num){
-    // increment for the null terminator;
-    // not necessary to do sizeof(char) bc guarantied to be 1
     char* s = (char*)malloc(sizeof(char) * ++num);
 
     char offset = 'a';
     for (int i=0; i<num-1; i++){
-        // my first thought was to use modulus, but it's wrong https://stackoverflow.com/a/6852396
-        // todo: still see non-printable chars in the tensor names
         char sampled = rand() % 26; // 'z' - 'a' // 26 letters
         s[i] = offset + sampled;
     }
@@ -97,14 +74,10 @@ char* random_chars(int num){
 }
 
 void set_name(tensor* t, const char* name){
-    // free the automatically set random name
-    // added by the constructor
     if (t->name){
         free(t->name);
     }
 
-    // todo-low: small inefficiency of always allocating MAX_TENSOR_NAME
-    //  even if user provided str is shorter
     t->name = (char*)malloc(sizeof(char) * MAX_TENSOR_NAME);
 
     int i=0;
@@ -171,8 +144,6 @@ void graphviz(tensor* tens){
             // an input -> op
             fprintf(f, "%s -> %s_%s\n", inp->name, op_name, t->name);
 
-            // for tensors, vis shapes instead of names
-            // label=\"{%s\\nshape=(%i, %i)}\"]\n", inp->name
             if (inp->num_dims==2)
                 fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1]);
             else if (inp->num_dims==3)

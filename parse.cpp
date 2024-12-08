@@ -12,11 +12,6 @@ int _parse_idx(const char* str, int start_idx){
     int buff_idx = 0;
     int str_idx = start_idx;
 
-    // flush buffer, otherwise potential problem that contents of that
-    // global do not get cleared for each call to parse_idx, so potentially
-    // it can start overwriting existing contents but not scribble the entire
-    // string, but have partial contents from the previous run -- then feed to
-    // atoi, it will result in the str contents combined
     for (int i = 0; i < MAX_DIGIT_IDX; i++)
         buff[i] = 0;
 
@@ -40,28 +35,11 @@ int _parse_idx(const char* str, int start_idx){
 }
 
 
-// todo:
-//  support ":"
-//  support ":n" and "n:"
-//  support omitting at the both ends
-//      auto-filling missing dims -- allows "kernel[0]" instead of below
-//      curr_filter = slice_4d(kernel, "f, 0:C, 0:HH, 0:WW"); // (F, C, HH, WW) -> (C, HH, WW)
-
 int* parse_idxs(const char* dims, int num_pairs){
-
-    // todo: use 2d tensors instead of "+ num_pairs"?
-    //     Example from the book with 2d tensor -- converting day of the month
-    //     int* p[2] = (int*)malloc(sizeof(int) * num_pairs * 2);
-    //     int* starts = p[0];
-    //     int* ends = p[1]; // pointer arithmetic
 
     int* p = (int*)malloc(sizeof(int) * num_pairs * 2);
     int* starts = p;
     int* ends = p + num_pairs; // pointer arithmetic
-
-    // // also converts char to int
-    // int starts[num_pairs];
-    // int ends[num_pairs];
 
     int start_idx = 0;
     for (int i=0; i<num_pairs; i++){
@@ -69,9 +47,6 @@ int* parse_idxs(const char* dims, int num_pairs){
         starts[i] = atoi(buff);
         start_idx = _parse_idx(dims, start_idx);
         ends[i] = atoi(buff);
-
-        // printf("\n[parse_idxs] starts[%i] = %i", i, starts[i]);
-        // printf("\n[parse_idxs] ends[%i] = %i\n", i, ends[i]);
     }
 
     return p;

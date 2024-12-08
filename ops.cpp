@@ -11,18 +11,12 @@
 //   - write local derivatives, for each input
 
 
-// todo-now: temporarily commented out ops which don't yet have CUDA impl, so that compilation doesn't fail bc linker can't find _k expected by these ops
-
 tensor* add(tensor* a, tensor* b) {
     a->num_uses++;
     b->num_uses++;
     tensor* t = add_k(a, b);
     t->is_leaf = false;
     // todo-low: check bool tensor->requires_grad before doing steps below, including allocating buffers
-
-    // todo: this can be further abstracted -- creating a binary_op function
-    // todo: and even further abstracted -- creating a binary_elementwise_op function
-
     // fill the additional info on out tensor
     t->num_inputs = 2;
     t->inputs[0] = a;
@@ -113,8 +107,6 @@ tensor* pow(tensor* a, int exponent) {
     a->num_uses++;
     tensor* t = pow_k(a, exponent);
     t->is_leaf = false;
-    //  comment: note by "inputs" I mean tensor inputs (INPUTS which I'll use compute grads wrt to)
-    //  so here even if this op has two inputs, it really has one, for the purpose of the autograd
     t->num_inputs = 1;
     t->inputs[0] = a;
     t->op_type = 4;

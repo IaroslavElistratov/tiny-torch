@@ -2,7 +2,6 @@
 #include "nn.h"
 
 #define IS_DEBUG_AG false
-#define IS_DEBUG_BRANCHES false
 
 
 
@@ -27,17 +26,8 @@ void backward(tensor* loss){
         if (t->num_uses!=0){
             // push to the end the same thing we popped
             ready.push_front(t);
-
-            if (IS_DEBUG_BRANCHES){
-                printf("[autograd engine] pushed again %s (num_uses: %i)\n", t->name, t->num_uses);
-                if (t->num_uses==-1) // -1
-                    return;
-            }
             continue;
         }
-
-        if (IS_DEBUG_BRANCHES)
-            printf("[autograd engine] done %s's grad\n", t->name);
 
         const char* op_name = OP_NAMES[t->op_type];
         if (IS_DEBUG_AG)
@@ -58,14 +48,6 @@ void backward(tensor* loss){
 
         for (int i=0; i<t->num_inputs; i++){
             tensor* inp = t->inputs[i];
-
-            // this condition can be used if decide to not compute ->grad
-            // for some of the inputs to an op (e.g. idx->grad in select_bwd)
-            // printf("[autograd engine] pushing: %s\n", inp->name);
-            // if (!inp->grad){
-            //     printf("[autograd engine] %s has no ->grad field\n", inp->name);
-            //     continue;
-            // }
 
             // will record pointers to all seen names -- to avid visiting same nodes twice, when
             //       exp

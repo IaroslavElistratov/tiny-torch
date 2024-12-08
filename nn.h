@@ -5,8 +5,7 @@
 #define MAX_INPUTS 2
 #define MAX_TENSOR_NAME 20 // unique for each tensor
 
-// todo: avoid needing to manually sync increment op_type, NUM_OPS, VIS_COLORS when adding a new op
-//  - use graphviz's pastel19 or set312 color scheme ?
+
 #define NUM_OPS 23
 const char* OP_NAMES[] = {"add", "sub", "mul", "matmul", "pow", "reduce_sum", "relu", "transpose", "batched_matmul", "conv", "batched_conv", "maxpool", "batched_maxpool", "batched_flatten", "select", "log", "exp", "batched_reduce_sum", "repeat", "neg", "div", "max", "batched_max"};
 const char* VIS_COLORS[] = {"darkolivegreen1", "lightsalmon1", "skyblue1", "plum1", "mediumpurple1", "aquamarine", "yellow", "seashell", "orchid2", "deeppink1", "deeppink3", "darkseagreen1", "darkseagreen3", "beige", "bisque", "cornsilk", "darkolivegreen1", "tan1", "deepskyblue", "chocolate", "slateblue", "lemonchiffon", "lightgoldenrodyellow"};
@@ -18,13 +17,6 @@ struct tensor {
     int shape[4];
     int device;
 
-    // https://arxiv.org/pdf/1102.1523
-    // Strides the number of bytes to skip in memory to
-    // proceed to the next element. For a (10, 10)
-    // array of bytes, for example, the strides may be
-    // (10, 1), in other words: proceed one byte to
-    // get to the next column and ten bytes to locate
-    // the next row.
     int stride[4];
 
     // rank
@@ -42,10 +34,8 @@ struct tensor {
 
     int num_inputs;
     tensor* inputs[MAX_INPUTS];
-    int num_uses; // for the AG engine: num outputs of the this tensor left to call their out->grad_fn, before calling grad_fn on the current tensor
+    int num_uses;
 
-    // to store data recorded in fwd and used in bwd (wt needing to recompute it in bwd)
-    // e.g. in relu, reduce_max, maxpool: idxs recorded during forward _k and used in its corresponding _bwd fn
     tensor* scratch_space[1];
 
     char* name;
@@ -55,13 +45,6 @@ struct tensor {
     void (*backward)(tensor* t);
 };
 
-
-// enum device {
-//     cpu = 0,
-//     cuda = 1,
-//     // amd = 2,
-//     // tpu = 3,
-// };
 
 #define CPU 0
 #define CUDA 1
