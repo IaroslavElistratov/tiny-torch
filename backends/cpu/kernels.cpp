@@ -28,6 +28,18 @@ tensor* batched_reduce_sum_k(tensor*);
 
 //    binary elementwise
 
+tensor* unsafe_add_k_(tensor* a, tensor* b, tensor* out) {
+    if (a->size != b->size){
+        printf("[unsafe_add_k_] expected size to match");
+        exit(1);
+    }
+    for (int i=0; i<out->size; i++){
+        // comment: removed at, becuase at only supports 2d and 3d, but from batched_flatten_k I'm passing a 4d tensor
+        // out->data[at(out, i)] = a->data[at(a, i)] + b->data[at(b, i)];
+        out->data[i] = a->data[i] + b->data[i];
+    }
+    return out;
+}
 
 tensor* add_k_(tensor* a, tensor* b, tensor* out) {
     // Previously was hardcoding a at for a specific index here -- conv_bwd uses add (which calls add_k_) for both 3d tensors (grads wrt input) AND 4d tensors (grads wrt kernels)
@@ -221,11 +233,14 @@ tensor* relu_k(tensor* a) {
     // todo: this kernel is more complicated to record idxs into
     // scratch space, bc don't know size of this tensor in advance (data-dependant size)
     // tensor* scratch_space = TensorLikeFill(out, 0.);
-    for (int i=0; i<out->size; i++)
+    for (int i=0; i<out->size; i++){
         if (a->data[i] < 0.0){
             out->data[i] = 0.0;
             // scratch_space->data[]
+        } else {
+            out->data[i] = a->data[i];
         }
+    }
     // out->scratch_space[0] = scratch_space;
     return out;
 }

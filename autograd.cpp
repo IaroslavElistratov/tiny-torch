@@ -8,6 +8,9 @@
 
 void backward(tensor* loss){
 
+    // open and close in write mode to clear the file, doing it here avoid needing to modify interface of lprint (which in general should NOT clear the file)
+    fclose(fopen("./generated/log.txt", "w"));
+
     if (!loss->grad_fn) {
         printf("[autograd engine] Error: tensor has no grad_fn\n");
         exit(1);

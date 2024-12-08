@@ -160,7 +160,7 @@ tensor* train_step(cifar10* data, state* params) {
     sgd(params->w2);
     sgd(params->w3);
 
-    return COPY_FROM_DEVICE(loss);
+    return loss;
 }
 
 int main() {
@@ -212,14 +212,14 @@ int main() {
         tensor* loss = train_step(data, &params);
         if (ep_idx==0)
             graphviz(loss);
-        printf("ep: %i; loss: %f;\n", ep_idx, loss->data[0]);
+        printf("ep: %i; loss: %f;\n", ep_idx, COPY_FROM_DEVICE(loss)->data[0]);
     }
 
     print(params.kernel1->grad);
-    print(kernel1);
-    print(kernel2);
-    print(w1);
-    print(w2);
-    print(w3);
+    // print(kernel1);
+    // print(kernel2);
+    // print(w1);
+    // print(w2);
+    // print(w3);
     return 0;
 }

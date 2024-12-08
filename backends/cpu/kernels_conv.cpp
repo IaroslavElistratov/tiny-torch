@@ -59,9 +59,9 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
                 }
 
                 // 1. select the chunk of input that this location in the ouput (f, h, w) is looking at
-                int vert_start = hight * stride;
+                int vert_start = hight * STRIDE;
                 int vert_end = vert_start + HH;
-                int horiz_start = width * stride;
+                int horiz_start = width * STRIDE;
                 int horiz_end = horiz_start + WW;
 
                 // e.g. "0:3, 30:32, 30:32" is 18 digits
@@ -141,9 +141,9 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
             for (int width=0; width<w_out; width++){
 
                 // select the chunk of input that this location in the ouput (f, h, w) is looking at
-                int vert_start = hight * stride;
+                int vert_start = hight * STRIDE;
                 int vert_end = vert_start + HH;
-                int horiz_start = width * stride;
+                int horiz_start = width * STRIDE;
                 int horiz_end = horiz_start + WW;
 
                 // python: x_slice = input[:, vert_start:vert_end, horiz_start:horiz_end]
@@ -336,9 +336,9 @@ tensor* maxpool_k_(tensor* input, tensor* out) {
                 if (IS_DEBUG_MP)
                     printf("[maxpool_k_] c*C*HH*WW: %i\n", c*C*HH*WW);
                 // 1. select the chunk of input that this location in the ouput (f, h, w) is looking at
-                int vert_start = hight * stride;
+                int vert_start = hight * STRIDE;
                 int vert_end = vert_start + HH;
-                int horiz_start = width * stride;
+                int horiz_start = width * STRIDE;
                 int horiz_end = horiz_start + WW;
 
                 // select only 1 channel here
@@ -418,9 +418,9 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
                     printf("[bwd_maxpool_k] c*C*HH*WW: %i\n", c*C*HH*WW);
 
                 // 1. select the chunk of input that this location in the ouput (f, h, w) is looking at
-                int vert_start = hight * stride;
+                int vert_start = hight * STRIDE;
                 int vert_end = vert_start + HH;
-                int horiz_start = width * stride;
+                int horiz_start = width * STRIDE;
                 int horiz_end = horiz_start + WW;
 
                 char buffer[20];
