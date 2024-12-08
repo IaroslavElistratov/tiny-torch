@@ -26,7 +26,6 @@ void sgd(tensor* w) {
         w_local->data[i] -= w_grad_local->data[i] * LR;
 
     COPY_TO_DEVICE(w_local);
-    // todo: memory leak
     w->data = w_local->data;
 }
 
@@ -187,12 +186,6 @@ int main() {
     tensor* kernel2 = Tensor(F, F, HH2, WW2);
     set_name(kernel2, "kernel2"), sprint(kernel2);
 
-    // todo-low: when define weights (w1, w2, w3) in forward, can use runtime shapes to create these weights.
-    // But when creating weights in main (in main fn), needed to hardcode these shapes, copying from train_step.
-    // w1 = Tensor(flat->shape[1], 32);
-    // w2 = Tensor(relu3->shape[1], 16);
-    // w3 = Tensor(relu4->shape[1], 10);
-
     tensor* w1 = Tensor(24, 32);
     set_name(w1, "w1"), sprint(w1);
 
@@ -216,10 +209,5 @@ int main() {
     }
 
     print(params.kernel1->grad);
-    // print(kernel1);
-    // print(kernel2);
-    // print(w1);
-    // print(w2);
-    // print(w3);
     return 0;
 }

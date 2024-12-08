@@ -55,12 +55,11 @@ void assert_binary_elementwise(tensor* a, tensor* b){
 
 typedef void (*BinaryElementwiseKernel)(float* a, float* b, float* out, int size);
 
-// comment: I think unnecessary to launch 2d blocks for binary/unary ops -- since data is contigious can just launch 1d blocks
+
 tensor* _launch_binary_elementwise(BinaryElementwiseKernel kernel, tensor* a, tensor* b, tensor* out){
 
     assert_binary_elementwise(a, b);
 
-    // added out arg to _launch_binary_elementwise, so that this fn can be re-used in add_k_
     if (!out){
         out = TensorLikeFill(a, 0.0);
     }
@@ -92,12 +91,6 @@ tensor* add_k(tensor* a, tensor* b){
     return _launch_binary_elementwise(AddKernel, a, b, NULL);
 }
 
-// need the below bc add_k_ is used in backends/common div_bwd
-// AddKernel is semantically similar to cpu's add_k_, except the
-// latter expects tensors (not *floats)
-// Maybe in the future change my cuda kernels to expect tensors to
-// get rid of this, other other hand add_k_ and mul_k_ are useful in
-// impls of some bwd funcs
 tensor* add_k_(tensor* a, tensor* b, tensor* c){
     if (CUDA_DEBUG) printf("[add_k_]\n");
     return _launch_binary_elementwise(AddKernel, a, b, c);
@@ -173,18 +166,12 @@ __global__ void MatMulKernel(float* a, float* b, float* out, int N, int M, int D
     if ((n<N) && (d<D)){
         float curr_out = 0.0;
         for (int m=0; m<M; m++){
-            // todo-low: calling a __host__ function("index_2d") from a __global__ function("MatMulKernel") is not allowed
-            //   But, it doesn't really make sense to use index_2d when you're accessing contiguous cuda memory
-            //   (I belive it's contiguous as this is ouput of cuda-malloc called from inside Tensor constructor)
-            // out += a->data[index_2d(a, n, k)] * b->data[index_2d(b, k, d)];
             curr_out += a[batch*N*M + n*M + m] * b[batch*M*D + m*D + d];
         }
         out[batch*N*D + n*D + d] = curr_out;
     }
 }
 
-// todo: this _k naming is maintain parity between names of the cpu kernels and the cuda kernels (so that both can be used polimorphically in ops)
-//     but the below isn't "kernel" in the sense of this word, instead it's a stub that calls the actual kernel (MatMulKernel)
 
 // a(N, M) @ b(M, D) = out(N, D)
 tensor* matmul_k(tensor* a, tensor* b){
@@ -197,11 +184,8 @@ tensor* matmul_k(tensor* a, tensor* b){
     }
 
     int N = a->shape[0], M = a->shape[1], D = b->shape[1];
-    // todo: fill w 0, here and in other stubs
     tensor* out = Tensor(N, D);
 
-    // todo: unify 7 lines below into a fn (e.g. compute_launch_shapes), re-use acorss all stubs
-    // important to have it float to avoid int division
     float num_threads = (float)NUM_THREADS;
     dim3 dimGrid(ceil(N/num_threads), ceil(D/num_threads), 1);
     dim3 dimBlock(num_threads, num_threads, 1);
@@ -362,10 +346,6 @@ void relu_bwd(tensor* upstream, tensor* out) {
 
 
 // todo: for transpose, launch 1d blocks so that it can re-use _launch_unary_elementwise?
-// todo-high: this kernel (TransposeKernel, BatchedTransposeKernel) basically does: swap strides + "contigify" -- can I get rid of this kernel when
-//   - support non-contigious data in my cuda kernel (which means when use "at" instead of t[idx] to index into tensors)
-//   - which implies changing kernels to input tensors not floats, to access strides
-// a(?B, N, M) -> out(?B, M, N)
 __global__ void TransposeKernel(float* a, float* out, int M, int N, bool is_batched){
     int m = blockIdx.x * blockDim.x + threadIdx.x;
     int n = blockIdx.y * blockDim.y + threadIdx.y;
@@ -411,21 +391,6 @@ __global__ void RepeatKernel(float* a, float* out, int num_repeats, int B){
     }
 }
 
-// question-now: or use this kernel?
-// // a(B, 1) -> out(B, N)
-// __global__ void RepeatKernel(float* a, float* out, int num_repeats, int B){
-//     // (block idx * num threads per block) + thread idx
-//     int b = blockIdx.x * blockDim.x + threadIdx.x;
-//     printf("[kernel] b=%i\n", b);
-//     if (b<B){
-//         for (int i=0; i<num_repeats; i++){
-//             // Indexing into out: since out(B, num_repeats), to get to the next batch element
-//             // (IOW out->stride[0]) need to skip "num_repeats" locations in memory;
-//             // Indexing into a: since a(B, 1), stride a->stride[0] is just 1 so can omit it
-//             out[b*num_repeats + i] = a[b];
-//         }
-//     }
-// }
 
 tensor* repeat_k(tensor* a, int num_repeats){
     if (CUDA_DEBUG) printf("[repeat_k]\n");

@@ -35,7 +35,7 @@ struct cifar10 {
     tensor* label;
 };
 
-// todo-now: doublecheck that logic here is correct
+
 cifar10* get_cifar10(){
     set_backend_cpu();
 

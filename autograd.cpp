@@ -8,24 +8,12 @@
 
 void backward(tensor* loss){
 
-    // open and close in write mode to clear the file, doing it here avoid needing to modify interface of lprint (which in general should NOT clear the file)
     fclose(fopen("./generated/log.txt", "w"));
 
     if (!loss->grad_fn) {
         printf("[autograd engine] Error: tensor has no grad_fn\n");
         exit(1);
     }
-
-    // todo: in autograd, don't overwrite grad instead do +=
-
-    // allocating grad buff[s] in ops previously led to err where, grad on
-    //  the last node was set to start backprop loop "*e->grad = 1.0;"
-    //  but bc buffer for grad is only allocated inside an Op, but e is never
-    //  used by an op (e is last node in the computational graph) -- "*e->grad = 1.0;"
-    //  is illegal as it the buffer hasn't ben allocated
-    //   - one way to fix is allocate grad buff for all tensors in Tensor constructor
-    //   - however, I do like that grad buff[s] are lazily created only when tensor is used.
-    //     Which amounts to creating it here (in ops).
 
     // for the check below to pass
     loss->num_uses = 0;
@@ -55,7 +43,6 @@ void backward(tensor* loss){
         if (IS_DEBUG_AG)
             printf("[autograd engine] %s\n", op_name);
 
-        // comment:
         // when a tensor used by multiple ops, it's incorrect to access t->grad OR call t->grad_fn,
         // until output->grad_fn was not called on both of the outputs of the current op
 

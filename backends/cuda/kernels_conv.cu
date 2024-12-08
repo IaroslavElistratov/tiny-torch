@@ -53,7 +53,6 @@ __global__ void ConvKernel(float* x, float* kernel, float* out, int F, int H_OUT
 
 
 void input_checks_conv(tensor* input, tensor* kernel, int WW, int HH) {
-
     assert_input(input, 3);
     assert_input(kernel, 4);
 
@@ -80,15 +79,9 @@ tensor* conv_k(tensor* input, tensor* kernel) {
     int h_out = 1 + (H - HH) / STRIDE;
     int w_out = 1 + (W - WW) / STRIDE;
 
-    // todo: allocate empty, here and other kenrels
     tensor* out = Tensor(F, h_out, w_out);
 
     float num_threads = (float)NUM_THREADS;
-    // todo-high:
-    // One possible design is to just add one more dim for F and remove loop over F from the kernel
-    //  Another possible design is to keep the loop over F and (later in batch_conv) add grid.z for B (not F);
-    //  With the 2nd approach parallel over B is cleaner in the code bc can have separate block-dim for that B specifically
-    //  In the 1st approach need to cram both F and B into grid.z
     dim3 dimGrid(ceil(h_out/num_threads), ceil(w_out/num_threads), 1);
     dim3 dimBlock(num_threads, num_threads, 1);
 
@@ -182,9 +175,6 @@ __global__ void BwdConvKernel(float* x, float* kernel, float* upstream, float* g
                                 int u_idx = b*F*H_OUT*W_OUT + f*H_OUT*W_OUT + curr_height*W_OUT + curr_width;
 
                                 grad_x[x_idx] += (kernel[k_idx] * upstream[u_idx]);
-                                // grad_kernel[k_idx] += (x[x_idx] * upstream[u_idx]);
-
-                                // todo-now: slow
                                 atomicAdd(&grad_kernel[k_idx], (x[x_idx] * upstream[u_idx]));
                             }
 
@@ -278,7 +268,7 @@ __global__ void MaxPoolKernel(float* x, float* out, int H_OUT, int W_OUT, int H,
         // for each input channel
         for (int c=0; c<C; c++){
 
-            // todo-now: set to 0-th element, here and in bwd_: set to -INFINITY
+            // todo : set to 0-th element, here and in bwd_: set to -INFINITY
             float max = -1000.0;
 
             // kernel's idxs

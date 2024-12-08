@@ -1,24 +1,9 @@
 // #include "indexing.cpp" // imported though main -> ops.cpp -> indexing.cpp
 #include <stdio.h> // sprintf
 
-#define IS_DEBUG false
-#define IS_DEBUG_MP false
-
 #define STRIDE 2
 
 
-/*
-x: Input data of shape (C, H, W)
-w: Filter weights of shape (F, C, HH, WW)
-
-todo: implement pytorch's C optional as way to support tunable args
-  - 'stride': The number of pixels between adjacent receptive fields in the horizontal and vertical directions.
-  - 'pad': The number of pixels that will be used to zero-pad the input. 
-    During padding, 'pad' zeros should be placed symmetrically (i.e equally on both sides) along the height and width axes of the input.
-
-Returns a tuple of:
-- out: Output data, of shape (F, H', W')
-*/
 tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
 
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
@@ -27,70 +12,31 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
     int h_out = 1 + (H - HH) / STRIDE;
     int w_out = 1 + (W - WW) / STRIDE;
 
-    if (IS_DEBUG){
-        printf("[conv_k_] h_out: %i\n", h_out);
-        printf("[conv_k_] w_out: %i\n", w_out);
-    }
-
     for (int f=0; f<F; f++){
         for (int hight=0; hight<h_out; hight++){
             for (int width=0; width<w_out; width++){
 
                 // 0. select current filter
 
-                // todo: slice
-                //   - need 4d slice? not necessarily, can just do pointer arithmetic to skip to the right kernel -- but problem is that it unwraps tensor to float, but kernels expect tensor
-                //   - have the unified mechansm for all slices -- replace "f*grad_kernels->stride[0];" with slice 4d
-
-                if (IS_DEBUG)
-                    printf("[conv_k_] f*C*HH*WW: %i\n", f*C*HH*WW);
-
                 // simple pointer arithmetic to skip from "f" kernels
                 float* curr_kernel = kernel->data + f*kernel->stride[0];
-
-                // workaround to put the data into tensor type
-                // todo-high:: constructor does NOT take care of setting correct strides
                 tensor* curr_filter = TensorNoData(C, HH, WW);
                 curr_filter->data = curr_kernel;
 
-                if (IS_DEBUG){
-                    set_name(curr_filter, "curr_filter"); print(curr_filter);
-                    printf("[conv_k_] f*C*HH*WW: %i\n", f*kernel->stride[0]);
-                }
-
-                // 1. select the chunk of input that this location in the ouput (f, h, w) is looking at
+                // 1. select the chunk of input
                 int vert_start = hight * STRIDE;
                 int vert_end = vert_start + HH;
                 int horiz_start = width * STRIDE;
                 int horiz_end = horiz_start + WW;
 
-                // e.g. "0:3, 30:32, 30:32" is 18 digits
                 char buffer[20];
-                // sprintf -- create strings with specified formats, similar to printf(), but instead of printing to the standard output, it stores the resulting string in a character array provided by the user
                 sprintf(buffer, "0:%i, %i:%i, %i:%i", C, vert_start, vert_end, horiz_start, horiz_end);
-                // todo: use view instead of slice
-                //   - mul_k (used below) -- needs to use .at when looping over a->size
                 tensor* x_slice = slice(input, buffer);
-
-                if (IS_DEBUG){
-                    printf("[conv_k_] buffer x_slice %s\n", buffer);
-                    printf("[conv_k_] x_slice->shape: %i, %i, %i\n", x_slice->shape[0], x_slice->shape[1], x_slice->shape[2]);
-                    set_name(x_slice, "x_slice"); print(x_slice);
-                }
 
                 // 2. element-wise multiply and sum
                 tensor* curr_out = mul_k(x_slice, curr_filter);
-                if (IS_DEBUG){
-                    printf("[conv_k_] curr_out->shape: %i, %i, %i\n", curr_out->shape[0], curr_out->shape[1], curr_out->shape[2]);
-                    set_name(curr_out, "curr_out"); print(curr_out);
-                }
-
-                // todo: add flag to tensors, is_contiguous and make each op check that flag and err otherwise
                 curr_out = reduce_sum_k(curr_out);
 
-                // 3. write to the current location at the output
-                if (IS_DEBUG)
-                    printf("[conv_k_] curr_out->data[0]: %f\n", curr_out->data[0]);
                 out->data[index(out, f, hight, width)] = curr_out->data[0];
             }
         }
@@ -104,14 +50,8 @@ tensor* conv_k(tensor* input, tensor* kernel) {
     int H = input->shape[1], W = input->shape[2];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
-    // todo: de-duplicate same calculations of h_out, w_out for all the kernels in this file
     int h_out = 1 + (H - HH) / STRIDE;
     int w_out = 1 + (W - WW) / STRIDE;
-
-    if (IS_DEBUG){
-        printf("[conv_k] h_out: %i\n", h_out);
-        printf("[conv_k] w_out: %i\n", w_out);
-    }
 
     tensor* out = EmptyTensor(F, h_out, w_out);
     return  conv_k_(input, kernel, out);
@@ -122,9 +62,6 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
 
     tensor* input = out->inputs[0];
     tensor* kernel = out->inputs[1];
-
-    if (IS_DEBUG)
-        printf("[bwd_conv_k] input->shape: %i, %i, %i\n", input->shape[0], input->shape[1], input->shape[2]);
 
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
@@ -150,56 +87,24 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
                 char buffer[20];
                 sprintf(buffer, "0:%i, %i:%i, %i:%i", C, vert_start, vert_end, horiz_start, horiz_end);
                 tensor* x_slice = slice(input, buffer); // corresponding slice (was used in forward)
-                if (IS_DEBUG){
-                    printf("[bwd_conv_k] buffer x_slice %s\n", buffer);
-                    printf("[bwd_conv_k] x_slice->shape: %i, %i, %i\n", x_slice->shape[0], x_slice->shape[1], x_slice->shape[2]);
-                    set_name(x_slice, "x_slice"); print(x_slice);
-                }
 
                 // python: curr_filter = index(kernel, f); // (F, C, HH, WW) -> (C, HH, WW)
                 tensor* curr_filter = TensorNoData(C, HH, WW); // filter (was used in forward)
                 curr_filter->data = kernel->data + f*kernel->stride[0];
-                if (IS_DEBUG){
-                    printf("[bwd_conv_k] f*C*HH*WW: %i\n", f*C*HH*WW);
-                    set_name(curr_filter, "curr_filter"); print(curr_filter);
-                }
-
-
-                // python:
-                //    current_dout = dout[i, f, hight, width]                           # current up-stream grad scalar
-                //    current_x = x[i, :, vert_start:vert_end, horiz_start:horiz_end]   # corresponding slice (was used in forward)
-                //    dw[f] += current_x * current_dout
-                // 1. local grad of a kernel applied to an x_slice is x_slice
-                // 2. then element-wise multiply that local grad with upstream
-                // 3. then because there's multiple locations in x (x patches) we slid the kernel through -- elementwise sum the grad
 
                 // python: curr_upstream = upstream[f,h,w]
                 float curr_upstream_float = upstream->data[index(upstream, f, hight, width)]; // scalar
                 tensor* curr_upstream = TensorLikeFill(x_slice, curr_upstream_float); // broadcast scalar grad to the shape of the slice
-                if (IS_DEBUG){
-                    printf("[bwd_conv_k] curr_upstream_float: %f", curr_upstream_float);
-                    printf("\n[bwd_conv_k] curr_upstream.shape: %i, %i, %i", curr_upstream->shape[0], curr_upstream->shape[1], curr_upstream->shape[2]);
-                    set_name(curr_upstream, "curr_upstream"); print(curr_upstream);
-                }
 
-                // kernel->grad = add(kernel->grad, mul_k(x_slice, curr_upstream))
                 tensor* curr_downstream = mul_k(x_slice, curr_upstream);
 
                 // record downstream grad of the current slice, into the larger tensor (for the downstream grad)
 
                 // workaround for not having non owning slice 4d
-                //    todo-high: constructor does not set correct strides in this case
                 tensor* curr_downstream_slice_in_larger_tensor = TensorNoData(C, HH, WW);
                 curr_downstream_slice_in_larger_tensor->data = grad_kernels->data + f*grad_kernels->stride[0];
 
                 add_k_(curr_downstream_slice_in_larger_tensor, curr_downstream, curr_downstream_slice_in_larger_tensor);
-
-
-                // python:
-                //    dx[i, :, vert_start:vert_end, horiz_start:horiz_end] += current_w * current_dout
-                // 1. local grad of a x_patch applied to an kernel is kernel
-                // 2. then element-wise multiply that local grad with upstream
-                // 3. then because there's multiple locations in x (x patches) we slid the kernel through -- elementwise sum the grad
 
                 curr_downstream = mul_k(curr_filter, curr_upstream);
 
@@ -227,23 +132,15 @@ tensor* batched_conv_k(tensor* input, tensor* kernel){
     int h_out = 1 + (H - HH) / STRIDE;
     int w_out = 1 + (W - WW) / STRIDE;
 
-    if (IS_DEBUG){
-        printf("[batched_conv_k] h_out: %i\n", h_out);
-        printf("[batched_conv_k] w_out: %i\n", w_out);
-    }
-
     tensor* out = EmptyTensor(B, F, h_out, w_out);
 
     for (int i=0; i<B; i++){
-        // comment: same semantics as in batched_matmul_k
-
         tensor* curr_out = TensorNoData(F, h_out, w_out);
         curr_out->data = out->data + (i * out->stride[0]);
 
         tensor* curr_x = TensorNoData(C, H, W);
         curr_x->data = input->data + (i * input->stride[0]);
 
-        // comment: add support for 5d tensors? -- NO, w stays 4d
         conv_k_(curr_x, kernel, curr_out);
     }
     return out;
@@ -262,18 +159,12 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
 
     int h_out = 1 + (H - HH) / STRIDE;
     int w_out = 1 + (W - WW) / STRIDE;
-    if (IS_DEBUG){
-        printf("[bwd_batched_conv_k] h_out: %i\n", h_out);
-        printf("[bwd_batched_conv_k] w_out: %i\n", w_out);
-    }
 
     // make sure it's not initialised with garbage
     tensor* grad_x = TensorLikeFill(input, 0.0);
     tensor* grad_kernels = TensorLikeFill(kernel, 0.0);
 
     for (int i=0; i<B; i++){
-        // comment: same semantics as in batched_matmul_k
-
         tensor* curr_x = TensorNoData(C, H, W);
         curr_x->data = input->data + (i * input->stride[0]);
 
@@ -296,13 +187,9 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
             grad_x->data[offset_batch + ii] = grad_x->data[offset_batch + ii] + curr_grad_x->data[ii];
         }
 
-        // can iterate over the grad_kernels bc regardless that we're feeding to bwd_conv_k inputs
-        // only for the current b, we're feeding entire kernel (bc there's no batch dim in kernels)
         for (int ii=0; ii<grad_kernels->size; ii++){
             grad_kernels->data[ii] = grad_kernels->data[ii] + curr_grad_filter->data[ii];
         }
-        // todo-low:
-        // add_k_(curr_grad_filter, grad_kernels, grad_kernels);
     }
 
     input->grad = grad_x;
@@ -315,26 +202,16 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
 tensor* maxpool_k_(tensor* input, tensor* out) {
 
     // todo: up until and including "int horiz_end" line, was copied from conv. Reduce duplication.
-
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
-
-    // hyperparameters
     int HH = 2, WW = 2;
 
     int h_out = 1 + (H - HH) / STRIDE;
     int w_out = 1 + (W - WW) / STRIDE;
 
-    if (IS_DEBUG_MP){
-        printf("[maxpool_k_] h_out: %i\n", h_out);
-        printf("[maxpool_k_] w_out: %i\n", w_out);
-    }
-
     for (int c=0; c<C; c++){
         for (int hight=0; hight<h_out; hight++){
             for (int width=0; width<w_out; width++){
 
-                if (IS_DEBUG_MP)
-                    printf("[maxpool_k_] c*C*HH*WW: %i\n", c*C*HH*WW);
                 // 1. select the chunk of input that this location in the ouput (f, h, w) is looking at
                 int vert_start = hight * STRIDE;
                 int vert_end = vert_start + HH;
@@ -346,25 +223,15 @@ tensor* maxpool_k_(tensor* input, tensor* out) {
                 char buffer[20];
                 sprintf(buffer, "%i:%i, %i:%i, %i:%i", c, c_next, vert_start, vert_end, horiz_start, horiz_end);
                 tensor* x_slice = view(input, buffer);
-                if (IS_DEBUG_MP){
-                    printf("[maxpool_k_] buffer x_slice %s\n", buffer);
-                    printf("[maxpool_k_] x_slice->shape: %i, %i, %i\n", x_slice->shape[0], x_slice->shape[1], x_slice->shape[2]);
-                    set_name(x_slice, "x_slice"); print(x_slice);
-                }
 
                 // select maximum element
-                // need to recompute this during backward (so that you put local grad 1 into the lications where there was maximum element)
+                // recompute during backward
                 float max = x_slice->data[0];
                 for (int i=0; i<x_slice->size; i++){
                     if (x_slice->data[at(x_slice, i)] > max) {
-                        // comment: 
-                        //  crucial to use at here and not simple "x_slice->data[i]" bc x_slice is a view thus it's NON contiguous!
-                        //  alternatively, can create x_slice with "slice" instead of "view" -- the former will make a contiguous copy, in which case fine to index with "x_slice->data[i]
                         max = x_slice->data[at(x_slice, i)];
                     }
                 }
-                if (IS_DEBUG_MP)
-                    printf("[maxpool_k_] max: %f\n", max);
                 out->data[index(out, c, hight, width)] = max;
             }
         }
@@ -372,39 +239,25 @@ tensor* maxpool_k_(tensor* input, tensor* out) {
     return out;
 }
 
-// x (C, H, W)
-// w (F, C, HH, WW)
-// todo: was copy/pate from conv_k -- reduce duplication
+
 tensor* maxpool_k(tensor* input) {
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
 
-    // hyperparameters
     int HH = 2, WW = 2;
-
     int h_out = 1 + (H - HH) / STRIDE;
     int w_out = 1 + (W - WW) / STRIDE;
-
-    if (IS_DEBUG_MP){
-        printf("[maxpool_k] h_out: %i\n", h_out);
-        printf("[maxpool_k] w_out: %i\n", w_out);
-    }
 
     tensor* out = EmptyTensor(C, h_out, w_out);
     return  maxpool_k_(input, out);
 }
 
-// todo-high:
-//  - most of below is copy-pasted from the bwd_conv_k
-//  - it's wasteful to have maxpool logic (65 lines) duplicated exactly in its bwd (which needed for re-computing local grad) -- instead just add another filed on the tensor called local_grad
+
 void bwd_maxpool_k(tensor* upstream, tensor* out) {
 
     tensor* input = out->inputs[0];
-
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
 
-    // hyperparams
     int HH = 2, WW = 2;
-
     int h_out = 1 + (H - HH) / STRIDE;
     int w_out = 1 + (W - WW) / STRIDE;
 
@@ -414,10 +267,6 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
         for (int hight=0; hight<h_out; hight++){
             for (int width=0; width<w_out; width++){
 
-                if (IS_DEBUG_MP)
-                    printf("[bwd_maxpool_k] c*C*HH*WW: %i\n", c*C*HH*WW);
-
-                // 1. select the chunk of input that this location in the ouput (f, h, w) is looking at
                 int vert_start = hight * STRIDE;
                 int vert_end = vert_start + HH;
                 int horiz_start = width * STRIDE;
@@ -440,8 +289,6 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
                     }
                 }
                 local->data[idx_max] = 1.0;
-                if (IS_DEBUG_MP)
-                    set_name(local, "local"), print(local);
 
                 // upstream
                 float curr_upstream_float = upstream->data[index(upstream, c, hight, width)]; // scalar
@@ -449,15 +296,10 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
 
                 // downstream
                 tensor* curr_downstream = mul_k(local, curr_upstream);
-                if (IS_DEBUG_MP)
-                    set_name(curr_downstream, "curr_downstream"), print(curr_downstream);
 
                 // record downstream grad of the current slice, into the larger tensor (corresponding to the downstream grad)
                 tensor* downstream_slice = view(downstream, buffer);
-                // todo-low: use _copy_arr instead of the below; modify that fn to use at instead of t->data[i]
                 for (int i=0; i<downstream_slice->size; i++){
-                    // note you use at on the downstream_slice bc it's a slice and therefore it's not contiguous, on the
-                    // other hand, curr_downstream is contiguous, so simple curr_downstream->data[i] suffices
                     downstream_slice->data[at(downstream_slice, i)] = curr_downstream->data[i];
                 }
 
@@ -471,20 +313,13 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
 
 // x (B, C, H, W)
 // w (F, C, HH, WW)
-// todo: copy/paste from batched_conv_k -- reduce duplication
 tensor* batched_maxpool_k(tensor* input){
 
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
 
     int HH = 2, WW = 2;
-
     int h_out = 1 + (H - HH) / STRIDE;
     int w_out = 1 + (W - WW) / STRIDE;
-
-    if (IS_DEBUG_MP){
-        printf("[batched_maxpool_k] h_out: %i\n", h_out);
-        printf("[batched_maxpool_k] w_out: %i\n", w_out);
-    }
 
     tensor* out = EmptyTensor(B, C, h_out, w_out);
 
@@ -500,28 +335,20 @@ tensor* batched_maxpool_k(tensor* input){
     return out;
 }
 
-// todo: copy from bwd_batched_conv_k -- reduce duplication
+
 void bwd_batched_maxpool_k(tensor* upstream, tensor* out) {
 
     tensor* input = out->inputs[0];
 
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
-
     int HH = 2, WW = 2;
 
     int h_out = 1 + (H - HH) / STRIDE;
     int w_out = 1 + (W - WW) / STRIDE;
-    if (IS_DEBUG_MP){
-        printf("[bwd_batched_maxpool_k] h_out: %i\n", h_out);
-        printf("[bwd_batched_maxpool_k] w_out: %i\n", w_out);
-    }
 
-    // make sure it's not initialised with garbage
     tensor* downstream = TensorLikeFill(input, 0.0);
 
     for (int i=0; i<B; i++){
-        // comment: same semantics as in batched_matmul_k
-
         tensor* curr_x = TensorNoData(C, H, W);
         curr_x->data = input->data + (i * input->stride[0]);
 
@@ -535,14 +362,12 @@ void bwd_batched_maxpool_k(tensor* upstream, tensor* out) {
         curr_out->inputs[0] = curr_x;
 
         bwd_maxpool_k(curr_upstream, curr_out);
-        tensor* curr_downstream = curr_x->grad; // set by bwd_maxpool_k
+        tensor* curr_downstream = curr_x->grad;
 
         for (int ii=0; ii<curr_downstream->size; ii++){
             int offset_batch = i*downstream->stride[0];
             downstream->data[offset_batch + ii] = curr_downstream->data[ii];
         }
-        // todo-low:
-        // add_k_(curr_downstream, downstream, downstream);
     }
     input->grad = downstream;
 }
