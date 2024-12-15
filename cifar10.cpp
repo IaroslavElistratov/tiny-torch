@@ -88,8 +88,7 @@ cifar10* get_cifar10(){
     printf("\n[cifar] img_idx: %i\n", img_idx); // 10000
 
     // pack into a single structure to be returned by the function
-    cifar10* dataset = (cifar10*)malloc(sizeof(cifar10));
-
+    cifar10* dataset = (cifar10*)checkMallocErrors(malloc(sizeof(cifar10)));
     dataset->input = input;
     dataset->label = label;
 

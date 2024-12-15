@@ -79,7 +79,7 @@ char* random_chars(int);
 
 tensor* TensorLikeFill(tensor*, float);
 tensor* TensorLike(tensor* t);
-// tensor* Tensor(...);
+void* checkMallocErrors(void* ptr);
 
 void print(tensor*);
 void lprint(tensor*);

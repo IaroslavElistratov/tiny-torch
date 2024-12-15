@@ -55,7 +55,7 @@ int* parse_idxs(const char* dims, int num_pairs){
     //     int* starts = p[0];
     //     int* ends = p[1]; // pointer arithmetic
 
-    int* p = (int*)malloc(sizeof(int) * num_pairs * 2);
+    int* p = (int*)checkMallocErrors(malloc(sizeof(int) * num_pairs * 2));
     int* starts = p;
     int* ends = p + num_pairs; // pointer arithmetic
 

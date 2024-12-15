@@ -320,7 +320,7 @@ tensor* _launch_reduction_kernel(int op_idx, tensor* input, bool is_batched){
 
     // copy to host because below I modify its ->data attribute
     // maybe a better solution is to launch 2nd kernel to do the work?
-    value* out_host = (value*)malloc(size);
+    value* out_host = (value*)checkMallocErrors(malloc(size));
     checkCudaErrors(cudaMemcpy(out_host, out_device, size, cudaMemcpyDeviceToHost));
 
     tensor* scratch = COPY_FROM_DEVICE(TensorLike(out));

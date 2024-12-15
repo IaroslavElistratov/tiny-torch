@@ -4,6 +4,13 @@
 #define UTILS_DEBUG false
 
 
+void* checkMallocErrors(void* ptr) {
+    if (ptr == NULL){
+        printf("[malloc] error: null pointer\n");
+        exit(1);
+    }
+    return ptr;
+}
 
 void maybe_init_grad(tensor* t){
     if (!t->grad){
@@ -30,7 +37,7 @@ void GetRandomFloat(float* dst, int num)
 char* random_chars(int num){
     // increment for the null terminator;
     // not necessary to do sizeof(char) bc guarantied to be 1
-    char* s = (char*)malloc(sizeof(char) * ++num);
+    char* s = (char*)checkMallocErrors(malloc(sizeof(char) * ++num));
 
     char offset = 'a';
     for (int i=0; i<num-1; i++){
@@ -53,7 +60,7 @@ void set_name(tensor* t, const char* name){
 
     // todo-low: small inefficiency of always allocating MAX_TENSOR_NAME
     //  even if user provided str is shorter
-    t->name = (char*)malloc(sizeof(char) * MAX_TENSOR_NAME);
+    t->name = (char*)checkMallocErrors(malloc(sizeof(char) * MAX_TENSOR_NAME));
 
     int i=0;
     bool is_break = false;
@@ -85,7 +92,7 @@ void graphviz(tensor* tens){
     //       exp
     //     /    \
     //    x1     x2
-    char* all_visited[MAX_NODES]; // (float*)malloc(sizeof(float*) * MAX_NODES);
+    char* all_visited[MAX_NODES]; // (float*)checkMallocErrors(malloc(sizeof(float*) * MAX_NODES));
     // is used to index into all_visited
     int idx_visited = 0;
 

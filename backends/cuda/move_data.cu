@@ -55,7 +55,7 @@ tensor* copy_from_cuda(tensor* t) {
     // todo: can just define a macro for print to call 4 lines below and then call the orignal print2d (no need for cuda_print_2d)
     cudaDeviceSynchronize();
     int size = t->size * sizeof(float);
-    float* host_data = (float*)malloc(size);
+    float* host_data = (float*)checkMallocErrors(malloc(size));
     checkCudaErrors(cudaMemcpy(host_data, t->data, size, cudaMemcpyDeviceToHost));
     // avoids TensorLike returning a cuda tensor (TensorLike->TensorNd->COPY_TO_DEVICE->copy_to_cuda)
 

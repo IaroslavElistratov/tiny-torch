@@ -10,7 +10,7 @@ extern tensor* (*COPY_FROM_DEVICE)(tensor*);
 
 tensor* TensorNoData2d(int y, int z)
 {
-    tensor* t = (tensor*)malloc(sizeof(tensor));
+    tensor* t = (tensor*)checkMallocErrors(malloc(sizeof(tensor)));
 
     t->num_dims = 2;
     t->size = y*z;
@@ -53,7 +53,7 @@ tensor* TensorNoData2d(int y, int z)
 // todo: add EmptyTensor, EmptyTensorLike, make TensorLikeFill use EmptyTensorLike (instead of TensorLike)
 tensor* TensorNoData3d(int x, int y, int z)
 {
-    tensor* t = (tensor*)malloc(sizeof(tensor));
+    tensor* t = (tensor*)checkMallocErrors(malloc(sizeof(tensor)));
 
     t->num_dims = 3;
     t->size = x*y*z;
@@ -83,7 +83,7 @@ tensor* TensorNoData3d(int x, int y, int z)
 // todo: minimize duplication (this vs other constructors) this was copy-pasted from TensorNoData3d
 tensor* TensorNoData4d(int o, int x, int y, int z)
 {
-    tensor* t = (tensor*)malloc(sizeof(tensor));
+    tensor* t = (tensor*)checkMallocErrors(malloc(sizeof(tensor)));
 
     t->num_dims = 4;
     t->size = o*x*y*z;
@@ -118,7 +118,7 @@ tensor* TensorNoData4d(int o, int x, int y, int z)
 tensor* EmptyTensor2d(int s1, int s2)
 {
     tensor* t = TensorNoData2d(s1, s2);
-    t->data = (float*)malloc(sizeof(float) * t->size);
+    t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
     t->device = CPU;
     return t;
 }
@@ -126,7 +126,7 @@ tensor* EmptyTensor2d(int s1, int s2)
 tensor* EmptyTensor3d(int x, int y, int z)
 {
     tensor* t = TensorNoData3d(x, y, z);
-    t->data = (float*)malloc(sizeof(float) * t->size);
+    t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
     t->device = CPU;
     return t;
 }
@@ -134,7 +134,7 @@ tensor* EmptyTensor3d(int x, int y, int z)
 tensor* EmptyTensor4d(int o, int x, int y, int z)
 {
     tensor* t = TensorNoData4d(o, x, y, z);
-    t->data = (float*)malloc(sizeof(float) * t->size);
+    t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
     t->device = CPU;
     return t;
 }
