@@ -58,12 +58,14 @@ tensor* copy_from_cuda(tensor* t) {
     float* host_data = (float*)malloc(size);
     checkCudaErrors(cudaMemcpy(host_data, t->data, size, cudaMemcpyDeviceToHost));
     // avoids TensorLike returning a cuda tensor (TensorLike->TensorNd->COPY_TO_DEVICE->copy_to_cuda)
-    set_backend_cpu();
-    tensor* t_copy = TensorLike(t);
-    // todo: free t and t_copy->data, currently memory leak
+
+    // no need to set backend to CPU (before constructing the tensor)
+    // and then back, because TensorLikeNoData (unlike TensorLike) does
+    // NOT invoke COPY_FROM_DEVICE
+    tensor* t_copy = TensorLikeNoData(t);
     t_copy->data = host_data;
     t_copy->device=CPU;
-    set_backend_cuda();
+    // todo: free t, currently memory leak
     return t_copy;
 }
 

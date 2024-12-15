@@ -178,23 +178,36 @@ int main() {
     int HH2 = 6;
     int WW2 = 6;
 
-    cifar10* data = get_cifar10();
-
-    // *** Init ***
-
     tensor* kernel1 = Tensor(F, C, HH1, WW1);
-    set_name(kernel1, "kernel1"); sprint(kernel1);
+    set_name(kernel1, "kernel1");
     tensor* kernel2 = Tensor(F, F, HH2, WW2);
     set_name(kernel2, "kernel2");
 
     tensor* w1 = Tensor(96, 64);
-    set_name(w1, "w1"); sprint(w1);
+    set_name(w1, "w1");
     tensor* w2 = Tensor(64, 32);
-    set_name(w2, "w2"); sprint(w2);
+    set_name(w2, "w2");
     tensor* w3 = Tensor(32, 10);
-    set_name(w3, "w3"); sprint(w3);
+    set_name(w3, "w3");
 
     state params = {kernel1, kernel2, w1, w2, w3};
+
+
+
+    // todo: somehow if having prints in-between initialization of later weights print produces differently
+    // initialized later tensors (via print->copy_from_cuda) even though the constructor called from
+    // copy_from_cuda does not explicitly advacne the RNG state (does not call GetRandomFloat).
+    // question-now: is it bc of "copy_from_cuda -> malloc(size)" ?
+    // So moved prints and "get_cifar10" after initializing the tensors -- this way tensors will get initialized to
+    // the same values regardless of wether there are prints or not
+
+    lprint(kernel1);
+    lprint(kernel2);
+    lprint(w1);
+    lprint(w2);
+    lprint(w3);
+
+    cifar10* data = get_cifar10();
 
     // *** Train ***
 

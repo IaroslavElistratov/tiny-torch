@@ -190,6 +190,26 @@ tensor* TensorLike4d(tensor* t)
 }
 
 
+tensor* TensorLikeNoData2d(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1];
+    return TensorNoData2d(s1, s2);
+}
+
+tensor* TensorLikeNoData3d(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1], s3 = t->shape[2];
+    return TensorNoData3d(s1, s2, s3);
+}
+
+tensor* TensorLikeNoData4d(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1], s3 = t->shape[2], s4 = t->shape[3];
+    return TensorNoData4d(s1, s2, s3, s4);
+}
+
+
+
 // todo: in each TensorLikeFill wasteful to init w random value
 // using GetRandomFloat and then overwrite them anyway
 tensor* TensorLikeFill2d(tensor* t, float value)
@@ -312,6 +332,20 @@ tensor* TensorLike(tensor* t){
         return TensorLike3d(t);
     else if (t->num_dims==4)
         return TensorLike4d(t);
+    else
+        exit(1);
+}
+
+// to avoid calling GetRandomFloat (advancing RNG state) in COPY_FROM_DEVICE;
+// also useful to call when you need a "tensor shell", while the actual t->data comes from somewhere else (already allocated)
+// -- avoids needing to call: 1) t = Tensor(...); 2) free t->data; 3) t->data = already_allocated
+tensor* TensorLikeNoData(tensor* t){
+    if (t->num_dims==2)
+        return TensorLikeNoData2d(t);
+    else if (t->num_dims==3)
+        return TensorLikeNoData3d(t);
+    else if (t->num_dims==4)
+        return TensorLikeNoData4d(t);
     else
         exit(1);
 }
