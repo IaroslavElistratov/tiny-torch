@@ -6,6 +6,10 @@
 
 #define STRIDE 2
 
+#define STRIDE_CONV 1
+#define STRIDE_MAXPOOL 2
+
+
 
 /*
 x: Input data of shape (C, H, W)
@@ -28,8 +32,8 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
-    int h_out = 1 + (H - HH) / STRIDE;
-    int w_out = 1 + (W - WW) / STRIDE;
+    int h_out = 1 + (H - HH) / STRIDE_CONV;
+    int w_out = 1 + (W - WW) / STRIDE_CONV;
 
     if (IS_DEBUG){
         printf("[conv_k_] h_out: %i\n", h_out);
@@ -63,9 +67,9 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
                 }
 
                 // 1. select the chunk of input that this location in the ouput (f, h, w) is looking at
-                int vert_start = hight * stride;
+                int vert_start = hight * STRIDE_CONV;
                 int vert_end = vert_start + HH;
-                int horiz_start = width * stride;
+                int horiz_start = width * STRIDE_CONV;
                 int horiz_end = horiz_start + WW;
 
                 // e.g. "0:3, 30:32, 30:32" is 18 digits
@@ -109,8 +113,8 @@ tensor* conv_k(tensor* input, tensor* kernel) {
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
     // todo: de-duplicate same calculations of h_out, w_out for all the kernels in this file
-    int h_out = 1 + (H - HH) / STRIDE;
-    int w_out = 1 + (W - WW) / STRIDE;
+    int h_out = 1 + (H - HH) / STRIDE_CONV;
+    int w_out = 1 + (W - WW) / STRIDE_CONV;
 
     if (IS_DEBUG){
         printf("[conv_k] h_out: %i\n", h_out);
@@ -133,8 +137,8 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
-    int h_out = 1 + (H - HH) / STRIDE;
-    int w_out = 1 + (W - WW) / STRIDE;
+    int h_out = 1 + (H - HH) / STRIDE_CONV;
+    int w_out = 1 + (W - WW) / STRIDE_CONV;
 
     // make sure it's not initialised with garbage
     tensor* grad_kernels = TensorLikeFill(kernel, 0.0);
@@ -145,9 +149,9 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
             for (int width=0; width<w_out; width++){
 
                 // select the chunk of input that this location in the ouput (f, h, w) is looking at
-                int vert_start = hight * stride;
+                int vert_start = hight * STRIDE_CONV;
                 int vert_end = vert_start + HH;
-                int horiz_start = width * stride;
+                int horiz_start = width * STRIDE_CONV;
                 int horiz_end = horiz_start + WW;
 
                 // python: x_slice = input[:, vert_start:vert_end, horiz_start:horiz_end]
@@ -230,8 +234,8 @@ tensor* batched_conv_k(tensor* input, tensor* kernel){
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
-    int h_out = 1 + (H - HH) / STRIDE;
-    int w_out = 1 + (W - WW) / STRIDE;
+    int h_out = 1 + (H - HH) / STRIDE_CONV;
+    int w_out = 1 + (W - WW) / STRIDE_CONV;
 
     if (IS_DEBUG){
         printf("[batched_conv_k] h_out: %i\n", h_out);
@@ -267,8 +271,8 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
-    int h_out = 1 + (H - HH) / STRIDE;
-    int w_out = 1 + (W - WW) / STRIDE;
+    int h_out = 1 + (H - HH) / STRIDE_CONV;
+    int w_out = 1 + (W - WW) / STRIDE_CONV;
     if (IS_DEBUG){
         printf("[bwd_batched_conv_k] h_out: %i\n", h_out);
         printf("[bwd_batched_conv_k] w_out: %i\n", w_out);
@@ -330,8 +334,8 @@ tensor* maxpool_k_(tensor* input, tensor* out) {
     // hyperparameters
     int HH = 2, WW = 2;
 
-    int h_out = 1 + (H - HH) / STRIDE;
-    int w_out = 1 + (W - WW) / STRIDE;
+    int h_out = 1 + (H - HH) / STRIDE_MAXPOOL;
+    int w_out = 1 + (W - WW) / STRIDE_MAXPOOL;
 
     if (IS_DEBUG_MP){
         printf("[maxpool_k_] h_out: %i\n", h_out);
@@ -345,9 +349,9 @@ tensor* maxpool_k_(tensor* input, tensor* out) {
                 if (IS_DEBUG_MP)
                     printf("[maxpool_k_] c*C*HH*WW: %i\n", c*C*HH*WW);
                 // 1. select the chunk of input that this location in the ouput (f, h, w) is looking at
-                int vert_start = hight * stride;
+                int vert_start = hight * STRIDE_MAXPOOL;
                 int vert_end = vert_start + HH;
-                int horiz_start = width * stride;
+                int horiz_start = width * STRIDE_MAXPOOL;
                 int horiz_end = horiz_start + WW;
 
                 // select only 1 channel here
@@ -390,8 +394,8 @@ tensor* maxpool_k(tensor* input) {
     // hyperparameters
     int HH = 2, WW = 2;
 
-    int h_out = 1 + (H - HH) / STRIDE;
-    int w_out = 1 + (W - WW) / STRIDE;
+    int h_out = 1 + (H - HH) / STRIDE_MAXPOOL;
+    int w_out = 1 + (W - WW) / STRIDE_MAXPOOL;
 
     if (IS_DEBUG_MP){
         printf("[maxpool_k] h_out: %i\n", h_out);
@@ -414,8 +418,8 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
     // hyperparams
     int HH = 2, WW = 2;
 
-    int h_out = 1 + (H - HH) / STRIDE;
-    int w_out = 1 + (W - WW) / STRIDE;
+    int h_out = 1 + (H - HH) / STRIDE_MAXPOOL;
+    int w_out = 1 + (W - WW) / STRIDE_MAXPOOL;
 
     tensor* downstream = TensorLikeFill(input, 0.0);
 
@@ -427,9 +431,9 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
                     printf("[bwd_maxpool_k] c*C*HH*WW: %i\n", c*C*HH*WW);
 
                 // 1. select the chunk of input that this location in the ouput (f, h, w) is looking at
-                int vert_start = hight * stride;
+                int vert_start = hight * STRIDE_MAXPOOL;
                 int vert_end = vert_start + HH;
-                int horiz_start = width * stride;
+                int horiz_start = width * STRIDE_MAXPOOL;
                 int horiz_end = horiz_start + WW;
 
                 char buffer[20];
@@ -488,8 +492,8 @@ tensor* batched_maxpool_k(tensor* input){
 
     int HH = 2, WW = 2;
 
-    int h_out = 1 + (H - HH) / STRIDE;
-    int w_out = 1 + (W - WW) / STRIDE;
+    int h_out = 1 + (H - HH) / STRIDE_MAXPOOL;
+    int w_out = 1 + (W - WW) / STRIDE_MAXPOOL;
 
     if (IS_DEBUG_MP){
         printf("[batched_maxpool_k] h_out: %i\n", h_out);
@@ -519,8 +523,8 @@ void bwd_batched_maxpool_k(tensor* upstream, tensor* out) {
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
     int HH = 2, WW = 2;
 
-    int h_out = 1 + (H - HH) / STRIDE;
-    int w_out = 1 + (W - WW) / STRIDE;
+    int h_out = 1 + (H - HH) / STRIDE_MAXPOOL;
+    int w_out = 1 + (W - WW) / STRIDE_MAXPOOL;
     if (IS_DEBUG_MP){
         printf("[bwd_batched_maxpool_k] h_out: %i\n", h_out);
         printf("[bwd_batched_maxpool_k] w_out: %i\n", w_out);
