@@ -7,17 +7,19 @@ using namespace std;
 #include "../nn.h"
 #include "../tensor.cpp"
 #include "../ops.cpp"
+#include "../composite_ops.cpp"
 #include "../cifar10.cpp"
 #include "../print.cpp"
 
 
-#define NUM_EP 1
-#define LR 0.02
+#define NUM_EP 10 // 20
+#define LR 0.001 // torch tutorial
 #define DEBUG  1
 
 
 
-// todo-low: mv to optim.cpp
+// todo-low: mv to optim.cpp;
+// todo: to avoid data transfer impl sgd as composite_op: sub_(w->grad, mul(w->grad, TensorLikeFill(w, 0.2)), w->grad)
 void sgd(tensor* w) {
     tensor* w_local = COPY_FROM_DEVICE(w);
     tensor* w_grad_local = COPY_FROM_DEVICE(w->grad);
@@ -92,56 +94,44 @@ tensor* forward(tensor* input, state* params) {
     set_name(relu3, "relu3"); // sprint(relu3);
 
     tensor* mm2 = matmul(relu3, params->w2);
-    set_name(mm2, "mm2"); // sprint(mm1);
+    set_name(mm2, "mm2"); // sprint(mm2);
     tensor* relu4 = relu(mm2);
     set_name(relu4, "relu4"); // sprint(relu4);
 
     tensor* mm3 = matmul(relu4, params->w3);
     set_name(mm3, "mm3"); // sprint(mm3);
 
-    // *** Softmax ***
-
-    // min-max trick for numerical stability, python: "mm3 -= np.max(mm3, axis=1, keepdims=True)"
-    int n_repeats = mm3->shape[1];
-    tensor* maxes = repeat(batched_reduce_max(mm3), n_repeats);
-    set_name(maxes, "maxes"); // sprint(maxes);
-    tensor* su = sub(mm3, maxes);
-    set_name(su, "su"); // sprint(su);
-
-    tensor* ex = exp(su);                       // (B, ?)
-    set_name(ex, "ex"); // sprint(ex);
-    tensor* denom = batched_reduce_sum(ex);     // (B, 1)
-    set_name(denom, "denom"); // sprint(denom);
-    n_repeats = ex->shape[1];
-    tensor* denom_broadcasted = repeat(denom, n_repeats);
-    set_name(denom_broadcasted, "denom_broadcasted"); // sprint(denom_broadcasted);
-    tensor* sm = div(ex, denom_broadcasted);    // (B, ?)
-    set_name(sm, "sm"); // print(sm);
-
-    return sm;
+    return mm3;
 }
 
-tensor* NLL(tensor* probs, tensor* label){
-    int B = label->shape[0];
-    set_name(label, "label"); // print(data->label);
-    tensor* se = select(probs, label);   // (B, 1)
-    set_name(se, "se"); // sprint(se);
-    tensor* lg = log(se);               // (B, 1)
-    set_name(lg, "lg"); // sprint(lg);
-    tensor* lgsum = reduce_sum(lg);         // (, )
-    set_name(lgsum, "lgsum"); // sprint(lgsum);
-    tensor* nll = neg(lgsum);               // (, )
-    set_name(nll, "nll"); // print(nll);
-    // divide by the batch size
-    tensor* nll_normalized = div(nll, TensorScalarFill(B));               // (, )
-    set_name(nll_normalized, "nll_normalized"); // print(nll_normalized);
-    return nll_normalized;
-}
+
+
+void accuracy(tensor* log_probs, tensor* label){
+    // pred idxs
+    tensor* probs = exp(log_probs);
+    set_name(probs, "probs");
+    tensor* pred = batched_reduce_max(probs)->scratch_space[0];
+    set_name(pred, "pred");
+
+    pred = COPY_FROM_DEVICE(pred);
+    label = COPY_FROM_DEVICE(label);
+
+    // it's not a binary elementwise but same checks
+    // assert_binary_elementwise(pred, label);
+
+    int B = pred->shape[0];
+    float correct = 0.0;
+    for (int b=0; b<B; b++){
+        (pred->data[b] == label->data[b]) ? correct++ : 0;
+    }
+    printf("accuracy: %f (%i/%i)\n", correct/B, (int)correct, B);
+};
 
 tensor* train_step(cifar10* data, state* params) {
 
-    tensor* probs = forward(data->input, params);
-    tensor* loss = NLL(probs, data->label);
+    tensor* logits = forward(data->input, params);
+    tensor* log_probs = log_softmax(logits);
+    tensor* loss = NLL(log_probs, data->label);
 
     // *** Zero-out grads ***
     params->kernel1->grad = NULL;
@@ -160,14 +150,25 @@ tensor* train_step(cifar10* data, state* params) {
     sgd(params->w2);
     sgd(params->w3);
 
+    accuracy(log_probs, data->label);
     return loss;
 }
 
+// todo-low: when define weights (w1, w2, w3) in forward, can use runtime shapes to create these weights.
+// But when creating weights in main (in main fn), needed to hardcode these shapes, copying from train_step.
+// w1 = Tensor(flat->shape[1], 32);
+// w2 = Tensor(relu3->shape[1], 16);
+// w3 = Tensor(relu4->shape[1], 10);
 int main() {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
     set_backend_device();
+
+    fclose(fopen("./generated/log.txt", "w"));
+
+
+    // *** Init ***
 
     int C = 3;
     int F = 6;
@@ -184,13 +185,7 @@ int main() {
     tensor* kernel1 = Tensor(F, C, HH1, WW1);
     set_name(kernel1, "kernel1"); sprint(kernel1);
     tensor* kernel2 = Tensor(F, F, HH2, WW2);
-    set_name(kernel2, "kernel2"); sprint(kernel2);
-
-    // todo-low: when define weights (w1, w2, w3) in forward, can use runtime shapes to create these weights.
-    // But when creating weights in main (in main fn), needed to hardcode these shapes, copying from train_step.
-    // w1 = Tensor(flat->shape[1], 32);
-    // w2 = Tensor(relu3->shape[1], 16);
-    // w3 = Tensor(relu4->shape[1], 10);
+    set_name(kernel2, "kernel2");
 
     tensor* w1 = Tensor(96, 64);
     set_name(w1, "w1"); sprint(w1);
@@ -209,14 +204,19 @@ int main() {
         tensor* loss = train_step(data, &params);
         if (ep_idx==0)
             graphviz(loss);
-        printf("ep: %i; loss: %f;\n", ep_idx, COPY_FROM_DEVICE(loss)->data[0]);
+        printf("ep: %i; loss: %f;\n\n", ep_idx, COPY_FROM_DEVICE(loss)->data[0]);
     }
 
-    print(params.kernel1->grad);
-    print(kernel1);
-    print(kernel2);
-    print(w1);
-    print(w2);
-    print(w3);
+    // lprint(params.w3->grad);
+    // lprint(params.w2->grad);
+    // lprint(params.w1->grad);
+    // lprint(params.kernel2->grad);
+    // lprint(params.kernel1->grad);
+
+    // lprint(kernel1);
+    // lprint(kernel2);
+    // lprint(w1);
+    // lprint(w2);
+    // lprint(w3);
     return 0;
 }

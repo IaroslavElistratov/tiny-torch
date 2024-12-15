@@ -39,8 +39,13 @@ void sub_bwd(tensor* upstream, tensor* out) {
     tensor* b_local = TensorLikeFill(b, -1.0);
 
     // downstream = local * upstream
-    a->grad = mul_k(a_local, upstream);
-    b->grad = mul_k(b_local, upstream);
+    tensor* curr_a_grad = mul_k(a_local, upstream);
+    tensor* curr_b_grad = mul_k(b_local, upstream);
+
+    maybe_init_grad(a);
+    add_k_(a->grad, curr_a_grad, a->grad);
+    maybe_init_grad(b);
+    add_k_(b->grad, curr_b_grad, b->grad);
 
     // free(a_local), free(b_local);
 }
@@ -177,9 +182,10 @@ void pow_bwd(tensor* upstream, tensor* out) {
 void exp_bwd(tensor* upstream, tensor* out) {
     assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
-    maybe_init_grad(a);
     tensor* local = out;
-    mul_k_(local, upstream, a->grad);
+    tensor* curr_a_grad = mul_k(local, upstream);
+    maybe_init_grad(a);
+    add_k_(a->grad, curr_a_grad, a->grad);
 }
 
 void log_bwd(tensor* upstream, tensor* out) {
