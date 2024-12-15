@@ -2,6 +2,9 @@
 // noop
 void copy_to_cpu(tensor* t){
     if (DATA_COPY_DEBUG) printf("copy_to_cpu\n");
+    if (t->device==CPU){
+        return;
+    }
     t->device = CPU;
 }
 

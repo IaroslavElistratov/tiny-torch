@@ -7,6 +7,8 @@ tensor* (*COPY_FROM_DEVICE)(tensor*) = NULL;
 // include this unconditionally, because used by both cuda and cpu
 #include "cpu/move_data.cpp"
 
+#include "common/asserts.cpp"
+
 #if DEVICE == CPU
     #include "cpu/kernels.cpp"
     #include "cpu/kernels_conv.cpp"
@@ -19,4 +21,4 @@ tensor* (*COPY_FROM_DEVICE)(tensor*) = NULL;
     #define set_backend_device() set_backend_cuda()
 #endif
 
-#include "common.cpp"
+#include "common/kernels.cpp"

@@ -36,8 +36,8 @@ int index(tensor* t, ...){
         int s3 = va_arg(args, int);
         idx = index_4d(t, s0, s1, s2, s3);
     } else {
-        idx = -1;
-        printf("[index] unexpected t->num_dims\n");
+        printf("[index] unexpected t->num_dims: %i\n", t->num_dims);
+        sprint(t);
         exit(1);
     }
     va_end(args);
@@ -212,7 +212,7 @@ int at(tensor* t, int idx){
     if (t->num_dims==2) return at_2d(t, idx);
     else if (t->num_dims==3) return at_3d(t, idx);
     else {
-        printf("[at] unexpected t->num_dims\n");
+        printf("[at] unexpected t->num_dims (expected 2 or 3)\n");
         exit(1);
         // return -1;
     };

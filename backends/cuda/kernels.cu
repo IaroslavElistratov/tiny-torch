@@ -1,48 +1,13 @@
 #include "../../nn.h"
 
 
-bool IS_INPUT_DIM_CHECK = true;
 
-void assert_binary_elementwise(tensor* a, tensor* b){
-    // don't assert n_dim == 2, it's expected that 3d and 4d input will be fed to them,
-    // e.g. mul_k_ is used in many bwd functions; add_k_ is used in batched_flatten_bwd
-    assert_contiguous(a);
-    assert_device(a);
-
-    assert_contiguous(b);
-    assert_device(b);
-
-    // batched_flatten_k calls add_k_ with a(B, 24) b(B, 6, 2, 2)
-    // because kernels iterate over size, seems the below is more suitable check when comparing shapes
-    if (!IS_INPUT_DIM_CHECK){
-        if (a->size != b->size){
-            printf("[assert_binary_elementwise] Error: expected inputs sizes to match. Saw:\n");
-            sprint(a);
-            sprint(b);
-            exit(1);
-        }
-        return;
-    }
-
-    if (a->num_dims != b->num_dims){
-        printf("[assert_binary_elementwise] Error: expected inputs of same dimensionality. Saw:\n");
-        sprint(a);
-        sprint(b);
-        exit(1);
-    }
-
-    for (int i=0; i<a->num_dims; i++){
-        if (a->shape[i] == b->shape[i]){
-            continue;
-        }
-        printf("[assert_binary_elementwise] Error: expected input shapes to match. Saw:\n");
-        sprint(a);
-        sprint(b);
+void assert_device(tensor* a){
+    if (a->device!=CUDA){
+        printf("[assert_device] Error: expected device cuda\n");
         exit(1);
     }
 }
-
-
 
 
 

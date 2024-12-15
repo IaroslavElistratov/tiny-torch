@@ -7,6 +7,8 @@ doesn't fail bc linker can't find _k expected by these ops
 
 
 void add_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
+
     // out is an ouput of the op, it's used to
     // retrieve pointers to inputs tensors
     tensor* a = out->inputs[0];
@@ -28,6 +30,7 @@ void add_bwd(tensor* upstream, tensor* out) {
 }
 
 void sub_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
 
@@ -43,6 +46,7 @@ void sub_bwd(tensor* upstream, tensor* out) {
 }
 
 void mul_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
 
@@ -62,6 +66,7 @@ void mul_bwd(tensor* upstream, tensor* out) {
 }
 
 void matmul_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
 
@@ -103,6 +108,7 @@ void matmul_bwd(tensor* upstream, tensor* out) {
 }
 
 void div_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
 
@@ -126,26 +132,17 @@ void div_bwd(tensor* upstream, tensor* out) {
 }
 
 void repeat_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
-
-    if (a->num_dims!=2){
-        printf("[repeat] Error");
-        exit(1);
-    }
-
     // sum together each row of upstream
     a->grad = batched_reduce_sum_k(upstream);
-
     // free(local);
 }
 
 // reduce_sum: (B, N) -> (B, 1)
 void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0]; // (B, N)
-    if (a->num_dims!=2){
-        printf("[batched_reduce_sum] Error\n");
-        exit(1);
-    }
 
     // important to fill with 0's if we gonna "+=" to it below.
     // If we instead simply overwrite it, then wouldn't matter,
@@ -165,6 +162,7 @@ void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
 }
 
 void pow_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     // 1. local
     // store local in grad in the grad field
@@ -177,6 +175,7 @@ void pow_bwd(tensor* upstream, tensor* out) {
 }
 
 void exp_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     maybe_init_grad(a);
     tensor* local = out;
@@ -184,6 +183,7 @@ void exp_bwd(tensor* upstream, tensor* out) {
 }
 
 void log_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     a->grad = TensorLikeFill(a, 0.0);
 
@@ -196,6 +196,7 @@ void log_bwd(tensor* upstream, tensor* out) {
 }
 
 void reduce_sum_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     // 1. local
     tensor* local = TensorLikeFill(a, 1.0);
@@ -214,20 +215,21 @@ void reduce_sum_bwd(tensor* upstream, tensor* out) {
 // todo-high: it doesn't make sense to have a transpose_bwd bc it just calls transpose -- at the moment this fn is used bc calling convention (args signature) for _bwd funcs is different from the fwd funcs
 // todo: bwd formula
 void transpose_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     a->grad = transpose_k(upstream);
 }
 
 void neg_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
-    tensor* local = NULL;
-
-    local = TensorLikeFill(a, -1.0);
+    tensor* local = TensorLikeFill(a, -1.0);
     a->grad = mul_k(local, upstream);
 }
 
 // comment: shapes are same as matmul_bwd, but with additional (B,) dim first
 void batched_matmul_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
 
@@ -273,6 +275,7 @@ void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
 
 // a(B, N), idx(B, 1) = out(B, 1)
 void select_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     tensor* idx = out->inputs[1];
     int N = a->shape[1];
@@ -289,7 +292,7 @@ void select_bwd(tensor* upstream, tensor* out) {
     maybe_init_grad(a);
     add_k_(a->grad, a_grad, a->grad);
 
-    // todo: rm?
+    // // todo: rm? If do, in autograd need to check "if inp->grad != NULL" before lprint'ing
     // grad wrt idx
     maybe_init_grad(idx);
     local = TensorLikeFill(idx, 1.0);
@@ -302,6 +305,7 @@ void select_bwd(tensor* upstream, tensor* out) {
 
 // todo-high: too many copy_to/from
 void reduce_max_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     // todo-now: use select_set? This will also avoid needing to call COPY_TO_DEVICE, FROM_DEVICE here (when setting local->data[idx]=1)
     int idx = (int)out->scratch_space[0]->data[0];
@@ -317,18 +321,16 @@ void reduce_max_bwd(tensor* upstream, tensor* out) {
     // make upstream and local to be same shape (currently upstream is a scalar, while local is a 2d tensor)
     tensor* broadcasted_upstream = TensorLikeFill(a, upstream_host->data[0]);
 
-
-    a->grad = mul_k(local_host, broadcasted_upstream);
+    tensor* curr_a_grad = mul_k(local_host, broadcasted_upstream);
+    maybe_init_grad(a);
+    add_k_(a->grad, curr_a_grad, a->grad);
     // free(local);
 }
 
 // select: a(B, N), idx(B, 1) = out(B, 1)
 void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
-    if (a->num_dims!=2){
-        printf("[batched_max] Unexpected num_dims\n");
-        exit(1);
-    }
 
     int N = a->shape[1];
     tensor* idx = out->scratch_space[0]; // (B, 1)
@@ -356,13 +358,11 @@ void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
 
 
 void batched_flatten_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
-
     maybe_init_grad(a);
-
     // reshape upstream into the shape of a
     unsafe_add_k_(a->grad, upstream, a->grad);
-
     // free(local);
 }
 
@@ -371,12 +371,13 @@ void batched_flatten_bwd(tensor* upstream, tensor* out) {
 
 
 tensor* batched_flatten_k(tensor* a) {
-    int B = a->shape[0];
-
+    // ugly, but uses assert_input for contiguity and device check
+    assert_input(a, -1);
     if (!a->num_dims==3 && !a->num_dims==4){
         printf("[batched_flatten] Shape error\n");
         exit(1);
     }
+    int B = a->shape[0];
 
     // collapsing all dims of the tensor except B (0-th dim);
     // this line is more concise then iterating over a.shape[1:] and multiplying them

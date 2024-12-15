@@ -9,6 +9,15 @@ tensor* batched_transpose_k(tensor*);
 tensor* batched_reduce_sum_k(tensor*);
 
 
+// env though this fn is called assert_device, it's checks for cpu -- this naming is to keep parity between the two backends (to reuse common/asserts)
+void assert_device(tensor* a){
+    if (a->device!=CPU){
+        printf("[assert_device] Error: expected device cpu. Saw: %i\n", a->device);
+        exit(1);
+    }
+}
+
+
 // todo:
 // - to preserve old behavior, change ops to:
 //     - index from the right (inner most dims), NOT from the left (outer most)
@@ -29,15 +38,32 @@ tensor* batched_reduce_sum_k(tensor*);
 //    binary elementwise
 
 
+
 tensor* add_k_(tensor* a, tensor* b, tensor* out) {
+    assert_binary_elementwise_non_contiguous(a, b);
+
     // Previously was hardcoding a at for a specific index here -- conv_bwd uses add (which calls add_k_) for both 3d tensors (grads wrt input) AND 4d tensors (grads wrt kernels)
     // todo: here and in all ops, assert same size
-    for (int i=0; i<out->size; i++)
+    for (int i=0; i<out->size; i++){
         // comment: note incrementing index like this in a loop, assumes contiguous data
         // out->data[i] = a->data[i] + b->data[i];
         out->data[at(out, i)] = a->data[at(a, i)] + b->data[at(b, i)];
+    }
     return out;
 }
+
+tensor* unsafe_add_k_(tensor* a, tensor* b, tensor* out) {
+    assert_device(a);
+    assert_device(b);
+    assert_same_size(a, b);
+    for (int i=0; i<out->size; i++){
+        // comment: removed at, becuase at only supports 2d and 3d, but from batched_flatten_k I'm passing a 4d tensor
+        // out->data[at(out, i)] = a->data[at(a, i)] + b->data[at(b, i)];
+        out->data[i] = a->data[i] + b->data[i];
+    }
+    return out;
+}
+
 
 // todo: use "const tensor*" instead of "tensor"
 tensor* add_k(tensor* a, tensor* b) {
@@ -47,16 +73,20 @@ tensor* add_k(tensor* a, tensor* b) {
 
 
 tensor* sub_k(tensor* a, tensor* b) {
+    assert_binary_elementwise(a, b);
     tensor* out = TensorLike(a);
-    for (int i=0; i<out->size; i++)
+    for (int i=0; i<out->size; i++){
         out->data[i] = a->data[i] - b->data[i];
+    }
     return out;
 }
 
 
 tensor* mul_k_(tensor* a, tensor* b, tensor* out) {
-    for (int i=0; i<out->size; i++)
+    assert_binary_elementwise(a, b);
+    for (int i=0; i<out->size; i++){
         out->data[i] = a->data[i] * b->data[i];
+    }
     return out;
 }
 
@@ -72,8 +102,17 @@ tensor* mul_k(tensor* a, tensor* b) {
 // a.shape (N, M)
 // b.shape (M, D)
 // out.shape (N, D)
-void matmul_k_(tensor* a, tensor* b, tensor* out)
-{
+void matmul_k_(tensor* a, tensor* b, tensor* out) {
+    // supports non-contiguous
+    assert_device(a);
+    assert_device(b);
+    assert_dim(a, 2);
+    assert_dim(b, 2);
+    if (a->shape[1] != b->shape[0]){
+        printf("[matmul_k_] Error: inner dim doesn't match, saw: a(%i, %i) b(%i, %i)\n", a->shape[0], a->shape[1], b->shape[0], b->shape[1]);
+        exit(1);
+    }
+
     // todo: add assert that num dims in inputs == 2
 
     int N = a->shape[0], M = a->shape[1];
@@ -98,8 +137,7 @@ void matmul_k_(tensor* a, tensor* b, tensor* out)
 // a.shape (N, M)
 // b.shape (M, D)
 // out.shape (N, D)
-tensor* matmul_k(tensor* a, tensor* b)
-{
+tensor* matmul_k(tensor* a, tensor* b) {
     int N = a->shape[0], D = b->shape[1];
     tensor* out = Tensor(N, D);
     matmul_k_(a, b, out);
@@ -108,25 +146,19 @@ tensor* matmul_k(tensor* a, tensor* b)
 
 
 tensor* div_k(tensor* a, tensor* b) {
-
-    // todo-now: add these checks to every function
-    if (a->num_dims!=2 || b->num_dims!=2){
-        printf("[div_k] Error");
-        exit(1);
-    }
-
+    assert_binary_elementwise(a, b);
     tensor* out = TensorLike(a);
-
-    for (int i=0; i<out->size; i++)
+    for (int i=0; i<out->size; i++){
         out->data[i] = a->data[i] / b->data[i];
+    }
     return out;
 }
 
 
 tensor* repeat_k(tensor* a, int num_repeats) {
-
-    if (a->num_dims!=2 || a->shape[1]!=1){
-        printf("[repeat] Error");
+    assert_input(a, 2);
+    if (a->shape[1]!=1){
+        printf("[repeat] Shape error\n");
         exit(1);
     }
 
@@ -152,14 +184,15 @@ tensor* repeat_k(tensor* a, int num_repeats) {
 
 
 tensor* select_k(tensor* a, tensor* idx) {
-
     // expect shapes:
     //  a(s1, s2)
     //  idx(s1, 1)
     //      also each element of idx's first dim should be in range 0-s2
     //      (bc the first dim in idx will be used to index  the 2nd dim of a)
     //      this latter condition is not being checked here
-    if (a->num_dims!=2 || idx->num_dims!=2 || idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
+    assert_input(a, 2);
+    assert_input(idx, 2);
+    if (idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
         printf("[select] Error shape");
         exit(1);
     }
@@ -182,7 +215,9 @@ tensor* select_k(tensor* a, tensor* idx) {
 
 
 void select_set_(tensor* a, tensor* idx, int value) {
-    if (a->num_dims!=2 || idx->num_dims!=2 || idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
+    assert_input(a, 2);
+    assert_input(idx, 2);
+    if (idx->shape[1]!=1 || idx->shape[0]!=a->shape[0]) {
         printf("[select_set_] Error shape");
         exit(1);
     }
@@ -198,18 +233,25 @@ void select_set_(tensor* a, tensor* idx, int value) {
 
 
 tensor* pow_k(tensor* a, int exponent) {
+    // supports n-dim input but must be contiguous
+    // (because of the direct access to its data below)
+    assert_input(a, -1);
+
     tensor* out = TensorLikeFill(a, 0.0);
-    for (int i=0; i<out->size; i++)
+    for (int i=0; i<out->size; i++){
         // pow here refers to C's math function, not tiny-torch's op
         out->data[i] = (float)pow(a->data[i], exponent);
+    }
     return out;
 }
 
 
 tensor* reduce_sum_k(tensor* a) {
+    assert_input(a, -1);
+
     // reduce to scalar
     tensor* out = TensorScalarFill(0.0);
-    for (int i=0; i<a->size; i++) {
+    for (int i=0; i<a->size; i++){
         out->data[0] += a->data[i];
     }
     return out;
@@ -217,20 +259,26 @@ tensor* reduce_sum_k(tensor* a) {
 
 
 tensor* relu_k(tensor* a) {
+    assert_input(a, -1);
+
     tensor* out = TensorLike(a);
     // todo: this kernel is more complicated to record idxs into
     // scratch space, bc don't know size of this tensor in advance (data-dependant size)
     // tensor* scratch_space = TensorLikeFill(out, 0.);
-    for (int i=0; i<out->size; i++)
+    for (int i=0; i<out->size; i++){
         if (a->data[i] < 0.0){
             out->data[i] = 0.0;
             // scratch_space->data[]
+        } else {
+            out->data[i] = a->data[i];
         }
+    }
     // out->scratch_space[0] = scratch_space;
     return out;
 }
 
 void relu_bwd(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     // local
     // todo: avoid re-computing
@@ -253,6 +301,7 @@ void relu_bwd(tensor* upstream, tensor* out) {
 // or reshaped at zero cost (no memory needs to be copied).
 // question-now: here and in batched_transpose_k, return a contiguous copy instead of original?
 tensor* transpose_k(tensor* x) {
+    assert_input(x, 2);
     // int shape_0 = x->shape[0];
     // x->shape[0] = x->shape[1];
     // x->shape[1] = shape_0;
@@ -297,7 +346,8 @@ tensor* transpose_k(tensor* x) {
 //    - e.g. lua-torch implements a macro, where you only need to specify body of the for loop (op-specific),
 //      the rest (common logic) is in the code of the macro itself and thus doens't need to duplciated for each new op
 tensor* reduce_max_k(tensor* a) {
-    // set inital minimum to the first element
+    assert_input(a, 2);
+    // set initial minimum to the first element
     tensor* out = TensorScalarFill(a->data[0]);
     // store at 0-th location in the scratch space array
     out->scratch_space[0] = TensorLikeFill(out, 0.);
@@ -313,18 +363,17 @@ tensor* reduce_max_k(tensor* a) {
 
 
 tensor* neg_k(tensor* a) {
+    assert_input(a, -1);
     tensor* out = TensorLike(a);
-    for (int i=0; i<out->size; i++)
+    for (int i=0; i<out->size; i++){
         out->data[i] = - a->data[i];
+    }
     return out;
 }
 
 
 tensor* exp_k(tensor* a) {
-    if (a->num_dims!=2) {
-        printf("[exp_k] Error shape");
-        exit(1);
-    }
+    assert_input(a, -1);
     tensor* out = TensorLikeFill(a, 0.0);
     for (int i=0; i<out->size; i++){
         out->data[i] = expf(a->data[i]);
@@ -334,10 +383,7 @@ tensor* exp_k(tensor* a) {
 
 
 tensor* log_k(tensor* a) {
-    if (a->num_dims!=2) {
-        printf("[log_k] Error shape");
-        exit(1);
-    }
+    assert_input(a, -1);
     tensor* out = TensorLikeFill(a, 0.0);
     for (int i=0; i<out->size; i++){
         out->data[i] = logf(a->data[i]);
@@ -351,8 +397,14 @@ tensor* log_k(tensor* a) {
 
 // a.shape (B, N, M)
 // b.shape (B, M, D)
-tensor* batched_matmul_k(tensor* a, tensor* b)
-{
+tensor* batched_matmul_k(tensor* a, tensor* b) {
+    assert_input(a, 3);
+    assert_input(b, 3);
+    if (a->shape[2] != b->shape[1]){
+        printf("[batched_matmul_k] Error: inner dim doesn't match\n");
+        exit(1);
+    }
+
     int B = a->shape[0], N = a->shape[1], M = a->shape[2];
     int D = b->shape[2];
 
@@ -383,11 +435,7 @@ tensor* batched_matmul_k(tensor* a, tensor* b)
 }
 
 tensor* batched_reduce_sum_k(tensor* a) {
-
-    if (a->num_dims!=2){
-        printf("[batched_reduce_sum] Error");
-        exit(1);
-    }
+    assert_input(a, 2);
 
     int B = a->shape[0], N = a->shape[1];
     tensor* out = Tensor(B, 1);
@@ -407,11 +455,7 @@ tensor* batched_reduce_sum_k(tensor* a) {
 
 
 tensor* batched_reduce_max_k(tensor* a) {
-
-    if (a->num_dims!=2){
-        printf("[batched_max] Error");
-        exit(1);
-    }
+    assert_input(a, 2);
 
     int B = a->shape[0], N = a->shape[1];
     tensor* out = Tensor(B, 1);
@@ -434,6 +478,8 @@ tensor* batched_reduce_max_k(tensor* a) {
 // tensor* local_a = transpose_k(b); // (B, M, D) -> (B, D, M)
 // comment: this is equivalent to numpy's np.transpose(x, axes=(0, 2, 1))
 tensor* batched_transpose_k(tensor* x){
+    assert_input(x, 3);
+
     int shape_1 = x->shape[1];
     x->shape[1] = x->shape[2];
     x->shape[2] = shape_1;

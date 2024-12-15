@@ -119,6 +119,7 @@ tensor* EmptyTensor2d(int s1, int s2)
 {
     tensor* t = TensorNoData2d(s1, s2);
     t->data = (float*)malloc(sizeof(float) * t->size);
+    t->device = CPU;
     return t;
 }
 
@@ -126,6 +127,7 @@ tensor* EmptyTensor3d(int x, int y, int z)
 {
     tensor* t = TensorNoData3d(x, y, z);
     t->data = (float*)malloc(sizeof(float) * t->size);
+    t->device = CPU;
     return t;
 }
 
@@ -133,6 +135,7 @@ tensor* EmptyTensor4d(int o, int x, int y, int z)
 {
     tensor* t = TensorNoData4d(o, x, y, z);
     t->data = (float*)malloc(sizeof(float) * t->size);
+    t->device = CPU;
     return t;
 }
 
@@ -250,9 +253,20 @@ tensor* TensorScalarFill(float value)
 #define MAX_DIM 4
 
 // todo: static_assert(VA_NARGS(__VA_ARGS__) <= MAX_DIM, "[constructor] error")
-#define TensorNoData(...) CONCAT(TensorNoData, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
-#define EmptyTensor(...) CONCAT(EmptyTensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
 #define Tensor(...) CONCAT(Tensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+
+// this preserves device, needed because often in cpu backend, one off tensors are created using TensorNoData,
+// which are then passed to other kernels_, when these kernels run input checks, they expect to see that tensor
+// passed to them has t->device=CPU -- so I modified the TensorNoData constructor to preserve the t->device flag
+#define _TensorNoData(...) CONCAT(TensorNoData, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+#define TensorNoData(...) ({tensor* out = _TensorNoData(__VA_ARGS__); out->device=DEVICE; out;})
+
+#define EmptyTensor(...) CONCAT(EmptyTensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+// conv_k_ -> out = EmptyTensor(...) -> (COPY_TO_DEVICE NOT called, so backend isn't set)
+//  when out of conv_k_ fed to some next kernel (e.g. relu), relu does input checks, expects to see out->device=CPU
+// NOTE: unlike TensorNoData (which does NOT allocate t->data on any device), for EmptyTensor it's incorrect to set "out->device=DEVICE" -- because EmptyTensor only allocates on cpu at the moment
+// #define _EmptyTensor(...) CONCAT(EmptyTensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+// #define EmptyTensor(...) ({tensor* out = _EmptyTensor(__VA_ARGS__); out->device=CPU; out;})
 
 /*
 // question-now: 

@@ -15,19 +15,21 @@ void set_backend_cuda(void);
 
 void copy_to_cuda(tensor* t){
     if (DATA_COPY_DEBUG) printf("copy_to_cuda\n");
+    if (t->device == CUDA){
+        return;
+    }
+    if (t->device != CPU){
+        printf("[copy_to_cuda] expected device CPU\n");
+        exit(1);
+    }
 
     // question-now: should I do contigify before cudaMemcpy?
     assert_contiguous(t);
-
-    if (t->device==CUDA){
-        return;
-    }
 
     // not needed for copying data itself,
     // but need it bc this fn can be called
     // from inside a tensor constructor --
     // in which case it will set this member
-    t->device = CUDA;
 
     float* t_device;
     int size = t->size * sizeof(float);
@@ -35,13 +37,20 @@ void copy_to_cuda(tensor* t){
     checkCudaErrors(cudaMemcpy(t_device, t->data, size, cudaMemcpyHostToDevice));
     // todo: free cpu t->data (currently memory leak)
     t->data = t_device;
+    t->device = CUDA;
 }
+
 
 tensor* copy_from_cuda(tensor* t) {
     if (DATA_COPY_DEBUG) printf("copy_from_cuda\n");
-
+    if (t->device == CPU){
+        return t;
+    }
+    if (t->device != CUDA){
+        printf("[copy_from_cuda] expected device CUDA\n");
+        exit(1);
+    }
     assert_contiguous(t);
-    t->device = CUDA;
 
     // todo: can just define a macro for print to call 4 lines below and then call the orignal print2d (no need for cuda_print_2d)
     cudaDeviceSynchronize();
@@ -53,6 +62,7 @@ tensor* copy_from_cuda(tensor* t) {
     tensor* t_copy = TensorLike(t);
     // todo: free t and t_copy->data, currently memory leak
     t_copy->data = host_data;
+    t_copy->device=CPU;
     set_backend_cuda();
     return t_copy;
 }

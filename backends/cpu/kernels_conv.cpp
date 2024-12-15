@@ -21,6 +21,10 @@ Returns a tuple of:
 */
 tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
 
+    assert_input(out, 3);
+    assert_input(input, 3);
+    assert_input(kernel, 4);
+
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
@@ -119,7 +123,7 @@ tensor* conv_k(tensor* input, tensor* kernel) {
 
 // conv output, upstream: (F, h_out, w_out)
 void bwd_conv_k(tensor* upstream, tensor* out) {
-
+    assert_input(upstream, out->num_dims);
     tensor* input = out->inputs[0];
     tensor* kernel = out->inputs[1];
 
@@ -220,6 +224,8 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
 // x (B, C, H, W)
 // w (F, C, HH, WW)
 tensor* batched_conv_k(tensor* input, tensor* kernel){
+    assert_input(input, 4);
+    assert_input(kernel, 4);
 
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
@@ -253,6 +259,7 @@ tensor* batched_conv_k(tensor* input, tensor* kernel){
 // w (F, C, HH, WW)
 // conv output; upstream: (B, F, h_out, w_out)
 void bwd_batched_conv_k(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
 
     tensor* input = out->inputs[0];
     tensor* kernel = out->inputs[1];
@@ -313,6 +320,8 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
 
 // x (C, H, W)
 tensor* maxpool_k_(tensor* input, tensor* out) {
+    assert_input(input, 3);
+    assert_input(out, 3);
 
     // todo: up until and including "int horiz_end" line, was copied from conv. Reduce duplication.
 
@@ -397,7 +406,7 @@ tensor* maxpool_k(tensor* input) {
 //  - most of below is copy-pasted from the bwd_conv_k
 //  - it's wasteful to have maxpool logic (65 lines) duplicated exactly in its bwd (which needed for re-computing local grad) -- instead just add another filed on the tensor called local_grad
 void bwd_maxpool_k(tensor* upstream, tensor* out) {
-
+    assert_input(upstream, out->num_dims);
     tensor* input = out->inputs[0];
 
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
@@ -473,6 +482,7 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
 // w (F, C, HH, WW)
 // todo: copy/paste from batched_conv_k -- reduce duplication
 tensor* batched_maxpool_k(tensor* input){
+    assert_input(input, 4);
 
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
 
@@ -502,11 +512,11 @@ tensor* batched_maxpool_k(tensor* input){
 
 // todo: copy from bwd_batched_conv_k -- reduce duplication
 void bwd_batched_maxpool_k(tensor* upstream, tensor* out) {
+    assert_input(upstream, out->num_dims);
 
     tensor* input = out->inputs[0];
 
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
-
     int HH = 2, WW = 2;
 
     int h_out = 1 + (H - HH) / STRIDE;

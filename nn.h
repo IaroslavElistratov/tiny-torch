@@ -8,7 +8,7 @@
 // todo: avoid needing to manually sync increment op_type, NUM_OPS, VIS_COLORS when adding a new op
 //  - use graphviz's pastel19 or set312 color scheme ?
 #define NUM_OPS 23
-const char* OP_NAMES[] = {"add", "sub", "mul", "matmul", "pow", "reduce_sum", "relu", "transpose", "batched_matmul", "conv", "batched_conv", "maxpool", "batched_maxpool", "batched_flatten", "select", "log", "exp", "batched_reduce_sum", "repeat", "neg", "div", "max", "batched_max"};
+const char* OP_NAMES[] = {"add", "sub", "mul", "matmul", "pow", "reduce_sum", "relu", "transpose", "batched_matmul", "conv", "batched_conv", "maxpool", "batched_maxpool", "batched_flatten", "select", "log", "exp", "batched_reduce_sum", "repeat", "neg", "div", "reduce_max", "batched_reduce_max"};
 const char* VIS_COLORS[] = {"darkolivegreen1", "lightsalmon1", "skyblue1", "plum1", "mediumpurple1", "aquamarine", "yellow", "seashell", "orchid2", "deeppink1", "deeppink3", "darkseagreen1", "darkseagreen3", "beige", "bisque", "cornsilk", "darkolivegreen1", "tan1", "deepskyblue", "chocolate", "slateblue", "lemonchiffon", "lightgoldenrodyellow"};
 
 
@@ -57,14 +57,16 @@ struct tensor {
 
 
 // enum device {
-//     cpu = 0,
-//     cuda = 1,
-//     // amd = 2,
-//     // tpu = 3,
+//     cpu = 1,
+//     cuda = 2,
+//     // amd = 3,
+//     // tpu = 4,
 // };
 
-#define CPU 0
-#define CUDA 1
+// note: do not use 0 to denote a valid device, it conflicts with NULL pointer
+// (e.g. checks like "t->device==CPU", if CPU is 0)
+#define CPU 1
+#define CUDA 2
 
 // these two will only be used if DEVICE == CUDA
 #define NUM_THREADS 16
