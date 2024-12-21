@@ -1,21 +1,19 @@
 #include <deque> // deque from standard template library (STL)
-
 #include "nn.h"
 
-#define print(f_p) _print(f_p)
-void _print(tensor* t);
-
-
-#define IS_DEBUG_AG true
+#define IS_DEBUG_AG false
 #define IS_DEBUG_BRANCHES false
 
 
 
 void backward(tensor* loss){
 
+    // open and close in write mode to clear the file, doing it here avoid needing to modify interface of lprint (which in general should NOT clear the file)
+    // fclose(fopen("./generated/log.txt", "w"));
+
     if (!loss->grad_fn) {
         printf("[autograd engine] Error: tensor has no grad_fn\n");
-        return;
+        exit(1);
     }
 
     // todo: in autograd, don't overwrite grad instead do +=
@@ -31,16 +29,7 @@ void backward(tensor* loss){
 
     // for the check below to pass
     loss->num_uses = 0;
-
-    if (loss->num_dims==2)
-        loss->grad = TensorLikeFill(loss, 1.0);
-    else if (loss->num_dims==3)
-        loss->grad = TensorLikeFill3d(loss, 1.0);
-    else if (loss->num_dims==4)
-        loss->grad = TensorLikeFill4d(loss, 1.0);
-    else {
-        printf("[autograd engine] Error");
-    }
+    loss->grad = TensorLikeFill(loss, 1.0);
 
     deque <tensor*> ready;
     ready.push_front(loss);
@@ -72,7 +61,7 @@ void backward(tensor* loss){
 
         if (!t->grad_fn || !t->grad) {
             printf("[autograd engine] Error: tensor has no grad_fn\n");
-            return;
+            exit(1);
         }
 
         // each input of this op will have this as an upstream grad
@@ -82,6 +71,14 @@ void backward(tensor* loss){
 
         for (int i=0; i<t->num_inputs; i++){
             tensor* inp = t->inputs[i];
+
+            // this condition can be used if decide to not compute ->grad
+            // for some of the inputs to an op (e.g. idx->grad in select_bwd)
+            // printf("[autograd engine] pushing: %s\n", inp->name);
+            // if (!inp->grad){
+            //     printf("[autograd engine] %s has no ->grad field\n", inp->name);
+            //     continue;
+            // }
 
             // will record pointers to all seen names -- to avid visiting same nodes twice, when
             //       exp
@@ -114,17 +111,7 @@ void backward(tensor* loss){
                 char buffer[30];
                 sprintf(buffer, "%s_grad", inp->name);
                 set_name(inp->grad, buffer);
-
-                // todo: move this into lprint
-                if (inp->grad->num_dims==2) {
-                    lprint_2d(inp->grad);
-                } else if (inp->grad->num_dims==3) {
-                    lprint_3d(inp->grad);
-                } else if (inp->grad->num_dims==4) {
-                    lprint_4d(inp->grad);
-                } else {
-                    printf("[autograd] Error");
-                }
+                lprint(inp->grad);
             }
         }
     }

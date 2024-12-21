@@ -1,29 +1,16 @@
-// #include <iostream>
-// using namespace std;
-
 #include "nn.h"
 #include "autograd.cpp"
 
-char* random_chars(int num);
 
-void GetRandomFloat(float* dst, int num)
+// todo-now: assert callback func pointers are not NULL, before calling them
+
+extern void (*COPY_TO_DEVICE)(tensor*);
+extern tensor* (*COPY_FROM_DEVICE)(tensor*);
+
+
+tensor* TensorNoData2d(int y, int z)
 {
-    for (int i=0; i<num; i++)
-    {
-        // https://linux.die.net/man/3/random
-        // returns a pseudo-random int between 0 and RAND_MAX
-        // normalize to: 0 - 1
-        // shift to: -0.5 - 0.5
-
-        // not truncating to 0 due to int division, bc C promotes args
-        dst[i] = ((float)rand() / RAND_MAX) - 0.5;
-    }
-}
-
-
-tensor* TensorNoData(int y, int z)
-{
-    tensor* t = (tensor*)malloc(sizeof(tensor));
+    tensor* t = (tensor*)checkMallocErrors(malloc(sizeof(tensor)));
 
     t->num_dims = 2;
     t->size = y*z;
@@ -35,6 +22,10 @@ tensor* TensorNoData(int y, int z)
     t->stride[1] = 1;
 
     t->data = NULL;
+
+    // todo: put the fields below into an autograd_op struct,
+    // and store a single pointer to that struct on the tensor
+    // -- this way more organized
 
     // for autograd engine:
 
@@ -62,7 +53,7 @@ tensor* TensorNoData(int y, int z)
 // todo: add EmptyTensor, EmptyTensorLike, make TensorLikeFill use EmptyTensorLike (instead of TensorLike)
 tensor* TensorNoData3d(int x, int y, int z)
 {
-    tensor* t = (tensor*)malloc(sizeof(tensor));
+    tensor* t = (tensor*)checkMallocErrors(malloc(sizeof(tensor)));
 
     t->num_dims = 3;
     t->size = x*y*z;
@@ -92,7 +83,7 @@ tensor* TensorNoData3d(int x, int y, int z)
 // todo: minimize duplication (this vs other constructors) this was copy-pasted from TensorNoData3d
 tensor* TensorNoData4d(int o, int x, int y, int z)
 {
-    tensor* t = (tensor*)malloc(sizeof(tensor));
+    tensor* t = (tensor*)checkMallocErrors(malloc(sizeof(tensor)));
 
     t->num_dims = 4;
     t->size = o*x*y*z;
@@ -121,34 +112,40 @@ tensor* TensorNoData4d(int o, int x, int y, int z)
     return t;
 }
 
+// todo: EmptyTensor constructors at the moment do not call COPY_TO_DEVICE
 
 // empty means non-initalized, but with data allocated to it
-tensor* EmptyTensor(int s1, int s2)
+tensor* EmptyTensor2d(int s1, int s2)
 {
-    tensor* t = TensorNoData(s1, s2);
-    t->data = (float*)malloc(sizeof(float) * t->size);
+    tensor* t = TensorNoData2d(s1, s2);
+    t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
+    t->device = CPU;
     return t;
 }
 
 tensor* EmptyTensor3d(int x, int y, int z)
 {
     tensor* t = TensorNoData3d(x, y, z);
-    t->data = (float*)malloc(sizeof(float) * t->size);
+    t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
+    t->device = CPU;
     return t;
 }
 
 tensor* EmptyTensor4d(int o, int x, int y, int z)
 {
     tensor* t = TensorNoData4d(o, x, y, z);
-    t->data = (float*)malloc(sizeof(float) * t->size);
+    t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
+    t->device = CPU;
     return t;
 }
 
 
-tensor* Tensor(int s1, int s2)
+tensor* Tensor2d(int s1, int s2)
 {
-    tensor* t = EmptyTensor(s1, s2);
+    tensor* t = EmptyTensor2d(s1, s2);
     GetRandomFloat(t->data, t->size);
+    // todo-low: directly initialize random floats on gpu (avoid initializing on cpu, and then moving)
+    COPY_TO_DEVICE(t);
     return t;
 }
 
@@ -156,6 +153,7 @@ tensor* Tensor3d(int s1, int s2, int s3)
 {
     tensor* t = EmptyTensor3d(s1, s2, s3);
     GetRandomFloat(t->data, t->size);
+    COPY_TO_DEVICE(t);
     return t;
 }
 
@@ -163,6 +161,7 @@ tensor* Tensor4d(int s1, int s2, int s3, int s4)
 {
     tensor* t = EmptyTensor4d(s1, s2, s3, s4);
     GetRandomFloat(t->data, t->size);
+    COPY_TO_DEVICE(t);
     return t;
 }
 
@@ -170,12 +169,12 @@ tensor* Tensor4d(int s1, int s2, int s3, int s4)
 /*
 for convince to avoid:
     int N = x->shape[0], M = x->shape[1];
-    tensor* out = Tensor(N, D);
+    tensor* out = Tensor2d(N, D);
 */
-tensor* TensorLike(tensor* t)
+tensor* TensorLike2d(tensor* t)
 {
     int s1 = t->shape[0], s2 = t->shape[1];
-    return Tensor(s1, s2);
+    return Tensor2d(s1, s2);
 }
 
 tensor* TensorLike3d(tensor* t)
@@ -191,97 +190,173 @@ tensor* TensorLike4d(tensor* t)
 }
 
 
+tensor* TensorLikeNoData2d(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1];
+    return TensorNoData2d(s1, s2);
+}
+
+tensor* TensorLikeNoData3d(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1], s3 = t->shape[2];
+    return TensorNoData3d(s1, s2, s3);
+}
+
+tensor* TensorLikeNoData4d(tensor* t)
+{
+    int s1 = t->shape[0], s2 = t->shape[1], s3 = t->shape[2], s4 = t->shape[3];
+    return TensorNoData4d(s1, s2, s3, s4);
+}
+
+
+
 // todo: in each TensorLikeFill wasteful to init w random value
 // using GetRandomFloat and then overwrite them anyway
-tensor* TensorLikeFill(tensor* t, float value)
+tensor* TensorLikeFill2d(tensor* t, float value)
 {
-    tensor* t_new = TensorLike(t);
+    tensor* device_t_new = TensorLike2d(t);
+    tensor* t_new = COPY_FROM_DEVICE(device_t_new);
     for (int i=0; i<t_new->size; i++)
         t_new->data[i] = value;
+    // todo-high: all TensorLikeFillNd constructors (and TensorScalarFill) invoke COPY_TO_DEVICE twice -- once here, another time in TensorLike2d -> Tensor2d -> COPY_TO_DEVICE
+    COPY_TO_DEVICE(t_new);
     return t_new;
 }
 
 tensor* TensorLikeFill3d(tensor* t, float value)
 {
-    tensor* t_new = TensorLike3d(t);
+    tensor* device_t_new = TensorLike3d(t);
+    tensor* t_new = COPY_FROM_DEVICE(device_t_new);
     for (int i=0; i<t_new->size; i++)
         t_new->data[i] = value;
+    COPY_TO_DEVICE(t_new);
     return t_new;
 }
 
 tensor* TensorLikeFill4d(tensor* t, float value)
 {
-    tensor* t_new = TensorLike4d(t);
+    tensor* device_t_new = TensorLike4d(t);
+    tensor* t_new = COPY_FROM_DEVICE(device_t_new);
     for (int i=0; i<t_new->size; i++)
         t_new->data[i] = value;
+    COPY_TO_DEVICE(t_new);
     return t_new;
 }
 
 
-// todo: this ScalarFill seems to specific -- think of smt more general
-// todo: add constructor for empty tensors -- kind of like TensorLikeFill(, 0.0)
 tensor* TensorScalarFill(float value)
 {
     // todo: wasteful to init w random value using GetRandomFloat
     //  and then overwrite them anyway
-    tensor* t = Tensor(1, 1);
+    tensor* device_t_new = Tensor2d(1, 1);
+    tensor* t_new = COPY_FROM_DEVICE(device_t_new);
     // needed bc Tensor initializes to random value
-    t->data[0] = value;
-    return t;
-}
-
-tensor* EmptyTensorLike(tensor* t)
-{
-    int s1 = t->shape[0], s2 = t->shape[1];
-    return EmptyTensor(s1, s2);
+    t_new->data[0] = value;
+    COPY_TO_DEVICE(t_new);
+    return t_new;
 }
 
 
-void set_name(tensor* t, const char* name){
-    // free the automatically set random name
-    // added by the constructor
-    free(t->name);
 
-    // todo-low: small inefficiency of always allocating MAX_TENSOR_NAME
-    //  even if user provided str is shorter
-    t->name = (char*)malloc(sizeof(char) * MAX_TENSOR_NAME);
 
-    int i=0;
-    bool is_break = false;
-    for (; !is_break && i<MAX_TENSOR_NAME-1; i++) {
-        t->name[i] = name[i];
-        if (name[i] == '\0')
-            is_break = true;
+// the below implements function dispatching based on the number of arguments
+//  abstracts constructors of each family by dispatching to different impls depending on the number of args
+
+// need this instead of sizeof based impl, otherwise preprocessor fails
+#define VA_NARGS_IMPL(_1, _2, _3, _4, _5, N, ...) N
+#define VA_NARGS(...) VA_NARGS_IMPL(__VA_ARGS__, 5, 4, 3, 2, 1)
+
+// need inner otherwise preprocessor fails
+#define CONCAT(a, b) CONCAT_INNER(a, b)
+#define CONCAT_INNER(a, b) a##b
+
+#define MAX_DIM 4
+
+// todo: static_assert(VA_NARGS(__VA_ARGS__) <= MAX_DIM, "[constructor] error")
+#define Tensor(...) CONCAT(Tensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+
+// this preserves device, needed because often in cpu backend, one off tensors are created using TensorNoData,
+// which are then passed to other kernels_, when these kernels run input checks, they expect to see that tensor
+// passed to them has t->device=CPU -- so I modified the TensorNoData constructor to preserve the t->device flag
+#define _TensorNoData(...) CONCAT(TensorNoData, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+#define TensorNoData(...) ({tensor* out = _TensorNoData(__VA_ARGS__); out->device=DEVICE; out;})
+
+#define EmptyTensor(...) CONCAT(EmptyTensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+// conv_k_ -> out = EmptyTensor(...) -> (COPY_TO_DEVICE NOT called, so backend isn't set)
+//  when out of conv_k_ fed to some next kernel (e.g. relu), relu does input checks, expects to see out->device=CPU
+// NOTE: unlike TensorNoData (which does NOT allocate t->data on any device), for EmptyTensor it's incorrect to set "out->device=DEVICE" -- because EmptyTensor only allocates on cpu at the moment
+// #define _EmptyTensor(...) CONCAT(EmptyTensor, CONCAT(VA_NARGS(__VA_ARGS__), d))(__VA_ARGS__)
+// #define EmptyTensor(...) ({tensor* out = _EmptyTensor(__VA_ARGS__); out->device=CPU; out;})
+
+/*
+// question-now: 
+//  use funcs of this form instead of the macros above?
+//  This will also allow to call e.g. COPY_TO_DEVICE only once in e.g. Tensor fn, instead of needing to call it multiple times from each impl (e.g. Tensor2d)
+
+#include <stdarg.h>
+
+#define COUNT_ARGS(...) \
+    (sizeof((int[]){__VA_ARGS__})/sizeof(int))
+
+#define Tensor(...) TensorImpl(COUNT_ARGS(__VA_ARGS__), __VA_ARGS__)
+
+tensor* TensorImpl(int num_args, ...){
+    va_list args;
+    va_start(args, num_args);
+
+    int s0 = va_arg(args, int);
+    int s1 = va_arg(args, int);
+
+    if (num_args == 2){
+        return Tensor2d(s0, s1);
+    } else if (num_args == 3){
+        int s2 = va_arg(args, int);
+        return Tensor3d(s0, s1, s2);
+    } else if (num_args == 4){
+        int s2 = va_arg(args, int);
+        int s3 = va_arg(args, int);
+        return Tensor3d(s0, s1, s2, s3);
     }
+    va_end(args);
+}
+*/
 
-    if (!is_break && name[i+1] != '\0') {
-        printf("[set_name] Warning, specified name larger than MAX_TENSOR_NAME -- truncating\n");
-        t->name[i+1] = '\0';
-    }
+// comment:
+//  use functions (instead of macros) for TensorLike, TensorLikeFill, bc preprocessor can't
+//  evaluate runtime value from a struct member at pre-processing time, so handle it in a fn
+
+tensor* TensorLike(tensor* t){
+    if (t->num_dims==2)
+        return TensorLike2d(t);
+    else if (t->num_dims==3)
+        return TensorLike3d(t);
+    else if (t->num_dims==4)
+        return TensorLike4d(t);
+    else
+        exit(1);
 }
 
+// to avoid calling GetRandomFloat (advancing RNG state) in COPY_FROM_DEVICE;
+// also useful to call when you need a "tensor shell", while the actual t->data comes from somewhere else (already allocated)
+// -- avoids needing to call: 1) t = Tensor(...); 2) free t->data; 3) t->data = already_allocated
+tensor* TensorLikeNoData(tensor* t){
+    if (t->num_dims==2)
+        return TensorLikeNoData2d(t);
+    else if (t->num_dims==3)
+        return TensorLikeNoData3d(t);
+    else if (t->num_dims==4)
+        return TensorLikeNoData4d(t);
+    else
+        exit(1);
+}
 
-// // constructors that take in tensor and return float
-
-// float* EmptyFloat(int s1, int s2)
-// {
-//     return (float*)malloc(sizeof(float) * s1*s2);
-// }
-
-// // used when only tensor->data is needed, and avoids
-// // memory leak unlike the below -- bc tensor output
-// // of TensorLikeFill won't be used anymore (only one
-// // of its members will)
-// //  a->grad = TensorLikeFill(a, 1.0)->data;
-// float* EmptyFloatLike(tensor* t)
-// {
-//     return EmptyFloat(t->shape[0], t->shape[1]);
-// }
-
-// float* FloatLikeFill(tensor* t, int value)
-// {
-//     float* f_new = EmptyFloatLike(t);
-//     for (int i=0; i<t->size; i++)
-//         f_new[i] = value;
-//     return f_new;
-// }
+tensor* TensorLikeFill(tensor* t, float val){
+    if (t->num_dims==2)
+        return TensorLikeFill2d(t, val);
+    else if (t->num_dims==3)
+        return TensorLikeFill3d(t, val);
+    else if (t->num_dims==4)
+        return TensorLikeFill4d(t, val);
+    else
+        exit(1);
+}

@@ -3,7 +3,7 @@
 
 using namespace std;
 
-#define N_SAMPLES 10 // 10000
+#define N_SAMPLES 1000 // 10000
 
 
 /*
@@ -37,16 +37,17 @@ struct cifar10 {
 
 // todo-now: doublecheck that logic here is correct
 cifar10* get_cifar10(){
+    set_backend_cpu();
 
-    tensor* input = EmptyTensor4d(N_SAMPLES, 3, 32, 32);
+    tensor* input = EmptyTensor(N_SAMPLES, 3, 32, 32);
     set_name(input, "input");
     tensor* label = EmptyTensor(N_SAMPLES, 1);
     set_name(label, "label");
 
     FILE *fp;
-    if ((fp = fopen("/Users/iaro/Desktop/cifar-10-batches-bin/data_batch_1.bin", "rb")) == NULL) {
-        printf("[cifar] Error: can't access file");
-        return NULL;
+    if ((fp = fopen("../data/cifar-10-batches-bin/data_batch_1.bin", "rb")) == NULL) {
+        printf("[cifar] Error: can't access file\n");
+        exit(1);
     }
 
     // - byte_idx is for indexing the input buffer
@@ -70,7 +71,7 @@ cifar10* get_cifar10(){
         } else {
             if (tensor_data_idx>=input->size){
                 printf("\n[cifar10] ERR!");
-                return NULL;
+                exit(1);
             }
             // c is in range 0-255
             // printf("%f\n", c/255.);
@@ -83,13 +84,16 @@ cifar10* get_cifar10(){
     // also, it flushes the buffer in which p u t c is collecting output
     fclose(fp);
 
-    printf("\n[cifar] byte_idx: %i", byte_idx); // 30730000
-    printf("\n[cifar] img_idx: %i", img_idx); // 10000
+    printf("\n[cifar] byte_idx: %i\n", byte_idx); // 30730000
+    printf("\n[cifar] img_idx: %i\n", img_idx); // 10000
 
     // pack into a single structure to be returned by the function
-    cifar10* dataset = (cifar10*)malloc(sizeof(cifar10));
+    cifar10* dataset = (cifar10*)checkMallocErrors(malloc(sizeof(cifar10)));
     dataset->input = input;
     dataset->label = label;
 
+    set_backend_device();
+    COPY_TO_DEVICE(dataset->input);
+    COPY_TO_DEVICE(dataset->label);
     return dataset;
 }

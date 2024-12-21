@@ -1,17 +1,8 @@
 #include "nn.h"
 
-void _print(tensor* t)
-{
-    printf("\n%s: ", t->name);
 
-    for (int i=0, row_len=t->shape[1]; i<t->size; i++) {
-        if (i % row_len == 0) cout << endl;
-        // %6.1f describes number at least six characters wide, with 1 digit after the decimal point
-        printf("%8.4f, ", t->data[i]);
-    }
-    printf("\n");
-}
-
+// %6.1f describes number at least six characters wide, with 1 digit after the decimal point
+// printf("%8.4f, ", t->data[i]);
 
 void sprint_2d(tensor* t){
     printf("\n%s:\n", t->name);
@@ -19,13 +10,11 @@ void sprint_2d(tensor* t){
     printf("%s->strides: %i, %i\n", t->name, t->stride[0], t->stride[1]);
 }
 
-void sprint_3d(tensor* t)
-{
+void sprint_3d(tensor* t){
     printf("\n%s:\n", t->name);
     printf("%s->shape: %i, %i, %i\n", t->name, t->shape[0], t->shape[1], t->shape[2]);
     printf("%s->strides: %i, %i, %i\n", t->name, t->stride[0], t->stride[1], t->stride[2]);
 }
-
 
 void sprint_4d(tensor* t){
     printf("\n%s:\n", t->name);
@@ -33,9 +22,19 @@ void sprint_4d(tensor* t){
     printf("%s->strides: %i, %i, %i, %i\n", t->name, t->stride[0], t->stride[1],  t->stride[2],  t->stride[3]);
 }
 
+void sprint(tensor* t){
+    if (t->num_dims==2) sprint_2d(t);
+    else if (t->num_dims==3) sprint_3d(t);
+    else if (t->num_dims==4) sprint_4d(t);
+    else {
+        printf("[sprint] Error");
+        exit(1);
+    }
+}
 
-void print_2d(tensor* t)
-{
+
+void print_2d(tensor* t){
+    tensor* t_copy = COPY_FROM_DEVICE(t);
     sprint_2d(t);
 
     int y = t->shape[0];
@@ -44,16 +43,16 @@ void print_2d(tensor* t)
     for (int yi=0; yi<y; yi++){
         printf("[");
         for (int zi=0; zi<z; zi++){
-            int idx = index_2d(t, yi, zi);
-            printf("%8.4f, ", t->data[idx]);
+            int idx = index(t_copy, yi, zi);
+            printf("%8.4f, ", t_copy->data[idx]);
         }
         printf("],\n");
     }
     printf("\n");
 }
 
-void print_3d(tensor* t)
-{
+void print_3d(tensor* t){
+    tensor* t_copy = COPY_FROM_DEVICE(t);
     sprint_3d(t);
 
     int x = t->shape[0];
@@ -64,8 +63,8 @@ void print_3d(tensor* t)
         for (int yi=0; yi<y; yi++){
             printf("[");
             for (int zi=0; zi<z; zi++){
-                int idx = index_3d(t, xi, yi, zi);
-                printf("%8.4f, ", t->data[idx]);
+                int idx = index(t_copy, xi, yi, zi);
+                printf("%8.4f, ", t_copy->data[idx]);
             }
             printf("],\n");
         }
@@ -74,8 +73,8 @@ void print_3d(tensor* t)
     printf("\n");
 }
 
-void print_4d(tensor* t)
-{
+void print_4d(tensor* t){
+    tensor* t_copy = COPY_FROM_DEVICE(t);
     sprint_4d(t);
 
     int o = t->shape[0];
@@ -88,14 +87,24 @@ void print_4d(tensor* t)
             for (int yi=0; yi<y; yi++){
                 printf("[");
                 for (int zi=0; zi<z; zi++){
-                    int idx = index_4d(t, oi, xi, yi, zi);
-                    printf("%8.4f, ", (float)t->data[idx]);
+                    int idx = index(t_copy, oi, xi, yi, zi);
+                    printf("%8.4f, ", t_copy->data[idx]);
                 }
                 printf("],\n");
             }
             printf("\n");
         }
         printf("\n");
+    }
+}
+
+void print(tensor* t){
+    if (t->num_dims==2) print_2d(t);
+    else if (t->num_dims==3) print_3d(t);
+    else if (t->num_dims==4) print_4d(t);
+    else {
+        printf("[print] Error");
+        exit(1);
     }
 }
 
@@ -106,7 +115,7 @@ void lsprint_2d(tensor* t){
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
     fprintf(f, "\n%s:\n", t->name);
     fprintf(f, "%s->shape: %i, %i\n", t->name, t->shape[0], t->shape[1]);
@@ -114,25 +123,23 @@ void lsprint_2d(tensor* t){
     fclose(f);
 }
 
-void lsprint_3d(tensor* t)
-{
+void lsprint_3d(tensor* t){
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
     fprintf(f, "\n%s:\n", t->name);
     fprintf(f, "%s->shape: %i, %i, %i\n", t->name, t->shape[0], t->shape[1], t->shape[2]);
     fprintf(f, "%s->strides: %i, %i, %i\n", t->name, t->stride[0], t->stride[1], t->stride[2]);
     fclose(f);
-
 }
 
 void lsprint_4d(tensor* t){
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
     fprintf(f, "\n%s:\n", t->name);
     fprintf(f, "%s->shape: %i, %i, %i, %i\n", t->name, t->shape[0], t->shape[1],  t->shape[2],  t->shape[3]);
@@ -140,15 +147,25 @@ void lsprint_4d(tensor* t){
     fclose(f);
 }
 
-void lprint_2d(tensor* t)
-{
+void lsprint(tensor* t){
+    if (t->num_dims==2) lsprint_2d(t);
+    else if (t->num_dims==3) lsprint_3d(t);
+    else if (t->num_dims==4) lsprint_4d(t);
+    else {
+        printf("[lsprint] Error");
+        exit(1);
+    }
+}
 
+
+void lprint_2d(tensor* t){
+    tensor* t_copy = COPY_FROM_DEVICE(t);
     lsprint_2d(t);
 
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
 
     int y = t->shape[0];
@@ -157,8 +174,8 @@ void lprint_2d(tensor* t)
     for (int yi=0; yi<y; yi++){
         fprintf(f, "[");
         for (int zi=0; zi<z; zi++){
-            int idx = index_2d(t, yi, zi);
-            fprintf(f, "%8.4f, ", t->data[idx]);
+            int idx = index(t_copy, yi, zi);
+            fprintf(f, "%8.4f, ", t_copy->data[idx]);
         }
         fprintf(f, "],\n");
     }
@@ -166,14 +183,14 @@ void lprint_2d(tensor* t)
     fclose(f);
 }
 
-void lprint_3d(tensor* t)
-{
+void lprint_3d(tensor* t){
+    tensor* t_copy = COPY_FROM_DEVICE(t);
     lsprint_3d(t);
 
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
 
     int x = t->shape[0];
@@ -184,8 +201,8 @@ void lprint_3d(tensor* t)
         for (int yi=0; yi<y; yi++){
             fprintf(f, "[");
             for (int zi=0; zi<z; zi++){
-                int idx = index_3d(t, xi, yi, zi);
-                fprintf(f, "%8.4f, ", t->data[idx]);
+                int idx = index(t_copy, xi, yi, zi);
+                fprintf(f, "%8.4f, ", t_copy->data[idx]);
             }
             fprintf(f, "],\n");
         }
@@ -195,14 +212,14 @@ void lprint_3d(tensor* t)
     fclose(f);
 }
 
-void lprint_4d(tensor* t)
-{
+void lprint_4d(tensor* t){
+    tensor* t_copy = COPY_FROM_DEVICE(t);
     lsprint_4d(t);
 
     FILE *f = fopen("./generated/log.txt", "a");
     if (!f) {
         printf("Error opening file\n");
-        return;
+        exit(1);
     }
 
     int o = t->shape[0];
@@ -215,8 +232,8 @@ void lprint_4d(tensor* t)
             for (int yi=0; yi<y; yi++){
                 fprintf(f, "[");
                 for (int zi=0; zi<z; zi++){
-                    int idx = index_4d(t, oi, xi, yi, zi);
-                    fprintf(f, "%8.4f, ", t->data[idx]);
+                    int idx = index(t_copy, oi, xi, yi, zi);
+                    fprintf(f, "%8.4f, ", t_copy->data[idx]);
                 }
                 fprintf(f, "],\n");
             }
@@ -225,4 +242,14 @@ void lprint_4d(tensor* t)
         fprintf(f, "\n");
     }
     fclose(f);
+}
+
+void lprint(tensor* t){
+    if (t->num_dims==2) lprint_2d(t);
+    else if (t->num_dims==3) lprint_3d(t);
+    else if (t->num_dims==4) lprint_4d(t);
+    else {
+        printf("[lprint] Error");
+        exit(1);
+    }
 }

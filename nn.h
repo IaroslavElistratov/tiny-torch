@@ -8,7 +8,7 @@
 // todo: avoid needing to manually sync increment op_type, NUM_OPS, VIS_COLORS when adding a new op
 //  - use graphviz's pastel19 or set312 color scheme ?
 #define NUM_OPS 23
-const char* OP_NAMES[] = {"add", "sub", "mul", "matmul", "pow", "reduce_sum", "relu", "transpose", "batched_matmul", "conv", "batched_conv", "maxpool", "batched_maxpool", "batched_flatten", "select", "log", "exp", "batched_reduce_sum", "repeat", "neg", "div", "max", "batched_max"};
+const char* OP_NAMES[] = {"add", "sub", "mul", "matmul", "pow", "reduce_sum", "relu", "transpose", "batched_matmul", "conv", "batched_conv", "maxpool", "batched_maxpool", "batched_flatten", "select", "log", "exp", "batched_reduce_sum", "repeat", "neg", "div", "reduce_max", "batched_reduce_max"};
 const char* VIS_COLORS[] = {"darkolivegreen1", "lightsalmon1", "skyblue1", "plum1", "mediumpurple1", "aquamarine", "yellow", "seashell", "orchid2", "deeppink1", "deeppink3", "darkseagreen1", "darkseagreen3", "beige", "bisque", "cornsilk", "darkolivegreen1", "tan1", "deepskyblue", "chocolate", "slateblue", "lemonchiffon", "lightgoldenrodyellow"};
 
 
@@ -16,6 +16,7 @@ const char* VIS_COLORS[] = {"darkolivegreen1", "lightsalmon1", "skyblue1", "plum
 struct tensor {
     float* data;
     int shape[4];
+    int device;
 
     // https://arxiv.org/pdf/1102.1523
     // Strides the number of bytes to skip in memory to
@@ -43,6 +44,10 @@ struct tensor {
     tensor* inputs[MAX_INPUTS];
     int num_uses; // for the AG engine: num outputs of the this tensor left to call their out->grad_fn, before calling grad_fn on the current tensor
 
+    // to store data recorded in fwd and used in bwd (wt needing to recompute it in bwd)
+    // e.g. in relu, reduce_max, maxpool: idxs recorded during forward _k and used in its corresponding _bwd fn
+    tensor* scratch_space[1];
+
     char* name;
     // use char as small int
     int op_type;
@@ -51,27 +56,34 @@ struct tensor {
 };
 
 
-tensor* EmptyTensor(int s1, int s2);
-tensor* EmptyTensorLike(tensor* t);
-tensor* Tensor(int s1, int s2);
-tensor* TensorLike(tensor* t);
-tensor* TensorLikeFill(tensor* t, float value);
-tensor* TensorLikeFill3d(tensor* t, float value);
-tensor* TensorLikeFill4d(tensor* t, float value);
+// enum device {
+//     cpu = 1,
+//     cuda = 2,
+//     // amd = 3,
+//     // tpu = 4,
+// };
 
-float* EmptyFloat(int s1, int s2);
-float* EmptyFloatLike(tensor* t);
-float* FloatLikeFill(tensor* t, int value);
+// note: do not use 0 to denote a valid device, it conflicts with NULL pointer
+// (e.g. checks like "t->device==CPU", if CPU is 0)
+#define CPU 1
+#define CUDA 2
 
+// these two will only be used if DEVICE == CUDA
+#define NUM_THREADS 16
+#define CUDA_DEBUG false
+#define DATA_COPY_DEBUG false
+
+void GetRandomFloat(float*, int);
 void set_name(tensor*, const char*);
+char* random_chars(int);
 
+tensor* TensorLikeFill(tensor*, float);
+tensor* TensorLike(tensor* t);
+void* checkMallocErrors(void* ptr);
 
-void print_2d(tensor*);
-void print_3d(tensor*);
-void print_4d(tensor*);
-
-void lprint_2d(tensor* t);
-void lprint_3d(tensor* t);
-void lprint_4d(tensor* t);
+void print(tensor*);
+void lprint(tensor*);
+void cuda_lprint(tensor*);
+void sprint(tensor* t);
 
 #endif

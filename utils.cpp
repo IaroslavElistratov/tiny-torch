@@ -1,19 +1,48 @@
-// #include <iostream> // todo: use C only
-// using namespace std;
-
 #include "nn.h"
 
 #define MAX_NODES 30
+#define UTILS_DEBUG false
 
+
+void* checkMallocErrors(void* ptr) {
+    if (ptr == NULL){
+        printf("[malloc] error: null pointer\n");
+        exit(1);
+    }
+    return ptr;
+}
+
+void maybe_init_grad(tensor* t){
+    if (!t->grad){
+        t->grad = TensorLikeFill(t, 0.0);
+    } else {
+        if (UTILS_DEBUG) printf("[maybe_init_grad] %s->grad exists!\n", t->name);
+    }
+}
+
+void GetRandomFloat(float* dst, int num)
+{
+    for (int i=0; i<num; i++)
+    {
+        // https://linux.die.net/man/3/random
+        // returns a pseudo-random int between 0 and RAND_MAX
+        // normalize to: 0 - 1
+        // shift to: -0.5 - 0.5
+
+        // not truncating to 0 due to int division, bc C promotes args
+        dst[i] = ((float)rand() / RAND_MAX) - 0.5;
+    }
+}
 
 char* random_chars(int num){
     // increment for the null terminator;
     // not necessary to do sizeof(char) bc guarantied to be 1
-    char* s = (char*)malloc(sizeof(char) * ++num);
+    char* s = (char*)checkMallocErrors(malloc(sizeof(char) * ++num));
 
     char offset = 'a';
     for (int i=0; i<num-1; i++){
         // my first thought was to use modulus, but it's wrong https://stackoverflow.com/a/6852396
+        // todo: still see non-printable chars in the tensor names
         char sampled = rand() % 26; // 'z' - 'a' // 26 letters
         s[i] = offset + sampled;
     }
@@ -21,12 +50,39 @@ char* random_chars(int num){
     return s;
 }
 
+void set_name(tensor* t, const char* name){
+    // free the automatically set random name
+    // added by the constructor
+    // todo: "if (t->name){...}" for some reason leads to a double free error, although I'd expect the two syntaxes "if (t->name==NULL){...}" be the same in my case
+    // if (t->name==NULL){
+    //     free(t->name);
+    // }
+
+    // todo-low: small inefficiency of always allocating MAX_TENSOR_NAME
+    //  even if user provided str is shorter
+    t->name = (char*)checkMallocErrors(malloc(sizeof(char) * MAX_TENSOR_NAME));
+
+    int i=0;
+    bool is_break = false;
+    for (; !is_break && i<MAX_TENSOR_NAME-1; i++) {
+        t->name[i] = name[i];
+        if (name[i] == '\0')
+            is_break = true;
+    }
+
+    if (!is_break && name[i+1] != '\0') {
+        printf("[set_name] Warning, specified name larger than MAX_TENSOR_NAME -- truncating\n");
+        t->name[i+1] = '\0';
+    }
+}
+
+
 // todo-low: keras like vis https://graphviz.org/Gallery/directed/neural-network.html
 void graphviz(tensor* tens){
     FILE *f = fopen("./generated/graph.txt", "w");
     if (f == NULL) {
         printf("[graphviz] Error opening file\n");
-        return;
+        exit(1);
     }
 
     fprintf(f, "digraph {\n");
@@ -36,7 +92,7 @@ void graphviz(tensor* tens){
     //       exp
     //     /    \
     //    x1     x2
-    char* all_visited[MAX_NODES]; // (float*)malloc(sizeof(float*) * MAX_NODES);
+    char* all_visited[MAX_NODES]; // (float*)checkMallocErrors(malloc(sizeof(float*) * MAX_NODES));
     // is used to index into all_visited
     int idx_visited = 0;
 
@@ -72,12 +128,12 @@ void graphviz(tensor* tens){
 
             // for tensors, vis shapes instead of names
             // label=\"{%s\\nshape=(%i, %i)}\"]\n", inp->name
-            if (inp->num_dims==4)
-                fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i, %i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1], inp->shape[2], inp->shape[3]);
+            if (inp->num_dims==2)
+                fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1]);
             else if (inp->num_dims==3)
                 fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1], inp->shape[2]);
-            else
-                fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1]);
+            else if (inp->num_dims==4)
+                fprintf(f, "%s [shape=record, label=\"{shape=(%i, %i, %i, %i)}\"]\n", inp->name, inp->shape[0], inp->shape[1], inp->shape[2], inp->shape[3]);
 
             // leafs don't have inputs to iterate over in the next iteration
             if (!inp->is_leaf && !is_visited) {

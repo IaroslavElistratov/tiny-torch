@@ -1,8 +1,4 @@
-#include <iostream> // todo: use C only
-#include <stdlib.h> // iot
-
-using namespace std;
-
+#include <stdarg.h>
 #include "parse.cpp"
 
 
@@ -21,9 +17,36 @@ int index_4d(tensor* t, int o, int x, int y, int z){
     return t->stride[0]*o + t->stride[1]*x + t->stride[2]*y + t->stride[3]*z;
 }
 
+// most of the logic here unpacks varying number of args so that idx_Nd can be called
+int index(tensor* t, ...){
+    va_list args;
+    va_start(args, t);
 
+    int idx;
+    int s0 = va_arg(args, int);
+    int s1 = va_arg(args, int);
+
+    if (t->num_dims==2){
+        idx = index_2d(t, s0, s1);
+    } else if (t->num_dims==3){
+        int s2 = va_arg(args, int);
+        idx = index_3d(t, s0, s1, s2);
+    } else if (t->num_dims==4){
+        int s2 = va_arg(args, int);
+        int s3 = va_arg(args, int);
+        idx = index_4d(t, s0, s1, s2, s3);
+    } else {
+        printf("[index] unexpected t->num_dims: %i\n", t->num_dims);
+        sprint(t);
+        exit(1);
+    }
+    va_end(args);
+    return idx;
+}
+
+
+// todo: name it "contigify"
 // owning views:
-//   todo: name it "contigify"
 
 
 tensor* slice_2d(tensor* t, const char* dims){
@@ -53,7 +76,6 @@ tensor* slice_2d(tensor* t, const char* dims){
 // todo: can make this re-use slice_2d?
 tensor* slice_3d(tensor* t, const char* dims){
 
-
     // also converts char to int
     int* parsed_dims = parse_idxs(dims, 3);
     // int* starts = parsed_dims[0];
@@ -66,7 +88,7 @@ tensor* slice_3d(tensor* t, const char* dims){
     int y = ends[1] - starts[1];
     int z = ends[2] - starts[2];
 
-    tensor* out = EmptyTensor3d(x, y, z);
+    tensor* out = EmptyTensor(x, y, z);
 
     for (int xi=0; xi<x; xi++){
         for (int yi=0; yi<y; yi++){
@@ -78,6 +100,15 @@ tensor* slice_3d(tensor* t, const char* dims){
         }
     }
     return out;
+}
+
+tensor* slice(tensor* t, const char* dims){
+    if (t->num_dims==2) return slice_2d(t, dims);
+    else if (t->num_dims==3) return slice_3d(t, dims);
+    else {
+        printf("[slice] unexpected t->num_dims\n");
+        exit(1);
+    };
 }
 
 
@@ -122,7 +153,7 @@ tensor* view_3d(tensor* t, const char* dims){
     int y = ends[1] - starts[1];
     int z = ends[2] - starts[2];
 
-    tensor* out = TensorNoData3d(x, y, z);
+    tensor* out = TensorNoData(x, y, z);
 
     out->stride[0] = t->stride[0];
     out->stride[1] = t->stride[1];
@@ -130,6 +161,15 @@ tensor* view_3d(tensor* t, const char* dims){
 
     out->data = &t->data[index_3d(t, starts[0], starts[1], starts[2])];
     return out;
+}
+
+tensor* view(tensor* t, const char* dims){
+    if (t->num_dims==2) return view_2d(t, dims);
+    else if (t->num_dims==3) return view_3d(t, dims);
+    else {
+        printf("[view] unexpected t->num_dims\n");
+        exit(1);
+    };
 }
 
 
@@ -140,8 +180,7 @@ Used in elementwise ops, which were previously implemented (see below), and this
 */
 
 
-int at_2d(tensor* t, int idx)
-{
+int at_2d(tensor* t, int idx){
     int z = t->shape[1];
     // todo: y instead of stride -- bc want n in shapes here
     int y_idx = idx / z;
@@ -149,9 +188,8 @@ int at_2d(tensor* t, int idx)
     return index_2d(t, y_idx, z_idx);
 }
 
-int at_3d(tensor* t, int idx)
-{
-    int x = t->shape[0];
+int at_3d(tensor* t, int idx){
+    // int x = t->shape[0];
     int y = t->shape[1];
     int z = t->shape[2];
 
@@ -168,4 +206,14 @@ int at_3d(tensor* t, int idx)
     int z_idx = idx % z;
 
     return index_3d(t, x_idx, y_idx, z_idx);
+}
+
+int at(tensor* t, int idx){
+    if (t->num_dims==2) return at_2d(t, idx);
+    else if (t->num_dims==3) return at_3d(t, idx);
+    else {
+        printf("[at] unexpected t->num_dims (expected 2 or 3)\n");
+        exit(1);
+        // return -1;
+    };
 }
