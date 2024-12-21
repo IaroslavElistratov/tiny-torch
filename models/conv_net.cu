@@ -60,7 +60,11 @@ def forward(self, x):
 struct state
 {
     tensor* kernel1;
+    tensor* bias_kernel1;
+
     tensor* kernel2;
+    tensor* bias_kernel2;
+
     tensor* w1;
     tensor* w2;
     tensor* w3;
@@ -71,14 +75,14 @@ tensor* forward(tensor* input, state* params) {
 
     // *** Net ***
 
-    tensor* conv1 = batched_conv(input, params->kernel1);
+    tensor* conv1 = batched_conv(input, params->kernel1, params->bias_kernel1);
     set_name(conv1, "conv1"); // sprint(conv1);
     tensor* relu1 = relu(conv1);
     set_name(relu1, "relu1"); // sprint(relu1);
     tensor* mp1 = batched_maxpool(relu1);
     set_name(mp1, "mp1"); // sprint(mp1);
 
-    tensor* conv2 = batched_conv(mp1, params->kernel2);
+    tensor* conv2 = batched_conv(mp1, params->kernel2, params->bias_kernel2);
     set_name(conv2, "conv2"); // sprint(conv2);
     tensor* relu2 = relu(conv2);
     set_name(relu2, "relu2"); // sprint(relu2);
@@ -135,7 +139,9 @@ tensor* train_step(cifar10* data, state* params) {
 
     // *** Zero-out grads ***
     params->kernel1->grad = NULL;
+    params->bias_kernel1->grad = NULL;
     params->kernel2->grad = NULL;
+    params->bias_kernel2->grad = NULL;
     params->w1->grad = NULL;
     params->w2->grad = NULL;
     params->w3->grad = NULL;
@@ -145,7 +151,9 @@ tensor* train_step(cifar10* data, state* params) {
 
     // *** Optim Step ***
     sgd(params->kernel1);
+    sgd(params->bias_kernel1);
     sgd(params->kernel2);
+    sgd(params->bias_kernel2);
     sgd(params->w1);
     sgd(params->w2);
     sgd(params->w3);
@@ -190,7 +198,22 @@ int main() {
     tensor* w3 = Tensor(32, 10);
     set_name(w3, "w3");
 
-    state params = {kernel1, kernel2, w1, w2, w3};
+    tensor* bias_kernel1 = Tensor(F, 1);
+    set_name(bias_kernel1, "bias_kernel1");
+
+    tensor* bias_kernel2 = Tensor(F, 1);
+    set_name(bias_kernel2, "bias_kernel2");
+
+    // tensor* b1 = Tensor(128, 1);
+    // set_name(b1, "b1");
+
+    // tensor* b2 = Tensor(64, 1);
+    // set_name(b2, "b2");
+
+    // tensor* b3 = Tensor(10, 1);
+    // set_name(b3, "b3");
+
+    state params = {kernel1, bias_kernel1, kernel2, bias_kernel2, w1, w2, w3};
 
 
 
@@ -202,7 +225,9 @@ int main() {
     // the same values regardless of wether there are prints or not
 
     lprint(kernel1);
+    lprint(bias_kernel1);
     lprint(kernel2);
+    lprint(bias_kernel2);
     lprint(w1);
     lprint(w2);
     lprint(w3);
@@ -224,7 +249,9 @@ int main() {
     // lprint(params.w2->grad);
     // lprint(params.w1->grad);
     // lprint(params.kernel2->grad);
+    lprint(params.bias_kernel2->grad);
     // lprint(params.kernel1->grad);
+    lprint(params.bias_kernel1->grad);
 
     // lprint(kernel1);
     // lprint(kernel2);

@@ -2,7 +2,7 @@
 #ifndef NN_H_INCLUDED
 #define NN_H_INCLUDED
 
-#define MAX_INPUTS 2
+#define MAX_INPUTS 3
 #define MAX_TENSOR_NAME 20 // unique for each tensor
 
 // todo: avoid needing to manually sync increment op_type, NUM_OPS, VIS_COLORS when adding a new op

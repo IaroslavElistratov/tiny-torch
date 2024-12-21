@@ -23,11 +23,12 @@ todo: implement pytorch's C optional as way to support tunable args
 Returns a tuple of:
 - out: Output data, of shape (F, H', W')
 */
-tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
+tensor* conv_k_(tensor* input, tensor* kernel, tensor* bias, tensor* out) {
 
     assert_input(out, 3);
     assert_input(input, 3);
     assert_input(kernel, 4);
+    assert_input(bias, 2);
 
     int C = input->shape[0], H = input->shape[1], W = input->shape[2];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
@@ -96,7 +97,10 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
                 // todo: add flag to tensors, is_contiguous and make each op check that flag and err otherwise
                 curr_out = reduce_sum_k(curr_out);
 
-                // 3. write to the current location at the output
+                // 3. add bias
+                curr_out->data[0] += bias->data[f];
+
+                // 4. write to the current location at the output
                 if (IS_DEBUG)
                     printf("[conv_k_] curr_out->data[0]: %f\n", curr_out->data[0]);
                 out->data[index(out, f, hight, width)] = curr_out->data[0];
@@ -108,7 +112,7 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* out) {
 
 // input (C, H, W)
 // kernel (F, C, HH, WW)
-tensor* conv_k(tensor* input, tensor* kernel) {
+tensor* conv_k(tensor* input, tensor* kernel, tensor* bias) {
     int H = input->shape[1], W = input->shape[2];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
 
@@ -122,7 +126,7 @@ tensor* conv_k(tensor* input, tensor* kernel) {
     }
 
     tensor* out = EmptyTensor(F, h_out, w_out);
-    return  conv_k_(input, kernel, out);
+    return  conv_k_(input, kernel, bias, out);
 }
 
 // conv output, upstream: (F, h_out, w_out)
@@ -130,6 +134,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
     assert_input(upstream, out->num_dims);
     tensor* input = out->inputs[0];
     tensor* kernel = out->inputs[1];
+    tensor* bias = out->inputs[2];
 
     if (IS_DEBUG)
         printf("[bwd_conv_k] input->shape: %i, %i, %i\n", input->shape[0], input->shape[1], input->shape[2]);
@@ -142,6 +147,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
 
     // make sure it's not initialised with garbage
     tensor* grad_kernels = TensorLikeFill(kernel, 0.0);
+    tensor* grad_bias = TensorLikeFill(bias, 0.0);
     tensor* grad_x = TensorLikeFill(input, 0.0);
 
     for (int f=0; f<F; f++){
@@ -215,11 +221,16 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
                 curr_downstream_slice_in_larger_tensor = view(grad_x, buffer);
 
                 add_k_(curr_downstream_slice_in_larger_tensor, curr_downstream, curr_downstream_slice_in_larger_tensor);
+
+
+                // grad wrt bias
+                grad_bias->data[f] += 1. * curr_upstream_float;
             }
         }
     }
 
     kernel->grad = grad_kernels;
+    bias->grad = grad_bias;
     input->grad = grad_x;
 }
 
@@ -227,9 +238,10 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
 
 // x (B, C, H, W)
 // w (F, C, HH, WW)
-tensor* batched_conv_k(tensor* input, tensor* kernel){
+tensor* batched_conv_k(tensor* input, tensor* kernel, tensor* bias){
     assert_input(input, 4);
     assert_input(kernel, 4);
+    assert_input(bias, 2);
 
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
@@ -254,7 +266,7 @@ tensor* batched_conv_k(tensor* input, tensor* kernel){
         curr_x->data = input->data + (i * input->stride[0]);
 
         // comment: add support for 5d tensors? -- NO, w stays 4d
-        conv_k_(curr_x, kernel, curr_out);
+        conv_k_(curr_x, kernel, bias, curr_out);
     }
     return out;
 }
@@ -267,6 +279,7 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
 
     tensor* input = out->inputs[0];
     tensor* kernel = out->inputs[1];
+    tensor* bias = out->inputs[2];
 
     int B = input->shape[0], C = input->shape[1], H = input->shape[2], W = input->shape[3];
     int F = kernel->shape[0], HH = kernel->shape[2], WW = kernel->shape[3];
@@ -280,6 +293,7 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
 
     // make sure it's not initialised with garbage
     tensor* grad_x = TensorLikeFill(input, 0.0);
+    tensor* grad_bias = TensorLikeFill(bias, 0.0);
     tensor* grad_kernels = TensorLikeFill(kernel, 0.0);
 
     for (int i=0; i<B; i++){
@@ -297,10 +311,13 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
         // bwd_conv_k unpacks this
         curr_out->inputs[0] = curr_x;
         curr_out->inputs[1] = kernel;
+        curr_out->inputs[2] = bias;
 
         bwd_conv_k(curr_upstream, curr_out);
-        tensor* curr_grad_x = curr_x->grad; // set by bwd_conv_k
-        tensor* curr_grad_filter = kernel->grad; // set by bwd_conv_k
+        // set by bwd_conv_k
+        tensor* curr_grad_x = curr_x->grad;
+        tensor* curr_grad_filter = kernel->grad;
+        tensor* curr_grad_bias = bias->grad;
 
         for (int ii=0; ii<curr_grad_x->size; ii++){
             int offset_batch = i * grad_x->stride[0];
@@ -314,10 +331,15 @@ void bwd_batched_conv_k(tensor* upstream, tensor* out) {
         }
         // todo-low:
         // add_k_(curr_grad_filter, grad_kernels, grad_kernels);
+
+        for (int ii=0; ii<grad_bias->size; ii++){
+            grad_bias->data[ii] = grad_bias->data[ii] + curr_grad_bias->data[ii];
+        }
     }
 
     input->grad = grad_x;
     kernel->grad = grad_kernels;
+    bias->grad = grad_bias;
 }
 
 

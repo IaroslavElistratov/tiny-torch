@@ -247,27 +247,31 @@ tensor* batched_reduce_max(tensor* a) {
     return t;
 }
 
-tensor* conv(tensor* input, tensor* kernel) {
+tensor* conv(tensor* input, tensor* kernel, tensor* bias) {
     input->num_uses++;
     kernel->num_uses++;
-    tensor* t = conv_k(input, kernel);
+    bias->num_uses++;
+    tensor* t = conv_k(input, kernel, bias);
     t->is_leaf = false;
-    t->num_inputs = 2;
+    t->num_inputs = 3;
     t->inputs[0] = input;
     t->inputs[1] = kernel;
+    t->inputs[2] = bias;
     t->op_type = 9;
     t->grad_fn = bwd_conv_k;
     return t;
 }
 
-tensor* batched_conv(tensor* input, tensor* kernel) {
+tensor* batched_conv(tensor* input, tensor* kernel, tensor* bias) {
     input->num_uses++;
     kernel->num_uses++;
-    tensor* t = batched_conv_k(input, kernel);
+    bias->num_uses++;
+    tensor* t = batched_conv_k(input, kernel, bias);
     t->is_leaf = false;
-    t->num_inputs = 2;
+    t->num_inputs = 3;
     t->inputs[0] = input;
     t->inputs[1] = kernel;
+    t->inputs[2] = bias;
     t->op_type = 10;
     t->grad_fn = bwd_batched_conv_k;
     return t;
