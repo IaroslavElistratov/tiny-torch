@@ -192,10 +192,19 @@ __global__ void BwdConvKernel(float* x, float* kernel, float* upstream, float* g
                             int k_idx = f*C*HH*WW + c*HH*WW + h*WW + w;
                             int x_idx = b*C*H*W + c*H*W + x_h*W + x_w;
 
-                            grad_x[x_idx] += (kernel[k_idx] * upstream[u_idx]);
-                            // grad_kernel[k_idx] += (x[x_idx] * upstream[u_idx]);
                             // todo: slow
                             atomicAdd(&grad_kernel[k_idx], (x[x_idx] * upstream[u_idx]));
+                            // grad_kernel[k_idx] += (x[x_idx] * upstream[u_idx]);
+
+                            // when conv kernels are applied to non-overlapping regions of the input
+                            // (due to STRIDE_CONV, and kernel size -- e.g. stride=2, kernel_size=2),
+                            // the computation of the grad wrt input does NOT need to be atomic (the
+                            // same location in the grad_x will NOT be modified from different threads).
+                            // But because I now reduced STRIDE_CONV, and increased kernel_size, it's
+                            // possible that conv kernels will be applied to overplaying locations of
+                            // the input -- thus now need the atomics here
+                            atomicAdd(&grad_x[x_idx], (kernel[k_idx] * upstream[u_idx]));
+                            // grad_x[x_idx] += (kernel[k_idx] * upstream[u_idx]);
                         }
                     }
                 }
