@@ -1,8 +1,8 @@
 #include <iostream> // todo: use C only
 using namespace std;
 
-#define DEVICE CUDA
 
+#define DEVICE CUDA
 
 #include "../nn.h"
 #include "../tensor.cpp"
@@ -10,9 +10,10 @@ using namespace std;
 #include "../composite_ops.cpp"
 #include "../cifar10.cpp"
 #include "../print.cpp"
+#include "../codegen.cpp"
 
 
-#define NUM_EP 10 // 20
+#define NUM_EP 1 // 20
 #define LR 0.001 // torch tutorial
 #define DEBUG  1
 
@@ -56,19 +57,6 @@ def forward(self, x):
     return x
 */
 
-
-struct state
-{
-    tensor* kernel1;
-    tensor* bias_kernel1;
-
-    tensor* kernel2;
-    tensor* bias_kernel2;
-
-    tensor* w1;
-    tensor* w2;
-    tensor* w3;
-};
 
 
 tensor* forward(tensor* input, state* params) {
@@ -146,8 +134,15 @@ tensor* train_step(cifar10* data, state* params) {
     params->w2->grad = NULL;
     params->w3->grad = NULL;
 
+    loss->num_uses = 0;
+    save_num_uses(loss);
+
     // *** Backward ***
     loss->backward(loss);
+
+    // must call generate test BEFORE param update, otherwise asserts
+    // on runtime values don't make sense -- bc SGD mutates weights inplace
+    generate_test(loss, params);
 
     // *** Optim Step ***
     sgd(params->kernel1);
@@ -240,8 +235,9 @@ int main() {
         // passes loss sanity check -- 10 classes, if model is random (predicting each cls equally)
         // log(0.1) = -2.3
         tensor* loss = train_step(data, &params);
-        if (ep_idx==0)
+        if (ep_idx==0){
             graphviz(loss);
+        }
         printf("ep: %i; loss: %f;\n\n", ep_idx, COPY_FROM_DEVICE(loss)->data[0]);
     }
 
@@ -249,9 +245,9 @@ int main() {
     // lprint(params.w2->grad);
     // lprint(params.w1->grad);
     // lprint(params.kernel2->grad);
-    lprint(params.bias_kernel2->grad);
+    // lprint(params.bias_kernel2->grad);
     // lprint(params.kernel1->grad);
-    lprint(params.bias_kernel1->grad);
+    // lprint(params.bias_kernel1->grad);
 
     // lprint(kernel1);
     // lprint(kernel2);

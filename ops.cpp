@@ -91,6 +91,7 @@ tensor* repeat(tensor* a, int num_repeats) {
     t->is_leaf = false;
     t->num_inputs = 1;
     t->inputs[0] = a;
+    t->non_grad_inputs[0] = num_repeats;
     t->op_type = 18;
     t->grad_fn = repeat_bwd;
     return t;
@@ -117,6 +118,7 @@ tensor* pow(tensor* a, int exponent) {
     //  so here even if this op has two inputs, it really has one, for the purpose of the autograd
     t->num_inputs = 1;
     t->inputs[0] = a;
+    t->non_grad_inputs[0] = exponent;
     t->op_type = 4;
     t->grad_fn = pow_bwd;
     return t;

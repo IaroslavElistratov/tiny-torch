@@ -1,7 +1,7 @@
 #include <deque> // deque from standard template library (STL)
 #include "nn.h"
 
-#define IS_DEBUG_AG false
+#define IS_DEBUG_AG true
 #define IS_DEBUG_BRANCHES false
 
 

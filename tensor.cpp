@@ -36,7 +36,7 @@ tensor* TensorNoData2d(int y, int z)
     // bc it's unknown at this moment, bc depends on whatever ops is
     // being called on that tensor), num_uses is 1nown from the start
     // -- it's 0 for all ops
-    t->num_uses = 0;
+    t->num_uses = t->_num_uses = 0;
     t->name = random_chars(3);
 
     t->grad_fn = NULL;
@@ -70,7 +70,7 @@ tensor* TensorNoData3d(int x, int y, int z)
 
     t->is_leaf = true;
     t->num_inputs = -1;
-    t->num_uses = 0;
+    t->num_uses = t->_num_uses = 0;
     t->name = random_chars(3);
 
     t->grad_fn = NULL;
@@ -102,7 +102,7 @@ tensor* TensorNoData4d(int o, int x, int y, int z)
     // for autograd engine:
     t->is_leaf = true;
     t->num_inputs = -1;
-    t->num_uses = 0;
+    t->num_uses = t->_num_uses = 0;
     t->name = random_chars(3);
 
     t->grad_fn = NULL;

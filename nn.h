@@ -42,7 +42,10 @@ struct tensor {
 
     int num_inputs;
     tensor* inputs[MAX_INPUTS];
+    // question-now: malloc memory for this?
+    int non_grad_inputs[MAX_INPUTS];
     int num_uses; // for the AG engine: num outputs of the this tensor left to call their out->grad_fn, before calling grad_fn on the current tensor
+    int _num_uses;
 
     // to store data recorded in fwd and used in bwd (wt needing to recompute it in bwd)
     // e.g. in relu, reduce_max, maxpool: idxs recorded during forward _k and used in its corresponding _bwd fn
@@ -85,5 +88,19 @@ void print(tensor*);
 void lprint(tensor*);
 void cuda_lprint(tensor*);
 void sprint(tensor* t);
+
+// todo-now: mv back to conv_net.cu
+struct state
+{
+    tensor* kernel1;
+    tensor* bias_kernel1;
+
+    tensor* kernel2;
+    tensor* bias_kernel2;
+
+    tensor* w1;
+    tensor* w2;
+    tensor* w3;
+};
 
 #endif
