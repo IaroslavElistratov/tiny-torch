@@ -17,7 +17,7 @@ FILE *fopen(char *name, char *mode);
 void cprint_1d(tensor* t, FILE *f){
     tensor* t_copy = COPY_FROM_DEVICE(t);
 
-    fprintf(f, "    [%12.8f, ]\n", t_copy->data[0]);
+    fprintf(f, "    [%12.8f, ]", t_copy->data[0]);
 }
 
 void cprint_2d(tensor* t, FILE *f){
@@ -31,7 +31,6 @@ void cprint_2d(tensor* t, FILE *f){
         }
         fprintf(f, "],\n");
     }
-    fprintf(f, "\n");
 }
 
 void cprint_3d(tensor* t, FILE *f){
@@ -46,9 +45,9 @@ void cprint_3d(tensor* t, FILE *f){
             }
             fprintf(f, "],\n");
         }
+        // if (x < t->shape[0]-1)   // avoid empty lines after the last matrix
         fprintf(f, "\n");
     }
-    fprintf(f, "\n");
 }
 
 void cprint_4d(tensor* t, FILE *f){
@@ -64,8 +63,10 @@ void cprint_4d(tensor* t, FILE *f){
                 }
                 fprintf(f, "],\n");
             }
+            // if (x < t->shape[1]-1)
             fprintf(f, "\n");
         }
+        // if (o < t->shape[0]-1)
         fprintf(f, "\n");
     }
 }
@@ -195,21 +196,21 @@ void codegen_assert_close(tensor* t){
     FILE *f = fopen("./generated/test.py", "a");
 
     // CODEGEN TENSOR
-    fprintf(f, "__tiny_torch_%s = np.array([\n", t->name);
+    fprintf(f, "_tiny_torch_%s = np.array([\n", t->name);
     cprint(t, f);
     fprintf(f, "])\n");
     if (t->num_dims==2){
-        fprintf(f, "__tiny_torch_%s = torch.Tensor(__tiny_torch_%s.reshape(%i, %i))\n", t->name, t->name, t->shape[0], t->shape[1]);
+        fprintf(f, "_tiny_torch_%s = torch.Tensor(_tiny_torch_%s.reshape(%i, %i))\n", t->name, t->name, t->shape[0], t->shape[1]);
     } else if (t->num_dims==3){
-        fprintf(f, "__tiny_torch_%s = torch.Tensor(__tiny_torch_%s.reshape(%i, %i, %i))\n", t->name, t->name, t->shape[0], t->shape[1], t->shape[2]);
+        fprintf(f, "_tiny_torch_%s = torch.Tensor(_tiny_torch_%s.reshape(%i, %i, %i))\n", t->name, t->name, t->shape[0], t->shape[1], t->shape[2]);
     } else if (t->num_dims==4){
-        fprintf(f, "__tiny_torch_%s = torch.Tensor(__tiny_torch_%s.reshape(%i, %i, %i, %i))\n", t->name, t->name, t->shape[0], t->shape[1], t->shape[2], t->shape[3]);
+        fprintf(f, "_tiny_torch_%s = torch.Tensor(_tiny_torch_%s.reshape(%i, %i, %i, %i))\n", t->name, t->name, t->shape[0], t->shape[1], t->shape[2], t->shape[3]);
     } else{
         printf("[codegen_tensor] unsupported\n");
         exit(1);
     }
     // todo-low: use "np.testing.assert_allclose" ?
-    fprintf(f, "assert torch.allclose(%s, __tiny_torch_%s, atol=1e-4)\n\n", t->name, t->name);
+    fprintf(f, "assert torch.allclose(%s, _tiny_torch_%s, atol=1e-4)\n\n", t->name, t->name);
     fclose(f);
 
 }
@@ -218,21 +219,21 @@ void codegen_assert_grad_close(tensor* t){
     FILE *f = fopen("./generated/test.py", "a");
 
     // CODEGEN TENSOR
-    fprintf(f, "__tiny_torch_grad_%s = np.array([\n", t->name);
+    fprintf(f, "_tiny_torch_%s_grad = np.array([\n", t->name);
     cprint(t->grad, f);
     fprintf(f, "])\n");
     if (t->num_dims==2){
-        fprintf(f, "__tiny_torch_grad_%s = torch.Tensor(__tiny_torch_grad_%s.reshape(%i, %i))\n", t->name, t->name, t->grad->shape[0], t->grad->shape[1]);
+        fprintf(f, "_tiny_torch_%s_grad = torch.Tensor(_tiny_torch_%s_grad.reshape(%i, %i))\n", t->name, t->name, t->grad->shape[0], t->grad->shape[1]);
     } else if (t->grad->num_dims==3){
-        fprintf(f, "__tiny_torch_grad_%s = torch.Tensor(__tiny_torch_grad_%s.reshape(%i, %i, %i))\n", t->name, t->name, t->grad->shape[0], t->grad->shape[1], t->grad->shape[2]);
+        fprintf(f, "_tiny_torch_%s_grad = torch.Tensor(_tiny_torch_%s_grad.reshape(%i, %i, %i))\n", t->name, t->name, t->grad->shape[0], t->grad->shape[1], t->grad->shape[2]);
     } else if (t->grad->num_dims==4){
-        fprintf(f, "__tiny_torch_grad_%s = torch.Tensor(__tiny_torch_grad_%s.reshape(%i, %i, %i, %i))\n", t->name, t->name, t->grad->shape[0], t->grad->shape[1], t->grad->shape[2], t->grad->shape[3]);
+        fprintf(f, "_tiny_torch_%s_grad = torch.Tensor(_tiny_torch_%s_grad.reshape(%i, %i, %i, %i))\n", t->name, t->name, t->grad->shape[0], t->grad->shape[1], t->grad->shape[2], t->grad->shape[3]);
     } else{
         printf("[codegen_tensor] unsupported\n");
         exit(1);
     }
     // todo: for now grad asserts have a higher tolerance (1e-3) compared to (1e-4) for fwd intermidiate tensors
-    fprintf(f, "assert torch.allclose(%s.grad, __tiny_torch_grad_%s, atol=1e-4)\n\n", t->name, t->name);
+    fprintf(f, "assert torch.allclose(%s.grad, _tiny_torch_%s_grad, atol=1e-4)\n\n", t->name, t->name);
     fclose(f);
 
 }
@@ -371,7 +372,7 @@ void generate_test(tensor* loss, state* params){
     codegen_backward_call(loss);
 
     f = fopen("./generated/test.py", "a");
-    fprintf(f, "\n\n\n# ~~~~~~~~~~ intermidiate tensors asserts ~~~~~~~~~~\n\n\n\n");
+    fprintf(f, "\n\n\n# ~~~~~~~~~~ intermediate tensors asserts ~~~~~~~~~~\n\n\n\n");
     fclose(f);
     codegen_all_asserts(loss);
     rest_num_uses(loss);
