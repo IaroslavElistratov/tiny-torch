@@ -85,8 +85,6 @@ void cprint(tensor* t, FILE *f){
 
 
 
-void codegen_assert_close(tensor* t, FILE* f);
-
 void codegen_op_call(tensor* t){
     FILE *f = fopen("./generated/test.py", "a");
     switch (t->op_type) {
@@ -101,7 +99,6 @@ void codegen_op_call(tensor* t){
             break;
         case 3:
             fprintf(f, "%s = %s @ %s\n", t->name, t->inputs[0]->name, t->inputs[1]->name);
-            codegen_assert_close(t, f);
             break;
         case 20:
             fprintf(f, "%s = %s / %s\n", t->name, t->inputs[0]->name, t->inputs[1]->name);
@@ -111,7 +108,6 @@ void codegen_op_call(tensor* t){
             break;
         case 14:
             fprintf(f, "%s = torch.gather(%s, dim=1, index=%s.long())\n", t->name, t->inputs[0]->name, t->inputs[1]->name);
-            codegen_assert_close(t, f);
             break;
         case 4:
             fprintf(f, "%s = torch.pow(%s, %i)\n", t->name, t->inputs[0]->name, t->non_grad_inputs[0]);
@@ -145,31 +141,24 @@ void codegen_op_call(tensor* t){
             break;
         case 21:
             fprintf(f, "%s = torch.max(%s)[0]\n", t->name, t->inputs[0]->name);
-            // todo-now: move codegen_assert_close into the recursive function -- to avoid adding it here after each instruction
-            codegen_assert_close(t, f);
             break;
         case 22:
             fprintf(f, "%s = torch.max(%s, dim=1, keepdim=True)[0]\n", t->name, t->inputs[0]->name);
-            codegen_assert_close(t, f);
             break;
         // todo: for case 9 and 10, use STRIDE_CONV
         case 9:
             // need squeeze because F.conv2d expects bias of shape (F, ), but bc tiny-torch doesn't support 1d tensors its shape is (F, 1)
             fprintf(f, "%s = F.conv2d(%s, %s, bias=%s.squeeze(-1), stride=1, padding=0)\n", t->name, t->inputs[0]->name, t->inputs[1]->name, t->inputs[2]->name);
-            codegen_assert_close(t, f);
             break;
         case 10:
             fprintf(f, "%s = F.conv2d(%s, %s, bias=%s.squeeze(-1), stride=1, padding=0)\n", t->name, t->inputs[0]->name, t->inputs[1]->name, t->inputs[2]->name);
-            codegen_assert_close(t, f);
             break;
         // todo: for case 11 and 12, use STRIDE_MAXPOOL
         case 11:
             fprintf(f, "%s = F.max_pool2d(%s, kernel_size=2, stride=2, padding=0)\n", t->name, t->inputs[0]->name);
-            codegen_assert_close(t, f);
             break;
         case 12:
             fprintf(f, "%s = F.max_pool2d(%s, kernel_size=2, stride=2, padding=0)\n", t->name, t->inputs[0]->name);
-            codegen_assert_close(t, f);
             break;
 
         default:
@@ -179,12 +168,10 @@ void codegen_op_call(tensor* t){
     fclose(f);
 }
 
-
-
 void codegen_tensor(tensor* t){
     FILE *f = fopen("./generated/test.py", "a");
 
-    fprintf(f, "\n_%s = np.array([\n", t->name);
+    fprintf(f, "_%s = np.array([\n", t->name);
     // IS_CODEGEN = true;
     cprint(t, f);
     // IS_CODEGEN = false;
@@ -203,12 +190,12 @@ void codegen_tensor(tensor* t){
     fclose(f);
 }
 
-
 // todo-low: assert shapes are same
-void codegen_assert_close(tensor* t, FILE* f){
+void codegen_assert_close(tensor* t){
+    FILE *f = fopen("./generated/test.py", "a");
 
     // CODEGEN TENSOR
-    fprintf(f, "\n__tiny_torch_%s = np.array([\n", t->name);
+    fprintf(f, "__tiny_torch_%s = np.array([\n", t->name);
     cprint(t, f);
     fprintf(f, "])\n");
     if (t->num_dims==2){
@@ -223,15 +210,15 @@ void codegen_assert_close(tensor* t, FILE* f){
     }
     // todo-low: use "np.testing.assert_allclose" ?
     fprintf(f, "assert torch.allclose(%s, __tiny_torch_%s, atol=1e-4)\n\n", t->name, t->name);
+    fclose(f);
 
 }
-
 
 void codegen_assert_grad_close(tensor* t){
     FILE *f = fopen("./generated/test.py", "a");
 
     // CODEGEN TENSOR
-    fprintf(f, "\n__tiny_torch_grad_%s = np.array([\n", t->name);
+    fprintf(f, "__tiny_torch_grad_%s = np.array([\n", t->name);
     cprint(t->grad, f);
     fprintf(f, "])\n");
     if (t->num_dims==2){
@@ -266,9 +253,9 @@ void codegen_imports(){
     fclose(f);
 }
 
+// need this fn bc in tiny torch call to AG is not an op, so can't just add another case to the switch statement (to represent the backward call)
 void codegen_backward_call(tensor* t){
     FILE *f = fopen("./generated/test.py", "a");
-    codegen_assert_close(t, f);
     fprintf(f, "%s.backward(torch.ones_like(%s))\n", t->name, t->name);
     fclose(f);
 }
@@ -276,46 +263,40 @@ void codegen_backward_call(tensor* t){
 
 
 
-// // recursive_traverse(loss);
-// void recursive_traverse(tensor* t){
-//     if (t->num_uses != 0){
-//         return;
-//     }
+// comment:
+// split the three passes of recursive_traverse  (where in the 1st pass I generate leaf tensors;
+// in the 2nd pass op calls; and in the 3rd pass asserts for intermediate tensors) -- this way the
+// generated code is more readable (all tensors are grouped together and declared above the ops,
+// followed by the ops, which are followed by the asserts)
 
-//     for (int i=0; i<t->num_inputs; i++){
-//         tensor* inp = t->inputs[i];
-//         printf("[recursive_traverse] %s\n", inp->name);
-
-//         if (!inp->is_leaf){
-//             inp->num_uses--;
-//             recursive_traverse(inp);
-//             if (inp->num_uses == 0){
-//                 // since codegen's op call after recursive call, will generate code in correct (reverse) order
-//                 codegen_op_call(inp);
-//             }
-
-//         } else {
-//             codegen_tensor(inp);
-//         }
-
-//     }
-// }
-
-
-// todo-now: can do two passes of recursive_traverse where in the 1st pass you generate leaf tensors (codegen_tensor) and in the second pass op calls -- this way the generated input tensors can be grouped together and be above the ops (for readability)
-
-// this fn should be called on a final output of the graph (e.g. loss)
-void recursive_traverse(tensor* t){
+void codegen_all_leafs(tensor* t){
     if (t->num_uses != 0){
         return;
     }
 
     for (int i=0; i<t->num_inputs; i++){
         tensor* inp = t->inputs[i];
-        printf("[recursive_traverse] %s\n", inp->name);
-
+        // printf("[codegen_all_leafs] %s\n", inp->name);
         inp->num_uses--;
-        recursive_traverse(inp);
+        codegen_all_leafs(inp);
+    }
+
+    if (t->is_leaf){
+        // todo-low: don't write "input" and "label" tensors ?
+        codegen_tensor(t);
+    }
+}
+
+void codegen_all_ops(tensor* t){
+    if (t->num_uses != 0){
+        return;
+    }
+
+    for (int i=0; i<t->num_inputs; i++){
+        tensor* inp = t->inputs[i];
+        // printf("[codegen_all_ops] %s\n", inp->name);
+        inp->num_uses--;
+        codegen_all_ops(inp);
     }
 
     // todo: && "t->num_uses == 0"? bc num uses might have changed while processing the inputs
@@ -324,9 +305,24 @@ void recursive_traverse(tensor* t){
         // codegen_op_call will be called when the recursive calls tack unwinds
         // which will generate code in the correct (reverse) order
         codegen_op_call(t);
-    } else {
-        // todo-low: don't write "input" and "label" tensors ?
-        codegen_tensor(t);
+    }
+}
+
+void codegen_all_asserts(tensor* t){
+    if (t->num_uses != 0){
+        return;
+    }
+
+    for (int i=0; i<t->num_inputs; i++){
+        tensor* inp = t->inputs[i];
+        // printf("[codegen_all_asserts] %s\n", inp->name);
+        inp->num_uses--;
+        codegen_all_asserts(inp);
+    }
+
+    // moved codegen_assert_close into the recursive function -- to avoid adding it here after each instruction
+    if (!t->is_leaf){
+        codegen_assert_close(t);
     }
 }
 
@@ -352,15 +348,33 @@ void rest_num_uses(tensor* t){
     }
 }
 
+// this fn should be called on a final output of the graph (e.g. loss)
 void generate_test(tensor* loss, state* params){
     // using t->num_uses in my codegen, and bc AG destroys these need to reset them here
     rest_num_uses(loss);
 
     codegen_imports();
-    loss->num_uses = 0;
-    recursive_traverse(loss);
+
+    FILE *f = fopen("./generated/test.py", "a");
+    fprintf(f, "\n\n\n# ~~~~~~~~~~ leafs ~~~~~~~~~~\n\n\n\n");
+    fclose(f);
+    codegen_all_leafs(loss);
+    rest_num_uses(loss);
+
+    f = fopen("./generated/test.py", "a");
+    fprintf(f, "\n\n\n# ~~~~~~~~~~ ops ~~~~~~~~~~\n\n\n\n");
+    fclose(f);
+    codegen_all_ops(loss);
+    rest_num_uses(loss);
+
     codegen_op_call(loss);
     codegen_backward_call(loss);
+
+    f = fopen("./generated/test.py", "a");
+    fprintf(f, "\n\n\n# ~~~~~~~~~~ intermidiate tensors asserts ~~~~~~~~~~\n\n\n\n");
+    fclose(f);
+    codegen_all_asserts(loss);
+    rest_num_uses(loss);
 
     // todo-now:
     //  - instead of "state", expect to be passed a linked list of all params so that here can iterate over all them -- wt needing to hardcode names
@@ -368,9 +382,8 @@ void generate_test(tensor* loss, state* params){
     //  - and iterate that list in the reverse order to print the grads of params in the order of backprop: the ones closer to the loss first
     //      - this is helpful when you want to debug grad assert failing -- it's useful to know where from what gradient computation (countng from the loss), the grad assert started to fail -- this will indicate which bwd_ fn is failing
     //  - maybe don't need to even pass the linked list of parms, instead just generate assert grad for each leaf
-    FILE *f = fopen("./generated/test.py", "a");
-    for (int i=0; i<10; i++) fprintf(f, "\n");
-    fprintf(f, "# grad asserts\n");
+    f = fopen("./generated/test.py", "a");
+    fprintf(f, "\n\n\n# ~~~~~~~~~~ grad asserts ~~~~~~~~~~\n\n\n\n");
     fclose(f);
 
     codegen_assert_grad_close(params->w3);
