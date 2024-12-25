@@ -4,6 +4,22 @@
 #define UTILS_DEBUG false
 
 
+// returns a null terminated string containing shape of the tensor
+char* str_shape(tensor* t){
+    char* buffer = (char*)checkMallocErrors(malloc(sizeof(char) * 13));
+
+    if (t->num_dims==2){
+        sprintf(buffer, "(%i, %i)\0", t->shape[0], t->shape[1]);
+    } else if (t->num_dims==3){
+        sprintf(buffer, "(%i, %i, %i)\0", t->shape[0], t->shape[1], t->shape[2]);
+    } else if (t->num_dims==4){
+        sprintf(buffer, "(%i, %i, %i, %i)\0", t->shape[0], t->shape[1], t->shape[2], t->shape[3]);
+    } else{
+        printf("[str_shape] unexpected shape\n");
+        exit(1);
+    }
+    return buffer;
+}
 
 // HEAD
 param* param_head = NULL;
@@ -166,12 +182,7 @@ void graphviz(tensor* tens){
 
             // for tensors, vis shapes instead of names
             // label=\"{%s\\nshape=(%i, %i)}\"]\n", inp->name
-            if (inp->num_dims==2)
-                fprintf(f, "%s [shape=record, label=\"{%s\\nshape=(%i, %i)}\"]\n", inp->name, inp->name, inp->shape[0], inp->shape[1]);
-            else if (inp->num_dims==3)
-                fprintf(f, "%s [shape=record, label=\"{%s\\nshape=(%i, %i, %i)}\"]\n", inp->name, inp->name, inp->shape[0], inp->shape[1], inp->shape[2]);
-            else if (inp->num_dims==4)
-                fprintf(f, "%s [shape=record, label=\"{%s\\nshape=(%i, %i, %i, %i)}\"]\n", inp->name, inp->name, inp->shape[0], inp->shape[1], inp->shape[2], inp->shape[3]);
+            fprintf(f, "%s [shape=record, label=\"{%s\\nshape=%s}\"]\n", inp->name, inp->name, str_shape(inp));
 
             // leafs don't have inputs to iterate over in the next iteration
             if (!inp->is_leaf && !is_visited) {

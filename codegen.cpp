@@ -177,16 +177,7 @@ void codegen_tensor(tensor* t){
     cprint(t, f);
     // IS_CODEGEN = false;
     fprintf(f, "])\n");
-    if (t->num_dims==2){
-        fprintf(f, "%s = torch.Tensor(_%s.reshape(%i, %i))\n", t->name, t->name, t->shape[0], t->shape[1]);
-    } else if (t->num_dims==3){
-        fprintf(f, "%s = torch.Tensor(_%s.reshape(%i, %i, %i))\n", t->name, t->name, t->shape[0], t->shape[1], t->shape[2]);
-    } else if (t->num_dims==4){
-        fprintf(f, "%s = torch.Tensor(_%s.reshape(%i, %i, %i, %i))\n", t->name, t->name, t->shape[0], t->shape[1], t->shape[2], t->shape[3]);
-    } else{
-        printf("[codegen_tensor] unsupported\n");
-        exit(1);
-    }
+    fprintf(f, "%s = torch.Tensor(_%s.reshape%s)\n", t->name, t->name, str_shape(t));
     fprintf(f, "%s.requires_grad = True\n\n", t->name);
     fclose(f);
 }
@@ -199,16 +190,7 @@ void codegen_assert_close(tensor* t){
     fprintf(f, "_tiny_torch_%s = np.array([\n", t->name);
     cprint(t, f);
     fprintf(f, "])\n");
-    if (t->num_dims==2){
-        fprintf(f, "_tiny_torch_%s = torch.Tensor(_tiny_torch_%s.reshape(%i, %i))\n", t->name, t->name, t->shape[0], t->shape[1]);
-    } else if (t->num_dims==3){
-        fprintf(f, "_tiny_torch_%s = torch.Tensor(_tiny_torch_%s.reshape(%i, %i, %i))\n", t->name, t->name, t->shape[0], t->shape[1], t->shape[2]);
-    } else if (t->num_dims==4){
-        fprintf(f, "_tiny_torch_%s = torch.Tensor(_tiny_torch_%s.reshape(%i, %i, %i, %i))\n", t->name, t->name, t->shape[0], t->shape[1], t->shape[2], t->shape[3]);
-    } else{
-        printf("[codegen_tensor] unsupported\n");
-        exit(1);
-    }
+    fprintf(f, "_tiny_torch_%s = torch.Tensor(_tiny_torch_%s.reshape%s)\n", t->name, t->name, str_shape(t));
     // it's convenient to see how difference changes throughout the graph (later in the graph vs in the beginning)
     fprintf(f, "print('%s abs diff: ', torch.sum(torch.abs(%s) - torch.abs(_tiny_torch_%s)).item())\n", t->name, t->name, t->name);
     // todo-low: use "np.testing.assert_allclose" ?
@@ -224,16 +206,7 @@ void codegen_assert_grad_close(tensor* t){
     fprintf(f, "_tiny_torch_%s_grad = np.array([\n", t->name);
     cprint(t->grad, f);
     fprintf(f, "])\n");
-    if (t->num_dims==2){
-        fprintf(f, "_tiny_torch_%s_grad = torch.Tensor(_tiny_torch_%s_grad.reshape(%i, %i))\n", t->name, t->name, t->grad->shape[0], t->grad->shape[1]);
-    } else if (t->grad->num_dims==3){
-        fprintf(f, "_tiny_torch_%s_grad = torch.Tensor(_tiny_torch_%s_grad.reshape(%i, %i, %i))\n", t->name, t->name, t->grad->shape[0], t->grad->shape[1], t->grad->shape[2]);
-    } else if (t->grad->num_dims==4){
-        fprintf(f, "_tiny_torch_%s_grad = torch.Tensor(_tiny_torch_%s_grad.reshape(%i, %i, %i, %i))\n", t->name, t->name, t->grad->shape[0], t->grad->shape[1], t->grad->shape[2], t->grad->shape[3]);
-    } else{
-        printf("[codegen_tensor] unsupported\n");
-        exit(1);
-    }
+    fprintf(f, "_tiny_torch_%s_grad = torch.Tensor(_tiny_torch_%s_grad.reshape%s)\n", t->name, t->name, str_shape(t));
     fprintf(f, "print('%s grad abs diff: ', torch.sum(torch.abs(%s.grad) - torch.abs(_tiny_torch_%s_grad)).item())\n", t->name, t->name, t->name);
     fprintf(f, "assert torch.allclose(%s.grad, _tiny_torch_%s_grad, atol=1e-4)\n\n", t->name, t->name);
 
