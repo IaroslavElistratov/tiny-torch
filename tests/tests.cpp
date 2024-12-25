@@ -572,12 +572,6 @@ int test_bt_k() {
 
 
 
-int test_parse(){
-    char dims[] = "0:10, 17:29, 31:680";
-    parse_idxs(dims, 3);
-    return 0;
-}
-
 
 int test_indexing() {
     srand(123);

@@ -74,15 +74,13 @@ tensor* conv_k_(tensor* input, tensor* kernel, tensor* bias, tensor* out) {
                 int horiz_end = horiz_start + WW;
 
                 // e.g. "0:3, 30:32, 30:32" is 18 digits
-                char buffer[20];
-                // sprintf -- create strings with specified formats, similar to printf(), but instead of printing to the standard output, it stores the resulting string in a character array provided by the user
-                sprintf(buffer, "0:%i, %i:%i, %i:%i", C, vert_start, vert_end, horiz_start, horiz_end);
+
                 // todo: use view instead of slice
                 //   - mul_k (used below) -- needs to use .at when looping over a->size
-                tensor* x_slice = slice(input, buffer);
+                tensor* x_slice = slice(input, axis(0, C), axis(vert_start, vert_end), axis(horiz_start, horiz_end));
 
                 if (IS_DEBUG){
-                    printf("[conv_k_] buffer x_slice %s\n", buffer);
+                    // printf("[conv_k_] buffer x_slice %s\n", buffer);
                     printf("[conv_k_] x_slice->shape: %i, %i, %i\n", x_slice->shape[0], x_slice->shape[1], x_slice->shape[2]);
                     set_name(x_slice, "x_slice"); print(x_slice);
                 }
@@ -161,11 +159,9 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
                 int horiz_end = horiz_start + WW;
 
                 // python: x_slice = input[:, vert_start:vert_end, horiz_start:horiz_end]
-                char buffer[20];
-                sprintf(buffer, "0:%i, %i:%i, %i:%i", C, vert_start, vert_end, horiz_start, horiz_end);
-                tensor* x_slice = slice(input, buffer); // corresponding slice (was used in forward)
+                tensor* x_slice = slice(input, axis(0, C), axis(vert_start, vert_end), axis(horiz_start, horiz_end)); // corresponding slice (was used in forward)
                 if (IS_DEBUG){
-                    printf("[bwd_conv_k] buffer x_slice %s\n", buffer);
+                    // printf("[bwd_conv_k] buffer x_slice %s\n", buffer);
                     printf("[bwd_conv_k] x_slice->shape: %i, %i, %i\n", x_slice->shape[0], x_slice->shape[1], x_slice->shape[2]);
                     set_name(x_slice, "x_slice"); print(x_slice);
                 }
@@ -218,7 +214,7 @@ void bwd_conv_k(tensor* upstream, tensor* out) {
                 curr_downstream = mul_k(curr_filter, curr_upstream);
 
                 // record downstream grad of the current slice, into the larger tensor (for the downstream grad)
-                curr_downstream_slice_in_larger_tensor = view(grad_x, buffer);
+                curr_downstream_slice_in_larger_tensor = view(grad_x, axis(0, C), axis(vert_start, vert_end), axis(horiz_start, horiz_end));
 
                 add_k_(curr_downstream_slice_in_larger_tensor, curr_downstream, curr_downstream_slice_in_larger_tensor);
 
@@ -377,12 +373,11 @@ tensor* maxpool_k_(tensor* input, tensor* out) {
                 int horiz_end = horiz_start + WW;
 
                 // select only 1 channel here
-                int c_next = c + 1;
-                char buffer[20];
-                sprintf(buffer, "%i:%i, %i:%i, %i:%i", c, c_next, vert_start, vert_end, horiz_start, horiz_end);
-                tensor* x_slice = view(input, buffer);
+                // todo:  pass as array of axis?
+                // axis slice_axis[3] = {axis(c, c+1), axis(vert_start, vert_end), axis(horiz_start, horiz_end)};
+                tensor* x_slice = view(input, axis(c, c+1), axis(vert_start, vert_end), axis(horiz_start, horiz_end));
                 if (IS_DEBUG_MP){
-                    printf("[maxpool_k_] buffer x_slice %s\n", buffer);
+                    // printf("[maxpool_k_] buffer x_slice %s\n", buffer);
                     printf("[maxpool_k_] x_slice->shape: %i, %i, %i\n", x_slice->shape[0], x_slice->shape[1], x_slice->shape[2]);
                     set_name(x_slice, "x_slice"); print(x_slice);
                 }
@@ -458,10 +453,7 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
                 int horiz_start = width * STRIDE_MAXPOOL;
                 int horiz_end = horiz_start + WW;
 
-                char buffer[20];
-                int c_next = c + 1;
-                sprintf(buffer, "%i:%i, %i:%i, %i:%i", c, c_next, vert_start, vert_end, horiz_start, horiz_end);
-                tensor* x_slice = view(input, buffer);
+                tensor* x_slice = view(input, axis(c, c+1), axis(vert_start, vert_end), axis(horiz_start, horiz_end));
 
                 // local
                 tensor* local = TensorLikeFill(x_slice, 0.0);
@@ -488,7 +480,7 @@ void bwd_maxpool_k(tensor* upstream, tensor* out) {
                     set_name(curr_downstream, "curr_downstream"), print(curr_downstream);
 
                 // record downstream grad of the current slice, into the larger tensor (corresponding to the downstream grad)
-                tensor* downstream_slice = view(downstream, buffer);
+                tensor* downstream_slice = view(downstream, axis(c, c+1), axis(vert_start, vert_end), axis(horiz_start, horiz_end));
                 // todo-low: use _copy_arr instead of the below; modify that fn to use at instead of t->data[i]
                 for (int i=0; i<downstream_slice->size; i++){
                     // note you use at on the downstream_slice bc it's a slice and therefore it's not contiguous, on the
