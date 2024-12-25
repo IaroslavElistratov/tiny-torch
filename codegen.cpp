@@ -340,12 +340,17 @@ void codegen_all_asserts(tensor* t){
 // todo-now: can I run recursive_traverse and AG wt destroying t->num_inputs?
 //   - at the moment I can run either AG or codegen -- to assert grads, have to be able to run both
 // using these helper fns for now
-void save_num_uses(tensor* t){
+void _save_num_uses(tensor* t){
     for (int i=0; i<t->num_inputs; i++){
         tensor* inp = t->inputs[i];
         inp->_num_uses = inp->num_uses;
-        save_num_uses(inp);
+        _save_num_uses(inp);
     }
+}
+
+void save_num_uses(tensor* t){
+    t->num_uses = 0;
+    _save_num_uses(t);
 }
 
 void rest_num_uses(tensor* t){
@@ -357,7 +362,7 @@ void rest_num_uses(tensor* t){
 }
 
 // this fn should be called on a final output of the graph (e.g. loss)
-void generate_test(tensor* loss, state* params){
+void generate_test(tensor* loss){
     // using t->num_uses in my codegen, and bc AG destroys these need to reset them here
     rest_num_uses(loss);
 
@@ -384,25 +389,18 @@ void generate_test(tensor* loss, state* params){
     codegen_all_asserts(loss);
     rest_num_uses(loss);
 
-    // todo-now:
-    //  - instead of "state", expect to be passed a linked list of all params so that here can iterate over all them -- wt needing to hardcode names
-    //      - and change the optimizer to do the same in conv_net, instead of passing to optimizer each weight separately
-    //  - and iterate that list in the reverse order to print the grads of params in the order of backprop: the ones closer to the loss first
-    //      - this is helpful when you want to debug grad assert failing -- it's useful to know where from what gradient computation (countng from the loss), the grad assert started to fail -- this will indicate which bwd_ fn is failing
-    //  - maybe don't need to even pass the linked list of parms, instead just generate assert grad for each leaf
     f = fopen("./generated/test.py", "a");
     fprintf(f, "\n\n\n# ~~~~~~~~~~ grad asserts ~~~~~~~~~~\n\n\n\n");
     fclose(f);
 
-    codegen_assert_grad_close(params->w3);
-    codegen_assert_grad_close(params->w2);
-    codegen_assert_grad_close(params->w1);
-
-    codegen_assert_grad_close(params->bias_kernel2);
-    codegen_assert_grad_close(params->kernel2);
-
-    codegen_assert_grad_close(params->bias_kernel1);
-    codegen_assert_grad_close(params->kernel1);
+    // // param_head is a global variable
+    // extern param* param_head;
+    param* temp = param_head;
+    while (temp){
+        // printf("[codegen_assert_grad_close] %s\n", temp->tensor->name);
+        codegen_assert_grad_close(temp->tensor);
+        temp = temp->next;
+    }
 
     f = fopen("./generated/test.py", "a");
     fprintf(f, "print('--------------------------\\n TEST PASSED!\\n--------------------------')");

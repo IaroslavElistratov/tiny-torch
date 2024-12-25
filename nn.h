@@ -89,18 +89,10 @@ void lprint(tensor*);
 void cuda_lprint(tensor*);
 void sprint(tensor* t);
 
-// todo-now: mv back to conv_net.cu
-struct state
+struct param
 {
-    tensor* kernel1;
-    tensor* bias_kernel1;
-
-    tensor* kernel2;
-    tensor* bias_kernel2;
-
-    tensor* w1;
-    tensor* w2;
-    tensor* w3;
+    tensor* tensor;
+    param* next;
 };
 
 #endif

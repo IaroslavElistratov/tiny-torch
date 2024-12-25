@@ -4,6 +4,43 @@
 #define UTILS_DEBUG false
 
 
+
+// HEAD
+param* param_head = NULL;
+
+
+void add_param(tensor* t){
+    param* new_param = (param*)checkMallocErrors(malloc(sizeof(param)));
+    new_param->tensor = t;
+    new_param->next = NULL;
+
+    // append to the beginning of the linked list
+    new_param->next = param_head;
+    param_head = new_param;
+}
+
+// expects "name" be a NULL terminated string
+tensor* get_param(const char* name){
+    if (!param_head){
+        printf("[get_param] linked list of params is empty\n");
+        exit(1);
+    }
+
+    param* temp = param_head;
+    while (temp){
+        printf("[get_param] iterating over %s\n", temp->tensor->name);
+        if (strcmp(name, temp->tensor->name) == 0){
+            return temp->tensor;
+        }
+        temp = temp->next;
+    }
+
+    printf("[get_param] couldn't find %s in the linked list of params\n", name);
+    exit(1);
+}
+
+
+
 void* checkMallocErrors(void* ptr) {
     if (ptr == NULL){
         printf("[malloc] error: null pointer\n");
