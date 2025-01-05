@@ -139,8 +139,24 @@ void div_bwd(tensor* upstream, tensor* out) {
 void repeat_bwd(tensor* upstream, tensor* out) {
     assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
-    // sum together each row of upstream
-    a->grad = batched_reduce_sum_k(upstream);
+
+    int axis = out->non_grad_inputs[0];
+    if (axis==0){
+        // sum together each column of upstream
+        //  option 1: add "batched_reduce_sum_k(..., axis=0)"
+        //  option 2: to avoid modifying batched_reduce_sum, use: transpose -> batched_reduce_sum -> transpose
+
+        // todo: maybe a cleaner way is to add "axis" argument to batched_reduce_sum,
+        //  but implement it in terms of transposes (no need to change the cuda kernel)
+
+        tensor* transposed = transpose_k(upstream); // (num_repeats, N) -> (N, num_repeats)
+        tensor* reduced = batched_reduce_sum_k(transposed); // (N, 1)
+        a->grad = transpose_k(reduced); // (1, N)
+
+    } else if (axis==1){
+        // sum together each row of upstream
+        a->grad = batched_reduce_sum_k(upstream);
+    }
     // free(local);
 }
 
@@ -157,7 +173,7 @@ void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
 
     int N = a->shape[1];
     tensor* local = TensorLikeFill(a, 1.0); // (B, 1)
-    tensor* upstream_broadcasted = repeat_k(upstream, N); // (B, 1) -> (B,N)
+    tensor* upstream_broadcasted = repeat_k(upstream, /*axis = */ 1, /*num_repeats = */ N); // (B, 1) -> (B, N)
     tensor* a_grad = mul_k(local, upstream_broadcasted);
 
     // add to existing a grad
@@ -291,7 +307,7 @@ void select_bwd(tensor* upstream, tensor* out) {
     select_set_(local, idx, 1.);
 
     // downstream
-    tensor* upstream_broadcasted = repeat_k(upstream, N); // (B, 1) -> (B, N);
+    tensor* upstream_broadcasted = repeat_k(upstream, /*axis = */ 1, /*num_repeats = */ N); // (B, 1) -> (B, N);
     tensor* a_grad = mul_k(local, upstream_broadcasted);
 
     // add to existing grad
@@ -350,7 +366,7 @@ void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
     select_set_(local, idx, 1.);
 
     // downstream
-    tensor* upstream_broadcasted = repeat_k(upstream, N); // (B, 1) -> (B, N);
+    tensor* upstream_broadcasted = repeat_k(upstream, /*axis = */ 1, /*num_repeats = */ N); // (B, 1) -> (B, N);
     tensor* a_grad = mul_k(local, upstream_broadcasted);
 
     // add to existing grad

@@ -85,13 +85,14 @@ tensor* div(tensor* a, tensor* b) {
     return t;
 }
 
-tensor* repeat(tensor* a, int num_repeats) {
+tensor* repeat(tensor* a, int axis, int num_repeats) {
     a->num_uses++;
-    tensor* t = repeat_k(a, num_repeats);
+    tensor* t = repeat_k(a, axis, num_repeats);
     t->is_leaf = false;
     t->num_inputs = 1;
     t->inputs[0] = a;
-    t->non_grad_inputs[0] = num_repeats;
+    t->non_grad_inputs[0] = axis;
+    t->non_grad_inputs[1] = num_repeats;
     t->op_type = 18;
     t->grad_fn = repeat_bwd;
     return t;

@@ -3,7 +3,7 @@
 tensor* log_softmax(tensor* logits){
     // min-max trick for numerical stability, python: "logits -= np.max(logits, axis=1, keepdims=True)"
     int n_repeats = logits->shape[1];
-    tensor* maxes = repeat(batched_reduce_max(logits), n_repeats);
+    tensor* maxes = repeat(batched_reduce_max(logits), /*axis = */ 1, /*num_repeats = */ n_repeats);
     set_name(maxes, "maxes"); // sprint(maxes);
     tensor* su = sub(logits, maxes);
     set_name(su, "su"); // sprint(su);
@@ -22,7 +22,7 @@ tensor* log_softmax(tensor* logits){
     set_name(denom, "denom"); // sprint(denom);
     // print(denom);
     n_repeats = ex->shape[1];
-    tensor* denom_broadcasted = repeat(denom, n_repeats);
+    tensor* denom_broadcasted = repeat(denom, /*axis = */ 1, /*num_repeats = */ n_repeats);
     set_name(denom_broadcasted, "denom_broadcasted"); // sprint(denom_broadcasted);
 
     tensor* log_sm = sub(su, denom_broadcasted);    // (B, ?)

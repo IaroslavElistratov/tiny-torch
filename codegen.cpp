@@ -105,8 +105,16 @@ void codegen_op_call(tensor* t){
             fprintf(f, "%s = %s / %s\n", t->name, t->inputs[0]->name, t->inputs[1]->name);
             break;
         case 18:
-            fprintf(f, "%s = %s.repeat(1, %i)\n", t->name, t->inputs[0]->name, t->non_grad_inputs[0]);
+        {
+            int axis = t->non_grad_inputs[0];
+            int num_repeats = t->non_grad_inputs[1];
+            if (axis == 0){
+                fprintf(f, "%s = %s.repeat(%i, 1)\n", t->name, t->inputs[0]->name, num_repeats);
+            } else if (axis == 1){
+                fprintf(f, "%s = %s.repeat(1, %i)\n", t->name, t->inputs[0]->name, num_repeats);
+            }
             break;
+        }
         case 14:
             fprintf(f, "%s = torch.gather(%s, dim=1, index=%s.long())\n", t->name, t->inputs[0]->name, t->inputs[1]->name);
             break;

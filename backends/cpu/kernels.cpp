@@ -155,28 +155,51 @@ tensor* div_k(tensor* a, tensor* b) {
 }
 
 
-tensor* repeat_k(tensor* a, int num_repeats) {
+tensor* repeat_k(tensor* a, int axis, int num_repeats) {
     assert_input(a, 2);
-    if (a->shape[1]!=1){
+    if (axis != 0 && axis != 1){
+        printf("[repeat] Unexpected axis\n");
+        exit(1);
+    }
+    if (a->shape[axis] != 1){
         printf("[repeat] Shape error\n");
         exit(1);
     }
 
-    int B = a->shape[0];
-    tensor* out = Tensor(B, num_repeats);
+    tensor* out;
 
-    // 1 1 1
-    // 2 2 2
-    // 3 ...
-    for (int b=0; b<B; b++){
-        // points to the first element of the current b
-        float* curr_a = a->data + b;
-        // here indexing includes multiplying by "out->stride[0]" bc
-        // out is a 2d tensor (for curr_a adding "out->stride[0]" is
-        // not needed bc curr_a is (B, 1))
-        float* curr_out = out->data + (b * out->stride[0]);
-        for (int i=0; i<num_repeats; i++){
-            *(curr_out+i) = *(curr_a);
+    // a.shape (1, N)
+    if (axis==0){
+        int N = a->shape[1];
+        out = Tensor(num_repeats, N);
+
+        for (int b=0; b<num_repeats; b++){
+            // points to the first element of the current b
+            float* curr_out = out->data + (b * out->stride[0]);
+            for (int i=0; i<N; i++){
+                // for curr_a multiplying by "a->stride[0]" is not needed bc curr_a is (1, N)
+                *(curr_out+i) = *(a->data+i);
+            }
+        }
+
+    // a.shape (B, 1)
+    } else if (axis==1){
+        int B = a->shape[0];
+        out = Tensor(B, num_repeats);
+
+        // 1 1 1
+        // 2 2 2
+        // 3 ...
+        for (int b=0; b<B; b++){
+            // points to the first element of the current b
+            float* curr_a = a->data + b;
+            // here indexing includes multiplying by "out->stride[0]" bc
+            // out is a 2d tensor (for curr_a multiplying by "a->stride[0]" is
+            // not needed bc curr_a is (B, 1))
+            float* curr_out = out->data + (b * out->stride[0]);
+            for (int i=0; i<num_repeats; i++){
+                *(curr_out+i) = *(curr_a);
+            }
         }
     }
     return out;

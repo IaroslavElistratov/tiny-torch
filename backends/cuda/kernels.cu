@@ -366,7 +366,7 @@ tensor* transpose_k(tensor* a){
 
 
 // a(B, 1) -> out(B, N)
-__global__ void RepeatKernel(float* a, float* out, int num_repeats, int B){
+__global__ void RepeatDim1Kernel(float* a, float* out, int num_repeats, int B){
     // (block idx * num threads per block) + thread idx
     int b = blockIdx.x * blockDim.x + threadIdx.x;
     // this is repeat_idx (0-num_repeats) that this thread represents
@@ -392,27 +392,70 @@ __global__ void RepeatKernel(float* a, float* out, int num_repeats, int B){
 //     }
 // }
 
-tensor* repeat_k(tensor* a, int num_repeats){
+
+// a(1, N) -> out(B, N)
+__global__ void RepeatDim0Kernel(float* a, float* out, int num_repeats, int N){
+    // (block idx * num threads per block) + thread idx
+    int b = blockIdx.x * blockDim.x + threadIdx.x;
+    // this is repeat_idx (0-num_repeats) that this thread represents
+    int i = blockIdx.y; // * blockDim.y + threadIdx.y;
+    if (b<num_repeats && i<N){
+        out[b*N + i] = a[i];
+    }
+}
+
+
+
+tensor* repeat_k(tensor* a, int axis, int num_repeats){
     if (CUDA_DEBUG) printf("[repeat_k]\n");
     assert_input(a, 2);
-    if (a->shape[1]!=1){
+    if (axis != 0 && axis != 1){
+        printf("[CUDA RepeatKernel] Unexpected axis\n");
+        exit(1);
+    }
+    if (a->shape[axis] != 1){
         printf("[CUDA RepeatKernel] Shape error\n");
         exit(1);
     }
 
-    int B = a->shape[0];
-    tensor* out = Tensor(B, num_repeats);
+    tensor* out;
 
-    float num_threads = (float)NUM_THREADS;
-    dim3 dimGrid(ceil(B/num_threads), num_repeats, 1);
-    dim3 dimBlock(num_threads, 1, 1);
+    // a.shape (1, N)
+    if (axis==0){
 
-    if (CUDA_DEBUG){
-        printf("[cuda RepeatKernel] grid: (%f, 1, 1)\n", ceil(B/num_threads));
-        printf("[cuda RepeatKernel] block: (%f, 1, 1)\n", num_threads);
+        int N = a->shape[1];
+        out = Tensor(num_repeats, N);
+
+        float num_threads = (float)NUM_THREADS;
+        dim3 dimGrid(ceil(num_repeats/num_threads), N, 1);
+        dim3 dimBlock(num_threads, 1, 1);
+
+        if (CUDA_DEBUG){
+            printf("[cuda RepeatKernel] grid: (%f, %i, 1)\n", ceil(num_repeats/num_threads), N);
+            printf("[cuda RepeatKernel] block: (%f, 1, 1)\n", num_threads);
+        }
+
+        RepeatDim0Kernel<<<dimGrid, dimBlock>>>(a->data, out->data, num_repeats, N);
+
+
+    // a.shape (B, 1)
+    } else if (axis==1){
+
+        int B = a->shape[0];
+        out = Tensor(B, num_repeats);
+
+        float num_threads = (float)NUM_THREADS;
+        dim3 dimGrid(ceil(B/num_threads), num_repeats, 1);
+        dim3 dimBlock(num_threads, 1, 1);
+
+        if (CUDA_DEBUG){
+            printf("[cuda RepeatKernel] grid: (%f, %i, 1)\n", ceil(B/num_threads), num_repeats);
+            printf("[cuda RepeatKernel] block: (%f, 1, 1)\n", num_threads);
+        }
+
+        RepeatDim1Kernel<<<dimGrid, dimBlock>>>(a->data, out->data, num_repeats, B);
+
     }
-
-    RepeatKernel<<<dimGrid, dimBlock>>>(a->data, out->data, num_repeats, B);
     return out;
 }
 

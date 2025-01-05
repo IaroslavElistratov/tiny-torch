@@ -46,6 +46,7 @@ def forward(self, x):
 
 
 tensor* forward(tensor* input) {
+    int B = input->shape[0];
 
     tensor* conv1 = batched_conv(input, get_param("kernel1"), get_param("bias_kernel1"));
     set_name(conv1, "conv1");
@@ -66,18 +67,23 @@ tensor* forward(tensor* input) {
 
     tensor* mm1 = matmul(flat, get_param("w1"));
     set_name(mm1, "mm1");
-    tensor* relu3 = relu(mm1);
+    tensor* lin1 = add(mm1, repeat(get_param("b1"), /*axis = */ 0, /*num_repeats = */ B));
+    set_name(lin1, "lin1");
+    tensor* relu3 = relu(lin1);
     set_name(relu3, "relu3");
 
     tensor* mm2 = matmul(relu3, get_param("w2"));
     set_name(mm2, "mm2");
-    tensor* relu4 = relu(mm2);
+    tensor* lin2 = add(mm2, repeat(get_param("b2"), /*axis = */ 0, /*num_repeats = */ B));
+    set_name(lin2, "lin2");
+    tensor* relu4 = relu(lin2);
     set_name(relu4, "relu4");
 
     tensor* mm3 = matmul(relu4, get_param("w3"));
     set_name(mm3, "mm3");
-
-    return mm3;
+    tensor* lin3 = add(mm3, repeat(get_param("b3"), /*axis = */ 0, /*num_repeats = */ B));
+    set_name(lin3, "lin3");
+    return lin3;
 }
 
 
@@ -155,6 +161,7 @@ int main() {
     int HH2 = 6;
     int WW2 = 6;
 
+
     tensor* kernel1 = Tensor(F, C, HH1, WW1);
     set_name(kernel1, "kernel1");
     add_param(kernel1);
@@ -162,6 +169,7 @@ int main() {
     tensor* bias_kernel1 = Tensor(F, 1);
     set_name(bias_kernel1, "bias_kernel1");
     add_param(bias_kernel1);
+
 
     tensor* kernel2 = Tensor(F, F, HH2, WW2);
     set_name(kernel2, "kernel2");
@@ -171,26 +179,33 @@ int main() {
     set_name(bias_kernel2, "bias_kernel2");
     add_param(bias_kernel2);
 
+
     tensor* w1 = Tensor(96, 64);
     set_name(w1, "w1");
     add_param(w1);
+
+    tensor* b1 = Tensor(1, 64);
+    set_name(b1, "b1");
+    add_param(b1);
+
 
     tensor* w2 = Tensor(64, 32);
     set_name(w2, "w2");
     add_param(w2);
 
+    tensor* b2 = Tensor(1, 32);
+    set_name(b2, "b2");
+    add_param(b2);
+
+
     tensor* w3 = Tensor(32, 10);
     set_name(w3, "w3");
     add_param(w3);
 
-    // tensor* b1 = Tensor(128, 1);
-    // set_name(b1, "b1");
+    tensor* b3 = Tensor(1, 10);
+    set_name(b3, "b3");
+    add_param(b3);
 
-    // tensor* b2 = Tensor(64, 1);
-    // set_name(b2, "b2");
-
-    // tensor* b3 = Tensor(10, 1);
-    // set_name(b3, "b3");
 
     // todo-low: change add_param to accept array of all prams "add_param({kernel1, bias_kernel1, kernel2, bias_kernel2, w1, w2, w3})"?
 
