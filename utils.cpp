@@ -44,7 +44,8 @@ tensor* get_param(const char* name){
 
     param* temp = param_head;
     while (temp){
-        printf("[get_param] iterating over %s\n", temp->tensor->name);
+        if (UTILS_DEBUG)
+            printf("[get_param] iterating over %s\n", temp->tensor->name);
         if (strcmp(name, temp->tensor->name) == 0){
             return temp->tensor;
         }
@@ -88,12 +89,13 @@ void GetRandomFloat(float* dst, int num)
 }
 
 char* random_chars(int num){
-    // increment for the null terminator;
+    // no need to increment for the null terminator, bc the for loop below is not inclusive of the last char;
+    //  e.g.: num=3; the loop below will iterate 0-2; s[3] = '\0'
     // not necessary to do sizeof(char) bc guarantied to be 1
-    char* s = (char*)checkMallocErrors(malloc(sizeof(char) * ++num));
+    char* s = (char*)checkMallocErrors(malloc(sizeof(char) * num));
 
     char offset = 'a';
-    for (int i=0; i<num-1; i++){
+    for (int i=0; i<num; i++){
         // my first thought was to use modulus, but it's wrong https://stackoverflow.com/a/6852396
         // todo: still see non-printable chars in the tensor names
         char sampled = rand() % 26; // 'z' - 'a' // 26 letters
