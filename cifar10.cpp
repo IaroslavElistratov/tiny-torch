@@ -98,9 +98,9 @@ cifar10* get_cifar10(){
 }
 
 
-cifar10* sample_batch(cifar10* dataset, int batch_size){
+cifar10* sample_batch(cifar10* dataset, int batch_size, bool is_random){
     if (batch_size > N_SAMPLES){
-        printf("[get_batch] error: saw batch_size larger than num samples in the dataset");
+        printf("[get_batch] error: saw batch_size larger than num samples in the dataset\n");
         exit(1);
     }
 
@@ -113,7 +113,13 @@ cifar10* sample_batch(cifar10* dataset, int batch_size){
         float* curr_x = x->data + i*x->stride[0];
         float* curr_y = y->data + i*y->stride[0];
 
-        int idx = (int)rand() % N_SAMPLES;
+
+        int idx;
+        if (is_random){
+            idx = (int)rand() % N_SAMPLES;
+        } else {
+            idx = i;
+        }
 
         // select x, y at idx form the dataset
         float* sampled_x = dataset->input->data + idx * dataset->input->stride[0];

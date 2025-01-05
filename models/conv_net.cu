@@ -233,7 +233,7 @@ int main() {
     // *** Train ***
 
     for (int ep_idx=0; ep_idx<NUM_EP; ep_idx++) {
-        cifar10* batch = sample_batch(dataset, BATCH_SIZE);
+        cifar10* batch = sample_batch(dataset, BATCH_SIZE, /* is_random = */ false);
         // passes loss sanity check -- 10 classes, if model is random (predicting each cls equally)
         // log(0.1) = -2.3
         tensor* loss = train_step(batch, ep_idx);

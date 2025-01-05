@@ -4,6 +4,7 @@
 
 #define MAX_INPUTS 3
 #define MAX_TENSOR_NAME 20 // unique for each tensor
+#define MAX_SCRATCH_SPACE 1
 
 // todo: avoid needing to manually sync increment op_type, NUM_OPS, VIS_COLORS when adding a new op
 //  - use graphviz's pastel19 or set312 color scheme ?
@@ -49,7 +50,7 @@ struct tensor {
 
     // to store data recorded in fwd and used in bwd (wt needing to recompute it in bwd)
     // e.g. in relu, reduce_max, maxpool: idxs recorded during forward _k and used in its corresponding _bwd fn
-    tensor* scratch_space[1];
+    tensor* scratch_space[MAX_SCRATCH_SPACE];
 
     char* name;
     // use char as small int

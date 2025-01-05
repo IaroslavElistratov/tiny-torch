@@ -96,6 +96,7 @@ void assert_binary_elementwise(tensor* a, tensor* b){
     // batched_flatten_k calls add_k_ with a(B, 24) b(B, 6, 2, 2)
     // because kernels iterate over size, seems the below is more suitable check when comparing shapes
     if (!IS_INPUT_DIM_CHECK){
+        printf("[assert_binary_elementwise] NOT checking for shape!\n");
         assert_same_size(a, b);
         return;
     }
@@ -110,6 +111,7 @@ void assert_binary_elementwise_non_contiguous(tensor* a, tensor* b){
 
     // this is basically a side-hatch for _unsafe_add_k
     if (!IS_INPUT_DIM_CHECK){
+        printf("[assert_binary_elementwise_non_contiguous] NOT checking for shape!\n");
         assert_same_size(a, b);
         return;
     }

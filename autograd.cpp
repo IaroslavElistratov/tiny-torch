@@ -69,6 +69,9 @@ void backward(tensor* loss){
         // step once for the op -- propagates grad wrt all inputs of the op
         t->grad_fn(upstream, t);
 
+        if (IS_DEBUG_AG)
+            printf("[autograd engine] ran %s backward fn\n", t->name);
+
         for (int i=0; i<t->num_inputs; i++){
             tensor* inp = t->inputs[i];
 
