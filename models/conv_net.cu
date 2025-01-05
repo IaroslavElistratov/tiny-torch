@@ -15,6 +15,7 @@ using namespace std;
 
 
 #define NUM_EP 1 // 20
+#define BATCH_SIZE 64
 #define LR 0.001 // torch tutorial
 #define DEBUG  1
 
@@ -108,15 +109,14 @@ void accuracy(tensor* log_probs, tensor* label){
     printf("accuracy: %f (%i/%i)\n", correct/B, (int)correct, B);
 };
 
-
-tensor* train_step(cifar10* data) {
+tensor* train_step(cifar10* batch, int ep_idx) {
 
     // *** Net ***
-    tensor* logits = forward(data->input);
+    tensor* logits = forward(batch->input);
 
     // *** Loss fn ***
     tensor* log_probs = log_softmax(logits);
-    tensor* loss = NLL(log_probs, data->label);
+    tensor* loss = NLL(log_probs, batch->label);
 
     // *** Zero-out grads ***
     zero_grads();
@@ -125,15 +125,18 @@ tensor* train_step(cifar10* data) {
     save_num_uses(loss);
     loss->backward(loss);
 
-    // must call generate test BEFORE param update, otherwise asserts
-    // on runtime values don't make sense -- bc SGD mutates weights inplace
-    generate_test(loss);
+    if (ep_idx==0){
+        // must call generate test BEFORE param update, otherwise asserts
+        // on runtime values don't make sense -- bc SGD mutates weights inplace
+        generate_test(loss);
+        graphviz(loss);
+    }
 
     // *** Optim Step ***
     sgd(LR);
 
     // todo-high: need smt like torch.detach?
-    accuracy(log_probs, data->label);
+    accuracy(log_probs, batch->label);
     return loss;
 }
 
@@ -225,17 +228,15 @@ int main() {
     // lprint(w2);
     // lprint(w3);
 
-    cifar10* data = get_cifar10();
+    cifar10* dataset = get_cifar10();
 
     // *** Train ***
 
     for (int ep_idx=0; ep_idx<NUM_EP; ep_idx++) {
+        cifar10* batch = sample_batch(dataset, BATCH_SIZE);
         // passes loss sanity check -- 10 classes, if model is random (predicting each cls equally)
         // log(0.1) = -2.3
-        tensor* loss = train_step(data);
-        if (ep_idx==0){
-            graphviz(loss);
-        }
+        tensor* loss = train_step(batch, ep_idx);
         printf("ep: %i; loss: %f;\n\n", ep_idx, COPY_FROM_DEVICE(loss)->data[0]);
     }
 

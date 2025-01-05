@@ -1,9 +1,10 @@
 #include <iostream> // todo: use C only
 #include <stdio.h> // structure declaration called FILE
+#include <string.h> // memcopy
 
 using namespace std;
 
-#define N_SAMPLES 20 // 10000
+#define N_SAMPLES 4096
 
 
 /*
@@ -92,8 +93,44 @@ cifar10* get_cifar10(){
     dataset->input = input;
     dataset->label = label;
 
-    set_backend_device();
-    COPY_TO_DEVICE(dataset->input);
-    COPY_TO_DEVICE(dataset->label);
+    // note: the dataset is stored on the host, each batch is separately copied to device
     return dataset;
+}
+
+
+cifar10* sample_batch(cifar10* dataset, int batch_size){
+    if (batch_size > N_SAMPLES){
+        printf("[get_batch] error: saw batch_size larger than num samples in the dataset");
+        exit(1);
+    }
+
+    tensor* x = EmptyTensor(batch_size, 3, 32, 32);
+    set_name(x, "x");
+    tensor* y = EmptyTensor(batch_size, 1);
+    set_name(y, "y");
+
+    for (int i=0; i<batch_size; i++){
+        float* curr_x = x->data + i*x->stride[0];
+        float* curr_y = y->data + i*y->stride[0];
+
+        int idx = (int)rand() % N_SAMPLES;
+
+        // select x, y at idx form the dataset
+        float* sampled_x = dataset->input->data + idx * dataset->input->stride[0];
+        int size_of_x = dataset->input->size / N_SAMPLES;
+        memcpy(curr_x, sampled_x, size_of_x * sizeof(float));
+
+        float* sampled_y = dataset->label->data + idx * dataset->label->stride[0];
+        int size_of_y = dataset->label->size / N_SAMPLES;
+        memcpy(curr_y, sampled_y, size_of_y * sizeof(float));
+    }
+
+    cifar10* batch = (cifar10*)checkMallocErrors(malloc(sizeof(cifar10)));
+    batch->input = x;
+    batch->label = y;
+
+    set_backend_device();
+    COPY_TO_DEVICE(batch->input);
+    COPY_TO_DEVICE(batch->label);
+    return batch;
 }
