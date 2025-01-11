@@ -4,7 +4,7 @@
 
 using namespace std;
 
-#define N_SAMPLES 4096
+#define N_SAMPLES 8192
 
 
 /*
@@ -74,9 +74,24 @@ cifar10* get_cifar10(void){
                 printf("\n[cifar10] ERR!");
                 exit(1);
             }
-            // c is in range 0-255
-            // printf("%f\n", c/255.);
-            input->data[tensor_data_idx] = c/255.;
+
+            // note: chose the first normalization below bc
+            // empirically it led to lower loss values
+
+            // standardizing to range: -0.5:0.5:
+            //   originally c is in range 0:255 -- transform into
+            //   range 0:1, and then shift into range -0.5:0.5
+            float value = (c / 255.) - 0.5;
+            // printf("%f\n", value);
+
+            // // standardizing to mean 0 and a std 1:
+            // float mean[] = {125.306, 122.950, 113.865};
+            // float std[] = {62.993, 62.088, 66.704};
+            // // which of the 3 channels this value belongs to
+            // int idx = (tensor_data_idx % 3072) / 1024;
+            // float value = (c - mean[idx]) / std[idx];
+
+            input->data[tensor_data_idx] = value;
             tensor_data_idx++;
         }
         byte_idx++;
