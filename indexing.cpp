@@ -172,7 +172,7 @@ Used in elementwise ops, which were previously implemented (see below), and this
 
 int at_2d(tensor* t, int idx){
     int z = t->shape[1];
-    // todo: y instead of stride -- bc want n in shapes here
+    // z instead of stride -- bc want num elements in shapes here
     int y_idx = idx / z;
     int z_idx = idx % z;
     return index_2d(t, y_idx, z_idx);
@@ -198,12 +198,41 @@ int at_3d(tensor* t, int idx){
     return index_3d(t, x_idx, y_idx, z_idx);
 }
 
+int at_4d(tensor* t, int idx){
+    // int x = t->shape[0];
+    int y = t->shape[1];
+    int z = t->shape[2];
+    int o = t->shape[3];
+
+    // num elements in x: y*z*o
+    int x_idx = idx / (y*z*o);
+    // remaining idx
+    idx -= x_idx * (y*z*o);
+
+    // num elements in y: z*o
+    int y_idx = idx / (z*o);
+    idx -= y_idx * (z*o);
+
+    // num elements in z: o
+    int z_idx = idx / o;
+    idx -= (z_idx * o);
+
+    // remaining o
+    int o_idx = idx % o;
+
+    return index_4d(t, x_idx, y_idx, z_idx, o_idx);
+}
+
 int at(tensor* t, int idx){
+    if (idx > t->size){
+        printf("[at] index cannot be greater than t->size\n");
+        exit(1);
+    }
     if (t->num_dims==2) return at_2d(t, idx);
     else if (t->num_dims==3) return at_3d(t, idx);
+    else if (t->num_dims==4) return at_4d(t, idx);
     else {
-        printf("[at] unexpected t->num_dims (expected 2 or 3)\n");
+        printf("[at] unexpected t->num_dims (2, 3, or 4)\n");
         exit(1);
-        // return -1;
     };
 }

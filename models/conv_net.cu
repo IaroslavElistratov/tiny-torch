@@ -133,7 +133,9 @@ tensor* train_step(cifar10* batch, int ep_idx) {
     }
 
     // *** Optim Step ***
-    sgd(LR);
+    // note: sgd sensitive to momentum
+    // sgd(LR, /* momentum = */ 0.6);
+    adam(LR);
 
     // todo-high: need smt like torch.detach?
     accuracy(log_probs, batch->label);

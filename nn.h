@@ -2,6 +2,7 @@
 #ifndef NN_H_INCLUDED
 #define NN_H_INCLUDED
 
+#define MAX_RANK 4
 #define MAX_INPUTS 3
 #define MAX_TENSOR_NAME 20 // unique for each tensor
 #define MAX_SCRATCH_SPACE 1
@@ -16,7 +17,7 @@ const char* VIS_COLORS[] = {"darkolivegreen1", "lightsalmon1", "skyblue1", "plum
 // tensor and its fn's are used in both ops.cpp and main.cpp
 struct tensor {
     float* data;
-    int shape[4];
+    int shape[MAX_RANK];
     int device;
 
     // https://arxiv.org/pdf/1102.1523
@@ -26,7 +27,7 @@ struct tensor {
     // (10, 1), in other words: proceed one byte to
     // get to the next column and ten bytes to locate
     // the next row.
-    int stride[4];
+    int stride[MAX_RANK];
 
     // rank
     int num_dims;
@@ -92,7 +93,17 @@ void sprint(tensor* t);
 
 struct param
 {
-    tensor* tensor;
+    tensor* value;
+    // sgd:
+    tensor* velocity;
+    // adam:
+    int t;
+    float beta1;
+    float beta2;
+    float epsilon;
+    tensor* first_moment;
+    tensor* second_moment;
+
     param* next;
 };
 

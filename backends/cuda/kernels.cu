@@ -4,7 +4,7 @@
 
 void assert_device(tensor* a){
     if (a->device!=CUDA){
-        printf("[assert_device] Error: expected device cuda\n");
+        printf("[assert_device] Error: expected device cuda. t->name: %s\n", a->name);
         exit(1);
     }
 }
@@ -241,9 +241,11 @@ tensor* _launch_unary_elementwise(UnaryKernel kernel, tensor* a){
 }
 
 
+
+__device__ int pow_exponent;
+
 __global__ void PowKernel(float* a, float* out, int size){
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int pow_exponent = 2;
     if (idx<size){
         out[idx] = (float)pow(a[idx], pow_exponent);
     }
@@ -251,14 +253,24 @@ __global__ void PowKernel(float* a, float* out, int size){
 
 tensor* pow_k(tensor* a, int exponent){
     if (CUDA_DEBUG) printf("[pow_k]\n");
-    // cpu's pow_k expects exponent as arg, but here because of standardized _launch_unary_elementwise interface I hardcode it
-    // todo: pass it via global argument
-    // pow_exponent = exponent;
-    if (exponent!=2){
-        printf("[cuda pow_k] currently this kernel only supports exponent=2\n");
-        exit(1);
-    }
+    // cpu's pow_k expects exponent as arg, but here because of standardized
+    // _launch_unary_elementwise interface -- passing it via global
+    cudaMemcpyToSymbol(pow_exponent, &exponent, sizeof(int));
     return _launch_unary_elementwise(PowKernel, a);
+}
+
+
+
+__global__ void SqrtKernel(float* a, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx<size){
+        out[idx] = (float)sqrt(a[idx]);
+    }
+}
+
+tensor* sqrt_k(tensor* a){
+    if (CUDA_DEBUG) printf("[sqrt_k]\n");
+    return _launch_unary_elementwise(SqrtKernel, a);
 }
 
 

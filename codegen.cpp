@@ -378,8 +378,8 @@ void generate_test(tensor* loss){
     // extern param* param_head;
     param* temp = param_head;
     while (temp){
-        // printf("[codegen_assert_grad_close] %s\n", temp->tensor->name);
-        codegen_assert_grad_close(temp->tensor);
+        // printf("[codegen_assert_grad_close] %s\n", temp->value->name);
+        codegen_assert_grad_close(temp->value);
         temp = temp->next;
     }
 

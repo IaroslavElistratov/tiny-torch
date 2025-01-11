@@ -172,7 +172,6 @@ void pow_bwd(tensor* upstream, tensor* out) {
     tensor* local = mul_k(TensorLikeFill(a, 2.0), a);
     // 2. wire local with upstream
     a->grad = mul_k(local, upstream);
-    // free(local);
 }
 
 void exp_bwd(tensor* upstream, tensor* out) {

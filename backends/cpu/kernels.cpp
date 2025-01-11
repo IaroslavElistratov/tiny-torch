@@ -256,6 +256,14 @@ void select_set_(tensor* a, tensor* idx, int value) {
 
 //    unary
 
+tensor* sqrt_k(tensor* a) {
+    assert_input(a, -1);
+    tensor* out = TensorLike(a);
+    for (int i=0; i<out->size; i++){
+        out->data[i] = (float)sqrt(a->data[i]);
+    }
+    return out;
+}
 
 tensor* pow_k(tensor* a, int exponent) {
     // supports n-dim input but must be contiguous
