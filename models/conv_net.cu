@@ -167,6 +167,7 @@ int main(void) {
 
     int C = 3;
     int F = 6;
+    int F2 = 16;
     int HH1 = 7;
     int WW1 = 7;
 
@@ -183,34 +184,34 @@ int main(void) {
     add_param(bias_kernel1);
 
 
-    tensor* kernel2 = Tensor(F, F, HH2, WW2);
+    tensor* kernel2 = Tensor(F2, F, HH2, WW2);
     set_name(kernel2, "kernel2");
     add_param(kernel2);
 
-    tensor* bias_kernel2 = Tensor(F, 1);
+    tensor* bias_kernel2 = Tensor(F2, 1);
     set_name(bias_kernel2, "bias_kernel2");
     add_param(bias_kernel2);
 
 
-    tensor* w1 = Tensor(96, 64);
+    tensor* w1 = Tensor(F2*4*4, 128);
     set_name(w1, "w1");
     add_param(w1);
 
-    tensor* b1 = Tensor(1, 64);
+    tensor* b1 = Tensor(1, 128);
     set_name(b1, "b1");
     add_param(b1);
 
 
-    tensor* w2 = Tensor(64, 32);
+    tensor* w2 = Tensor(128, 64);
     set_name(w2, "w2");
     add_param(w2);
 
-    tensor* b2 = Tensor(1, 32);
+    tensor* b2 = Tensor(1, 64);
     set_name(b2, "b2");
     add_param(b2);
 
 
-    tensor* w3 = Tensor(32, 10);
+    tensor* w3 = Tensor(64, 10);
     set_name(w3, "w3");
     add_param(w3);
 
