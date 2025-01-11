@@ -1,6 +1,6 @@
 #include "nn.h"
 #include "autograd.cpp"
-
+#include "gc.cpp"
 
 // todo-now: assert callback func pointers are not NULL, before calling them
 
@@ -119,6 +119,7 @@ tensor* EmptyTensor2d(int s1, int s2)
 {
     tensor* t = TensorNoData2d(s1, s2);
     t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
+    add_to_gc(t);
     t->device = CPU;
     return t;
 }
@@ -127,6 +128,7 @@ tensor* EmptyTensor3d(int x, int y, int z)
 {
     tensor* t = TensorNoData3d(x, y, z);
     t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
+    add_to_gc(t);
     t->device = CPU;
     return t;
 }
@@ -135,6 +137,7 @@ tensor* EmptyTensor4d(int o, int x, int y, int z)
 {
     tensor* t = TensorNoData4d(o, x, y, z);
     t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
+    add_to_gc(t);
     t->device = CPU;
     return t;
 }

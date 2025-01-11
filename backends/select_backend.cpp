@@ -13,6 +13,10 @@ tensor* (*COPY_FROM_DEVICE)(tensor*) = NULL;
     #include "cpu/kernels.cpp"
     #include "cpu/kernels_conv.cpp"
     #define set_backend_device() set_backend_cpu()
+    // todo-low: cleanup
+    // otherwise with CPU backend, linker error because tensor.free_tensor uses that fn name;
+    // actual function definition
+    void checkCudaErrors(cudaError_t err) {};
 #elif DEVICE == CUDA
     #include "cuda/move_data.cu"
     #include "cuda/kernels.cu"

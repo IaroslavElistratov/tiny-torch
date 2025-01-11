@@ -14,11 +14,9 @@ using namespace std;
 #include "../codegen.cpp"
 
 
-#define NUM_EP 1 // 20
-#define BATCH_SIZE 64
-#define LR 0.001 // torch tutorial
-#define DEBUG  1
-
+#define NUM_EP 100
+#define BATCH_SIZE 32
+#define LR 0.0015 // torch tutorial 0.001
 
 
 /*
@@ -128,7 +126,9 @@ tensor* train_step(cifar10* batch, int ep_idx) {
     if (ep_idx==0){
         // must call generate test BEFORE param update, otherwise asserts
         // on runtime values don't make sense -- bc SGD mutates weights inplace
-        generate_test(loss);
+        if (BATCH_SIZE <= 256){
+            generate_test(loss);
+        }
         graphviz(loss);
     }
 
@@ -229,6 +229,7 @@ int main() {
     // lprint(w3);
 
     cifar10* dataset = get_cifar10();
+    int gc_until = GC_IDX;
 
     // *** Train ***
 
@@ -238,6 +239,8 @@ int main() {
         // log(0.1) = -2.3
         tensor* loss = train_step(batch, ep_idx);
         printf("ep: %i; loss: %f;\n\n", ep_idx, COPY_FROM_DEVICE(loss)->data[0]);
+
+        free_all_tensors(gc_until);
     }
 
     // lprint(params.w3->grad);
@@ -253,5 +256,7 @@ int main() {
     // lprint(w1);
     // lprint(w2);
     // lprint(w3);
+
+    cudaDeviceReset();
     return 0;
 }

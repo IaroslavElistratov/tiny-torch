@@ -35,7 +35,11 @@ void copy_to_cuda(tensor* t){
     int size = t->size * sizeof(float);
     checkCudaErrors(cudaMalloc((void**)&t_device, size));
     checkCudaErrors(cudaMemcpy(t_device, t->data, size, cudaMemcpyHostToDevice));
-    // todo: free cpu t->data (currently memory leak)
+
+    // should free (even assuming that "t" is in the GC list) bc the GC stores pointers
+    // to Tensors, not to their underlying data -- so when data got changed the GC
+    // does not see this
+    free(t->data);
     t->data = t_device;
     t->device = CUDA;
 }
@@ -64,8 +68,11 @@ tensor* copy_from_cuda(tensor* t) {
     // NOT invoke COPY_FROM_DEVICE
     tensor* t_copy = TensorLikeNoData(t);
     t_copy->data = host_data;
-    t_copy->device=CPU;
-    // todo: free t, currently memory leak
+    t_copy->device = CPU;
+
+    // note: no need to free "t", assuming it was created with tensor constructor then it's already traced by the GC array
+    add_to_gc(t_copy);
+
     return t_copy;
 }
 

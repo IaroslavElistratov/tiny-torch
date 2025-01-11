@@ -71,16 +71,18 @@ tensor* add_k(tensor* a, tensor* b) {
     return add_k_(a, b, out);
 }
 
-
-tensor* sub_k(tensor* a, tensor* b) {
+tensor* sub_k_(tensor* a, tensor* b, tensor* out) {
     assert_binary_elementwise(a, b);
-    tensor* out = TensorLike(a);
     for (int i=0; i<out->size; i++){
         out->data[i] = a->data[i] - b->data[i];
     }
     return out;
 }
 
+tensor* sub_k(tensor* a, tensor* b) {
+    tensor* out = TensorLike(a);
+    return sub_k_(a, b, out);
+}
 
 tensor* mul_k_(tensor* a, tensor* b, tensor* out) {
     assert_binary_elementwise(a, b);
@@ -315,7 +317,6 @@ void relu_bwd(tensor* upstream, tensor* out) {
     }
 
     a->grad = mul_k(local, upstream);
-    // free(local);
 }
 
 
@@ -439,7 +440,7 @@ tensor* batched_matmul_k(tensor* a, tensor* b) {
 
         // comment: problem is out[i] is float, not Tensor
         //  curr_out is a scratch throw away tensor, needed bc matmul_k_ expects a Tensor struct for the output argument
-        // todo: find a proper fix to the issue above: creating these throw away tensors creates memory leaks -- at least need to free them
+        // todo-now: find a proper fix to the issue above: creating these throw away tensors creates memory leaks -- at least need to free them
         tensor* curr_out = TensorNoData(N, D);
         curr_out->data = out->data + (i * out->stride[0]);
 

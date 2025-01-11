@@ -1,5 +1,5 @@
 
-// todo: to avoid data transfer impl sgd as composite_op: sub_(w->grad, mul(w->grad, TensorLikeFill(w, 0.2)), w->grad)
+// todo: mv to composite_ops
 void sgd(float learning_rate) {
     // // param_head is a global variable
     // extern param* param_head;
@@ -8,14 +8,20 @@ void sgd(float learning_rate) {
     while (temp){
         // printf("[sgd] %s\n", temp->tensor->name);
         tensor* w = temp->tensor;
-        tensor* w_local = COPY_FROM_DEVICE(w);
-        tensor* w_grad_local = COPY_FROM_DEVICE(w->grad);
-        for (int i=0; i<w->size; i++){
-            w_local->data[i] -= w_grad_local->data[i] * learning_rate;
-        }
-        COPY_TO_DEVICE(w_local);
-        // todo: memory leak
-        w->data = w_local->data;
+
+        // more convenient way (than the approach below) is to not
+        // even create out tensor (new weight) in the first place
+        sub_k_(w, mul_k(w->grad, TensorLikeFill(w->grad, learning_rate)), w);
+
+        // // assign to the "w->data" because I want the weight to be persistent --
+        // //  my first N tensors (weights, dataset) in the GC list are never removed from the GC;
+        // //  but if I were to just replace the entire old weight tensor with the new weight tensor,
+        // //  the new weight tensor would be cleaned up next epoch (bc it's in the end of the
+        // //  GC list -- not one of the first N elements)
+        // cudaFree(w->data);
+        // tensor* new_w = sub_k(w, mul_k(w->grad, TensorLikeFill(w->grad, learning_rate)));
+        // GC_IDX--; // don't track "new_w"
+        // w->data = new_w->data;
 
         temp = temp->next;
     }

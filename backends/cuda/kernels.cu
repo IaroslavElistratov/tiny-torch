@@ -90,6 +90,11 @@ tensor* sub_k(tensor* a, tensor* b){
     return _launch_binary_elementwise(SubKernel, a, b, NULL);
 }
 
+tensor* sub_k_(tensor* a, tensor* b, tensor* c){
+    if (CUDA_DEBUG) printf("[sub_k_]\n");
+    return _launch_binary_elementwise(SubKernel, a, b, c);
+}
+
 
 __global__ void MulKernel(float* a, float* b, float* out, int size){
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -321,7 +326,6 @@ void relu_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     tensor* local = _launch_unary_elementwise(ReluBwdKernel, a);
     a->grad = mul_k(local, upstream);
-    // free(local);
 }
 
 

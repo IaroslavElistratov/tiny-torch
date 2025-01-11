@@ -23,10 +23,6 @@ void add_bwd(tensor* upstream, tensor* out) {
     // todo-now: do += instead of replacing existing grad
     a->grad = mul_k(a_local, upstream);
     b->grad = mul_k(b_local, upstream);
-
-    // todo-now: is it a correct way to de-alloc a struct?
-    //  - and all other ops below
-    // free(a_local), free(b_local);
 }
 
 void sub_bwd(tensor* upstream, tensor* out) {
@@ -46,20 +42,12 @@ void sub_bwd(tensor* upstream, tensor* out) {
     add_k_(a->grad, curr_a_grad, a->grad);
     maybe_init_grad(b);
     add_k_(b->grad, curr_b_grad, b->grad);
-
-    // free(a_local), free(b_local);
 }
 
 void mul_bwd(tensor* upstream, tensor* out) {
     assert_input(upstream, out->num_dims);
     tensor* a = out->inputs[0];
     tensor* b = out->inputs[1];
-
-    // todo: don't need malloc here? Bc a->data, b->data
-    //  already malloc'ed -- can just save a pointer to them?
-
-    // note: no need to alloc buff for intermidiates, bc mul_k
-    //  does not mutate its inputs
 
     // local
     tensor* a_local = b;
@@ -84,7 +72,7 @@ void matmul_bwd(tensor* upstream, tensor* out) {
     //    EmptyFloatLike(a);
 
     // note: should allocate a_buff not with a.size but w b.size
-    // note: using this intermidiate variable instead of directly
+    // note: using this intermediate variable instead of directly
     //  allocating "a->grad = EmptyFloatLike(b)", because the final
     //  a->grad is of shape a not of shape b. It would be incorrect
     //  to "a->grad = EmptyFloatLike(b)". So I keep these temporary
@@ -107,9 +95,6 @@ void matmul_bwd(tensor* upstream, tensor* out) {
     a->grad = matmul_k(upstream, local_a);
     // a.t(M, N) @ upstream(N, D) = b_grad(M, D)
     b->grad = matmul_k(local_b, upstream);
-
-    // note:
-    // free(local_a), free(local_b);
 }
 
 void div_bwd(tensor* upstream, tensor* out) {
@@ -132,8 +117,6 @@ void div_bwd(tensor* upstream, tensor* out) {
     // does "+="
     add_k_(a->grad, a_grad, a->grad);
     add_k_(b->grad, b_grad, b->grad);
-
-    // free(a_local), free(b_local);
 }
 
 void repeat_bwd(tensor* upstream, tensor* out) {
@@ -157,7 +140,6 @@ void repeat_bwd(tensor* upstream, tensor* out) {
         // sum together each row of upstream
         a->grad = batched_reduce_sum_k(upstream);
     }
-    // free(local);
 }
 
 // reduce_sum: (B, N) -> (B, 1)
@@ -178,8 +160,6 @@ void batched_reduce_sum_bwd(tensor* upstream, tensor* out) {
 
     // add to existing a grad
     add_k_(a->grad, a_grad, a->grad);
-
-    // free(local);
 }
 
 void pow_bwd(tensor* upstream, tensor* out) {
@@ -231,7 +211,6 @@ void reduce_sum_bwd(tensor* upstream, tensor* out) {
 
     tensor* broadcasted_upstream = TensorLikeFill(a, upstream_host->data[0]);
     a->grad = mul_k(local, broadcasted_upstream);
-    // free(local);
 }
 
 // todo-high: it doesn't make sense to have a transpose_bwd bc it just calls transpose -- at the moment this fn is used bc calling convention (args signature) for _bwd funcs is different from the fwd funcs
@@ -271,9 +250,6 @@ void batched_matmul_bwd(tensor* upstream, tensor* out) {
     a->grad = batched_matmul_k(upstream, local_a);
     // a.t(B, M, N) @ upstream(B, N, D) = b_grad(B, M, D)
     b->grad = batched_matmul_k(local_b, upstream);
-
-    // note:
-    // free(local_a), free(local_b);
 }
 
 /*
@@ -346,7 +322,6 @@ void reduce_max_bwd(tensor* upstream, tensor* out) {
     tensor* curr_a_grad = mul_k(local_host, broadcasted_upstream);
     maybe_init_grad(a);
     add_k_(a->grad, curr_a_grad, a->grad);
-    // free(local);
 }
 
 // select: a(B, N), idx(B, 1) = out(B, 1)
@@ -372,10 +347,6 @@ void batched_reduce_max_bwd(tensor* upstream, tensor* out) {
     // add to existing grad
     maybe_init_grad(a);
     add_k_(a->grad, a_grad, a->grad);
-
-    // free(local);
-    // free(a_grad);
-    // free(upstream_broadcasted);
 }
 
 
@@ -385,7 +356,6 @@ void batched_flatten_bwd(tensor* upstream, tensor* out) {
     maybe_init_grad(a);
     // reshape upstream into the shape of a
     unsafe_add_k_(a->grad, upstream, a->grad);
-    // free(local);
 }
 
 
