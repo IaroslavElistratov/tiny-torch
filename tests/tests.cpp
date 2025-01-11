@@ -49,7 +49,7 @@ using namespace std;
 
 
 
-int test_net() {
+int test_net(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -121,7 +121,7 @@ int test_net() {
 }
 
 
-int test_select() {
+int test_select(void) {
     srand(123);
     tensor* a = Tensor(4, 2);
     set_name(a, "a"), print(a);
@@ -145,7 +145,7 @@ int test_select() {
 }
 
 // test_max
-int test_max() {
+int test_max(void) {
     srand(123);
     tensor* a = Tensor(4, 3);
     set_name(a, "a"), print(a);
@@ -166,7 +166,7 @@ int test_max() {
     return 0;
 }
 
-int test_batched_reduce() {
+int test_batched_reduce(void) {
     srand(123);
     tensor* a = Tensor(4, 10);
     set_name(a, "a"), print(a);
@@ -187,7 +187,7 @@ int test_batched_reduce() {
     return 0;
 }
 
-int test_exp() {
+int test_exp(void) {
     srand(123);
     tensor* a = Tensor(4, 10);
     set_name(a, "a"), print(a);
@@ -210,7 +210,7 @@ int test_exp() {
     return 0;
 }
 
-int test_log() {
+int test_log(void) {
     srand(123);
     tensor* a = Tensor(4, 10);
     set_name(a, "a"), print(a);
@@ -235,7 +235,7 @@ int test_log() {
 
 
 
-int test_repeat() {
+int test_repeat(void) {
     srand(123);
     tensor* a = Tensor(4, 1);
     set_name(a, "a"), print(a);
@@ -260,7 +260,7 @@ int test_repeat() {
 
 
 
-int test_neg() {
+int test_neg(void) {
     srand(123);
     tensor* a = Tensor(4, 1);
     set_name(a, "a"), print(a);
@@ -286,7 +286,7 @@ int test_neg() {
 
 
 
-int test_div() {
+int test_div(void) {
     srand(123);
     tensor* a = Tensor(4, 3);
     set_name(a, "a"), print(a);
@@ -312,7 +312,7 @@ int test_div() {
     return 0;
 }
 
-// int main(){
+// int main(void){
 //     srand(123);
 //     tensor* a = Tensor(4, 3);
 //     set_name(a, "a"), print(a);
@@ -333,7 +333,7 @@ int test_div() {
 
 
 // testing maxpool and its bwd
-int test_maxpool() {
+int test_maxpool(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -395,7 +395,7 @@ int test_maxpool() {
 }
 
 
-int test_flatten() {
+int test_flatten(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -430,7 +430,7 @@ int test_flatten() {
 
 
 
-int test_conv() {
+int test_conv(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -459,7 +459,7 @@ int test_conv() {
 }
 
 
-int test_conv() {
+int test_conv(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -498,7 +498,7 @@ int test_conv() {
 
 
 
-int test_bmm() {
+int test_bmm(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -526,7 +526,7 @@ int test_bmm() {
 
 
 
-int test_bmm_k() {
+int test_bmm_k(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -550,7 +550,7 @@ int test_bmm_k() {
     return 0;
 }
 
-int test_bt_k() {
+int test_bt_k(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -573,7 +573,7 @@ int test_bt_k() {
 
 
 
-int test_indexing() {
+int test_indexing(void) {
     srand(123);
 
     tensor* x = Tensor(3, 7);

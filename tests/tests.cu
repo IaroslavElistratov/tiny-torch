@@ -22,7 +22,7 @@ using namespace std;
 
 
 // todo-now: bug in reduce_sum_bwd
-int main() {
+int main(void) {
     srand(123);
     set_backend_device();
 
@@ -42,7 +42,7 @@ int main() {
     return 0;
 }
 
-int test_batched_reduce() {
+int test_batched_reduce(void) {
     srand(123);
     set_backend_device();
 
@@ -70,7 +70,7 @@ int test_batched_reduce() {
     return 0;
 }
 
-int test_select() {
+int test_select(void) {
     srand(123);
     set_backend_device();
 
@@ -98,7 +98,7 @@ int test_select() {
 
 
 // [test copied from tests.cpp]
-int test_flatten() {
+int test_flatten(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -131,7 +131,7 @@ int test_flatten() {
     return 0;
 }
 
-int test_repeat() {
+int test_repeat(void) {
     srand(123);
     set_backend_device();
 
@@ -151,7 +151,7 @@ int test_repeat() {
     return 0;
 }
 
-int test_backends(){
+int test_backends(void){
     srand(123);
 
     int N = 16, M = 8;
@@ -166,7 +166,7 @@ int test_backends(){
     return 0;
 }
 
-int test_bmm() {
+int test_bmm(void) {
     srand(123);
 
     int B=3, N = 2, M = 8, D = 4;
@@ -186,7 +186,7 @@ int test_bmm() {
     return 0;
 }
 
-int test_conv() {
+int test_conv(void) {
     srand(123);
 
     int H = 4, W = 4, C = 3, F = 5, K = 2;
@@ -206,7 +206,7 @@ int test_conv() {
     return 0;
 }
 
-int test_batched_conv() {
+int test_batched_conv(void) {
     srand(123);
 
     // int B = 3000, H = 128, W = 128, C = 3, F = 5, K = 2;
@@ -227,7 +227,7 @@ int test_batched_conv() {
     return 0;
 }
 
-int test_pool() {
+int test_pool(void) {
     srand(123);
 
     int H = 4, W = 4, C = 3, K = 2;
@@ -244,7 +244,7 @@ int test_pool() {
     return 0;
 }
 
-int test_batched_pool() {
+int test_batched_pool(void) {
     srand(123);
 
     int B = 2, H = 4, W = 4, C = 3, K = 2;
@@ -261,7 +261,7 @@ int test_batched_pool() {
     return 0;
 }
 
-int test_simple_ops() {
+int test_simple_ops(void) {
     srand(123);
 
     int N = 2, M = 8, D = 4;

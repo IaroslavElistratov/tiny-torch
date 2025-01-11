@@ -227,7 +227,7 @@ void codegen_assert_grad_close(tensor* t){
 
 
 
-void codegen_imports(){
+void codegen_imports(void){
     // clear contents of the file
     fclose(fopen("./generated/test.py", "w"));
 

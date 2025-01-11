@@ -55,7 +55,7 @@ float train_step(tensor* x, tensor* w1, tensor* w2)
 }
 
 
-int main() {
+int main(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);

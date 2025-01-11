@@ -154,7 +154,7 @@ tensor* train_step(cifar10* batch, int ep_idx) {
 // w1 = Tensor(flat->shape[1], 32);
 // w2 = Tensor(relu3->shape[1], 16);
 // w3 = Tensor(relu4->shape[1], 10);
-int main() {
+int main(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);

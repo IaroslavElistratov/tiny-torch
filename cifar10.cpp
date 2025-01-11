@@ -37,7 +37,7 @@ struct cifar10 {
 };
 
 // todo-now: doublecheck that logic here is correct
-cifar10* get_cifar10(){
+cifar10* get_cifar10(void){
     set_backend_cpu();
 
     tensor* input = EmptyTensor(N_SAMPLES, 3, 32, 32);
