@@ -47,6 +47,12 @@ tensor* TensorNoData2d(int y, int z)
     // (t->backward) in every op, so set it here
     t->backward = backward;
 
+
+    // todo-high: here and in the other constructors, set the below fields to NULL?
+    // t->scratch_space;
+    // t->inputs;
+    // t->non_grad_inputs;
+
     return t;
 }
 

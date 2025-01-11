@@ -3,6 +3,13 @@ using namespace std;
 
 
 #define DEVICE CUDA
+#define NUM_EP 80
+#define BATCH_SIZE 128
+#define LR 0.001
+
+// #define NUM_EP 150
+// #define BATCH_SIZE 2048
+// #define LR 0.001
 
 #include "../nn.h"
 #include "../tensor.cpp"
@@ -12,11 +19,7 @@ using namespace std;
 #include "../print.cpp"
 #include "../optim.cpp"
 #include "../codegen.cpp"
-
-
-#define NUM_EP 100
-#define BATCH_SIZE 32
-#define LR 0.0015 // torch tutorial 0.001
+#include "../serialization.cpp"
 
 
 /*
@@ -86,7 +89,7 @@ tensor* forward(tensor* input) {
 }
 
 
-void accuracy(tensor* log_probs, tensor* label){
+float accuracy(tensor* log_probs, tensor* label){
     // pred idxs
     tensor* probs = exp(log_probs);
     set_name(probs, "probs");
@@ -100,11 +103,13 @@ void accuracy(tensor* log_probs, tensor* label){
     // assert_binary_elementwise(pred, label);
 
     int B = pred->shape[0];
-    float correct = 0.0;
+    int correct = 0;
     for (int b=0; b<B; b++){
         (pred->data[b] == label->data[b]) ? correct++ : 0;
     }
-    printf("accuracy: %f (%i/%i)\n", correct/B, (int)correct, B);
+    float acc = (float)correct / B;
+    printf("accuracy: %f (%i/%i)\n", acc, correct, B);
+    return acc;
 };
 
 tensor* train_step(cifar10* batch, int ep_idx) {
@@ -138,7 +143,9 @@ tensor* train_step(cifar10* batch, int ep_idx) {
     adam(LR);
 
     // todo-high: need smt like torch.detach?
-    accuracy(log_probs, batch->label);
+    if (accuracy(log_probs, batch->label) > 0.9){
+        save_all_params();
+    }
     return loss;
 }
 
@@ -222,18 +229,13 @@ int main() {
     // So moved prints and "get_cifar10" after initializing the tensors -- this way tensors will get initialized to
     // the same values regardless of wether there are prints or not
 
-    // lprint(kernel1);
-    // lprint(bias_kernel1);
-    // lprint(kernel2);
-    // lprint(bias_kernel2);
-    // lprint(w1);
-    // lprint(w2);
-    // lprint(w3);
+    // load_all_params();
 
     cifar10* dataset = get_cifar10();
     int gc_until = GC_IDX;
 
     // *** Train ***
+    print_num_params();
 
     for (int ep_idx=0; ep_idx<NUM_EP; ep_idx++) {
         cifar10* batch = sample_batch(dataset, BATCH_SIZE, /* is_random = */ false);
