@@ -1,5 +1,4 @@
 #include <iostream> // todo: use C only
-using namespace std;
 
 #define DEVICE CPU
 

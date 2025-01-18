@@ -2,7 +2,6 @@
 #include <stdio.h> // structure declaration called FILE
 #include <string.h> // memcopy
 
-using namespace std;
 
 #define N_SAMPLES 8192
 

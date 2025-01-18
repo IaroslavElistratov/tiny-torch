@@ -116,7 +116,7 @@ void graphviz(tensor* tens){
     // is used to index into all_visited
     int idx_visited = 0;
 
-    deque <tensor*> ready;
+    std::deque <tensor*> ready;
     ready.push_front(tens);
 
     while (ready.size() > 0) {

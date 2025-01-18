@@ -31,7 +31,7 @@ void backward(tensor* loss){
     loss->num_uses = 0;
     loss->grad = TensorLikeFill(loss, 1.0);
 
-    deque <tensor*> ready;
+    std::deque <tensor*> ready;
     ready.push_front(loss);
     while (ready.size() > 0) {
         tensor* t = ready.back(); ready.pop_back();
