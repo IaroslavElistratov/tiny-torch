@@ -1,4 +1,5 @@
 #include "nn.h"
+#include "param.cpp"
 #include "autograd.cpp"
 #include "gc.cpp"
 
