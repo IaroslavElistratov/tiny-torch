@@ -92,8 +92,7 @@ void lprint(tensor*);
 void cuda_lprint(tensor*);
 void sprint(tensor* t);
 
-struct param
-{
+struct param {
     tensor* value;
     // sgd:
     tensor* velocity;

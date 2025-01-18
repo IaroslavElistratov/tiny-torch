@@ -14,10 +14,18 @@ extern tensor* (*COPY_FROM_DEVICE)(tensor*);
 #include <stdio.h> // structure declaration called FILE
 FILE *fopen(char *name, char *mode);
 
+// to print "longest decimal approximation" use FLT_DIG from <float.h> header.
+//  FLT_DIG: Represents the number of decimal digits of precision for the float type. This is
+//  typically set to 6, indicating that a float can represent a decimal number with up to 6
+//  significant digits without loss of precision. 
+//
+// todo: but using -- "%12.*f", FLT_DIG -- makes py test asserts fail
+// #include <float.h>
+
 void cprint_1d(tensor* t, FILE *f){
     tensor* t_copy = COPY_FROM_DEVICE(t);
 
-    fprintf(f, "    [%12.8f, ]", t_copy->data[0]);
+    fprintf(f, "    [%12.*f, ]", 8, t_copy->data[0]);
 }
 
 void cprint_2d(tensor* t, FILE *f){
@@ -27,7 +35,7 @@ void cprint_2d(tensor* t, FILE *f){
         fprintf(f, "    [");
         for (int z=0; z<t->shape[1]; z++){
             int idx = index(t_copy, y, z);
-            fprintf(f, "%12.8f, ", t_copy->data[idx]);
+            fprintf(f, "%12.*f, ", 8, t_copy->data[idx]);
         }
         fprintf(f, "],\n");
     }
@@ -41,7 +49,7 @@ void cprint_3d(tensor* t, FILE *f){
             fprintf(f, "    [");
             for (int z=0; z<t->shape[2]; z++){
                 int idx = index(t_copy, x, y, z);
-                fprintf(f, "%12.8f, ", t_copy->data[idx]);
+                fprintf(f, "%12.*f, ", 8, t_copy->data[idx]);
             }
             fprintf(f, "],\n");
         }
@@ -59,7 +67,7 @@ void cprint_4d(tensor* t, FILE *f){
                 fprintf(f, "    [");
                 for (int z=0; z<t->shape[3]; z++){
                     int idx = index(t_copy, o, x, y, z);
-                    fprintf(f, "%12.8f, ", t_copy->data[idx]);
+                    fprintf(f, "%12.*f, ", 8, t_copy->data[idx]);
                 }
                 fprintf(f, "],\n");
             }

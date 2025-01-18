@@ -1,3 +1,7 @@
+
+# define DEBUG_GC false
+
+
 // placeholder macro, actual definition in backends/cuda/move_data
 #define checkCudaErrors
 
@@ -79,7 +83,7 @@ void free_tensor(tensor* t){
 
 void free_all_tensors(int idx_until){
     // idx_until to avoid free'in weights, and the "dataset" (though can free the "batch")
-    printf("GC_IDX: %i\n", GC_IDX);
+    if (DEBUG_GC) printf("GC_IDX: %i\n", GC_IDX);
     for (; GC_IDX>idx_until; GC_IDX--){
         free_tensor(GC[GC_IDX]);
     }

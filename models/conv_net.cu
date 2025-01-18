@@ -199,9 +199,7 @@ tuple* train_step(cifar10* batch, int ep_idx) {
     if (ep_idx==0){
         // must call generate test BEFORE param update, otherwise asserts
         // on runtime values don't make sense -- bc SGD mutates weights inplace
-        if (BATCH_SIZE <= 256){
-            generate_test(loss);
-        }
+        if (BATCH_SIZE <= 256) generate_test(loss);
         graphviz(loss);
     }
 
@@ -240,7 +238,7 @@ int main(void) {
     if (!IS_LOAD){
         init();
     } else {
-        int loaded_ep_idx = load_all_params("ep2_valacc53.200");
+        int loaded_ep_idx = load_all_params("ep11_valacc61.830");
         initial_ep_idx = loaded_ep_idx + 1;
         // todo-high: lprint errors, when lprint is after get_cifar10()
         log_params();
