@@ -1,4 +1,5 @@
 #include "nn.h"
+#include "init.cpp"
 #include "param.cpp"
 #include "autograd.cpp"
 #include "gc.cpp"
@@ -153,7 +154,7 @@ tensor* EmptyTensor4d(int o, int x, int y, int z)
 tensor* Tensor2d(int s1, int s2)
 {
     tensor* t = EmptyTensor2d(s1, s2);
-    GetRandomFloat(t->data, t->size);
+    normal_init(t);
     // todo-low: directly initialize random floats on gpu (avoid initializing on cpu, and then moving)
     COPY_TO_DEVICE(t);
     return t;
@@ -162,7 +163,7 @@ tensor* Tensor2d(int s1, int s2)
 tensor* Tensor3d(int s1, int s2, int s3)
 {
     tensor* t = EmptyTensor3d(s1, s2, s3);
-    GetRandomFloat(t->data, t->size);
+    normal_init(t);
     COPY_TO_DEVICE(t);
     return t;
 }
@@ -170,7 +171,7 @@ tensor* Tensor3d(int s1, int s2, int s3)
 tensor* Tensor4d(int s1, int s2, int s3, int s4)
 {
     tensor* t = EmptyTensor4d(s1, s2, s3, s4);
-    GetRandomFloat(t->data, t->size);
+    normal_init(t);
     COPY_TO_DEVICE(t);
     return t;
 }

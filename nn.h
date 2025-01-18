@@ -78,7 +78,8 @@ struct tensor {
 #define CUDA_DEBUG false
 #define DATA_COPY_DEBUG false
 
-void GetRandomFloat(float*, int);
+void uniform_init(tensor*);
+void kaiming_normal_init(tensor*);
 void set_name(tensor*, const char*);
 char* random_chars(int);
 
@@ -106,5 +107,13 @@ struct param
 
     param* next;
 };
+
+struct tuple {
+    float item_1;
+    float item_2;
+};
+
+
+tuple* get_tuple(float val1, float val2);
 
 #endif

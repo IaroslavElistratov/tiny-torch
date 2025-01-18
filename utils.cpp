@@ -5,6 +5,14 @@
 
 
 
+tuple* get_tuple(float val1, float val2){
+    // todo: a better way of doing this?
+    tuple* out = (tuple*)checkMallocErrors(malloc(sizeof(tuple)));
+    out->item_1 = val1;
+    out->item_2 = val2;
+    return out;
+}
+
 // returns a null terminated string containing shape of the tensor
 char* str_shape(tensor* t){
     char* buffer = (char*)checkMallocErrors(malloc(sizeof(char) * 13));
@@ -36,20 +44,6 @@ void maybe_init_grad(tensor* t){
         t->grad = TensorLikeFill(t, 0.0);
     } else {
         if (UTILS_DEBUG) printf("[maybe_init_grad] %s->grad exists!\n", t->name);
-    }
-}
-
-void GetRandomFloat(float* dst, int num)
-{
-    for (int i=0; i<num; i++)
-    {
-        // https://linux.die.net/man/3/random
-        // returns a pseudo-random int between 0 and RAND_MAX
-        // normalize to: 0 - 1
-        // shift to: -0.5 - 0.5
-
-        // not truncating to 0 due to int division, bc C promotes args
-        dst[i] = ((float)rand() / RAND_MAX) - 0.5;
     }
 }
 

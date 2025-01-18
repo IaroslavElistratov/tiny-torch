@@ -1,5 +1,7 @@
 #include <iostream> // todo: use C only
 
+// simple_uniform_init -- 55 epochs
+// normal_init -- 32 epochs
 
 #define DEVICE CUDA
 #define NUM_EP 80
