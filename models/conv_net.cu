@@ -1,26 +1,26 @@
 #include <iostream> // todo: use C only
 
-// simple_uniform_init -- 55 epochs
-// normal_init -- 32 epochs
-
 #define DEVICE CUDA
 #define LR 0.002
 
-// // training
-// #define N_SAMPLES 8192
-// #define BATCH_SIZE 2048
-// #define NUM_EP 12
-// #define IS_STOCHASTIC true
-// #define IS_LOAD false
-// #define SAVE_EVERY 1
-
-// overfit sanity check
-#define N_SAMPLES 128
-#define BATCH_SIZE 128
-#define IS_STOCHASTIC false
-#define NUM_EP 16
+// training
+#define N_SAMPLES 50000
+#define BATCH_SIZE 1024
+#define NUM_EP 12
+#define SAVE_EVERY 1
+#define IS_STOCHASTIC true
 #define IS_LOAD false
-#define SAVE_EVERY 16
+
+// // overfit sanity check
+// #define N_SAMPLES 128
+// #define BATCH_SIZE 128
+// #define IS_STOCHASTIC false
+// #define NUM_EP 16
+// #define SAVE_EVERY 16
+// #define IS_LOAD false
+
+// simple_uniform_init -- 55 epochs
+// normal_init -- 32 epochs
 
 
 #include "../nn.h"
@@ -217,7 +217,7 @@ tuple* train_step(cifar10* batch, int ep_idx) {
 }
 
 
-tuple* validation_step(cifar10* batch, int ep_idx) {
+tuple* validation_step(cifar10* batch) {
     tensor* logits = forward(batch->input);
     tensor* log_probs = log_softmax(logits);
     tensor* loss = NLL(log_probs, batch->label);
@@ -235,7 +235,16 @@ int main(void) {
     log_print_macros();
 
     // *** Init ***
-    init();
+
+    int initial_ep_idx = 0;
+    if (!IS_LOAD){
+        init();
+    } else {
+        int loaded_ep_idx = load_all_params("ep2_valacc53.200");
+        initial_ep_idx = loaded_ep_idx + 1;
+        // todo-high: lprint errors, when lprint is after get_cifar10()
+        log_params();
+    }
     print_num_params();
 
     // todo-low: change add_param to accept array of all prams "add_param({kernel1, bias_kernel1, kernel2, bias_kernel2, w1, w2, w3})"?
@@ -258,7 +267,7 @@ int main(void) {
     // note: equivalent to drop_last=True -- drops the last non-full batch
     int steps_per_ep = N_SAMPLES / BATCH_SIZE;
 
-    for (int ep_idx=0; ep_idx<NUM_EP; ep_idx++) {
+    for (int ep_idx=initial_ep_idx; ep_idx<NUM_EP; ep_idx++) {
 
         float mean_train_loss = 0; // mean_val_loss = 0;
         for (int step_idx=0; step_idx<steps_per_ep; step_idx++){
@@ -280,7 +289,7 @@ int main(void) {
 
         // if (acc > 0.9){
         if (ep_idx % SAVE_EVERY == 0){
-            tuple* val_metrics = validation_step(val_batch, ep_idx);
+            tuple* val_metrics = validation_step(val_batch);
             free_all_tensors(gc_until);
 
             float val_loss = val_metrics->item_1;
@@ -293,7 +302,7 @@ int main(void) {
             char prefix[25];
             // todo-low: mv snprintf inside save_all_params?
             snprintf(prefix, sizeof(char) * 25, "ep%i_valacc%.3f", ep_idx, val_acc);
-            save_all_params(prefix);
+            save_all_params(prefix, ep_idx);
 
             log_print("**************** validation ****************\n");
             log_print("ep: %i; val loss: %.3f; val accuracy: %.3f\n", ep_idx, val_loss, val_acc);

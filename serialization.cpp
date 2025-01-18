@@ -157,7 +157,7 @@ param* load_param(FILE* f){
 }
 
 
-void save_all_params(const char* prefix){
+void save_all_params(const char* prefix, int ep_idx){
 
     char path[50];
     snprintf(path, sizeof(char) * 50, "./generated/checkpoints/%s.dat", prefix);
@@ -179,6 +179,8 @@ void save_all_params(const char* prefix){
     float learning_rate = LR;
     fwrite(&learning_rate, sizeof(float), 1, f);
 
+    fwrite(&ep_idx, sizeof(int), 1, f);
+
     param* temp = param_head;
     while (temp){
         save_param(temp, f);
@@ -190,7 +192,7 @@ void save_all_params(const char* prefix){
 }
 
 
-void load_all_params(char* prefix){
+int load_all_params(char* prefix){
     if (param_head){
         printf("[load_all_params] loading params when then param list is not empty -- is not supported\n");
         exit(1);
@@ -212,6 +214,11 @@ void load_all_params(char* prefix){
     float learning_rate;
     fread(&learning_rate, sizeof(float), 1, f);
 
+    // need to return this to continue incrementing ep_idxs after loading
+    // (instead of starting again from 0), and avoid overwriting previous checkpoints
+    int ep_idx;
+    fread(&ep_idx, sizeof(int), 1, f);
+
     param* loaded;
     for (int i=0; i<num_params; i++){
         loaded = load_param(f);
@@ -222,4 +229,5 @@ void load_all_params(char* prefix){
     fclose(f);
 
     printf("[load_all_params] Parameters loaded.\n");
+    return ep_idx;
 }
