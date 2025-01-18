@@ -5,6 +5,7 @@
 
 #define DEVICE CUDA
 #define NUM_EP 80
+#define N_SAMPLES 32768
 #define BATCH_SIZE 128
 #define LR 0.001
 
