@@ -1,9 +1,88 @@
+#include <sys/stat.h> // mkdir
+
 #include "nn.h"
 
 #define MAX_NODES 30
 #define UTILS_DEBUG false
 
 
+// void log_print(FILE* file, const char* format, ...) {
+//     va_list args;
+
+//     // Write to stdout
+//     va_start(args, format);
+//     vprintf(format, args);
+//     va_end(args);
+
+//     // Write to the file
+//     va_start(args, format);
+//     vfprintf(file, format, args);
+//     va_end(args);
+// }
+
+void log_print(const char* format, ...) {
+
+    va_list args;
+
+    // Write to stdout
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+
+    // Write to the file
+    FILE* file = fopen("./generated/checkpoints/stdout.txt", "a");
+    if (!file) {
+        printf("Error opening file\n");
+        exit(1);
+    }
+
+    va_start(args, format);
+    vfprintf(file, format, args);
+    va_end(args);
+
+    fclose(file);
+}
+
+
+void log_print_macros(void){
+    // size of the training job
+    log_print("N_SAMPLES: %i\n", N_SAMPLES);
+    log_print("BATCH_SIZE: %i\n", BATCH_SIZE);
+    log_print("NUM_EP: %i\n", NUM_EP);
+
+    // optimization related
+    log_print("IS_LOAD: %i\n", IS_LOAD);
+    log_print("IS_STOCHASTIC: %i\n", IS_STOCHASTIC);
+    log_print("LR: %f\n", LR);
+
+    // misc
+    log_print("SAVE_EVERY: %i\n", SAVE_EVERY);
+    log_print("DEVICE: %i\n", DEVICE);
+}
+
+void flush_io_buffers(void){
+    mkdir("./generated", 0755);
+    mkdir("./generated/checkpoints", 0755);
+    fclose(fopen("./generated/log.txt", "w"));
+    fclose(fopen("./generated/checkpoints/train_loss.txt", "w"));
+    fclose(fopen("./generated/checkpoints/val_loss.txt", "w"));
+    fclose(fopen("./generated/checkpoints/stdout.txt", "w"));
+}
+
+void save_loss(const char* f_name, float loss){
+    // save them into 2 different files -- the resolution for the train loss is ofc higher, so doesn't make sense to write them into the same array (bc this would require skipping saving most of the training losses)
+
+    char path[40];
+    snprintf(path, sizeof(char) * 40, "./generated/checkpoints/%s.txt", f_name);
+
+    FILE *f = fopen(static_cast<const char*>(path), "a");
+    if (!f) {
+        printf("Error opening file\n");
+        exit(1);
+    }
+    fprintf(f, "%.3f, ", loss);
+    fclose(f);
+}
 
 tuple* get_tuple(float val1, float val2){
     // todo: a better way of doing this?

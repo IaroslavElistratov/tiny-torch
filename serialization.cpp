@@ -157,17 +157,20 @@ param* load_param(FILE* f){
 }
 
 
-void save_all_params(void){
+void save_all_params(const char* prefix){
+
+    char path[50];
+    snprintf(path, sizeof(char) * 50, "./generated/checkpoints/%s.dat", prefix);
 
     // flush buffer
-    FILE *f = fopen("./generated/checkpoints/params.dat", "w");
+    FILE *f = fopen(static_cast<const char*>(path), "w");
     if (!f) {
         printf("Error opening file\n");
         exit(1);
     }
     fclose(f);
 
-    f = fopen("./generated/checkpoints/params.dat", "a");
+    f = fopen(static_cast<const char*>(path), "a");
 
     // used in load_all_params to know how many times to iterate
     int num_params = count_params();
@@ -187,13 +190,16 @@ void save_all_params(void){
 }
 
 
-void load_all_params(void){
+void load_all_params(char* prefix){
     if (param_head){
         printf("[load_all_params] loading params when then param list is not empty -- is not supported\n");
         exit(1);
     }
 
-    FILE *f = fopen("./generated/checkpoints/params.dat", "rb");
+    char path[50];
+    snprintf(path, sizeof(char) * 50, "./generated/checkpoints/%s.dat", prefix);
+
+    FILE *f = fopen(static_cast<const char*>(path), "rb");
     if (!f) {
         printf("Error opening file\n");
         exit(1);

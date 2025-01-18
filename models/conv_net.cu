@@ -4,14 +4,24 @@
 // normal_init -- 32 epochs
 
 #define DEVICE CUDA
-#define NUM_EP 80
-#define N_SAMPLES 32768
-#define BATCH_SIZE 128
-#define LR 0.001
+#define LR 0.002
 
-// #define NUM_EP 150
+// // training
+// #define N_SAMPLES 8192
 // #define BATCH_SIZE 2048
-// #define LR 0.001
+// #define NUM_EP 12
+// #define IS_STOCHASTIC true
+// #define IS_LOAD false
+// #define SAVE_EVERY 1
+
+// overfit sanity check
+#define N_SAMPLES 128
+#define BATCH_SIZE 128
+#define IS_STOCHASTIC false
+#define NUM_EP 16
+#define IS_LOAD false
+#define SAVE_EVERY 16
+
 
 #include "../nn.h"
 #include "../tensor.cpp"
@@ -48,6 +58,62 @@ def forward(self, x):
 */
 
 
+void init(){
+
+    int C = 3;
+    int F = 16;
+    int F2 = 32;
+    int HH1 = 7;
+    int WW1 = 7;
+
+    int HH2 = 6;
+    int WW2 = 6;
+
+
+    tensor* kernel1 = Tensor(F, C, HH1, WW1);
+    set_name(kernel1, "kernel1");
+    add_param(kernel1);
+
+    tensor* bias_kernel1 = Tensor(F, 1);
+    set_name(bias_kernel1, "bias_kernel1");
+    add_param(bias_kernel1);
+
+
+    tensor* kernel2 = Tensor(F2, F, HH2, WW2);
+    set_name(kernel2, "kernel2");
+    add_param(kernel2);
+
+    tensor* bias_kernel2 = Tensor(F2, 1);
+    set_name(bias_kernel2, "bias_kernel2");
+    add_param(bias_kernel2);
+
+
+    tensor* w1 = Tensor(F2*4*4, 256);
+    set_name(w1, "w1");
+    add_param(w1);
+
+    tensor* b1 = Tensor(1, 256);
+    set_name(b1, "b1");
+    add_param(b1);
+
+
+    tensor* w2 = Tensor(256, 128);
+    set_name(w2, "w2");
+    add_param(w2);
+
+    tensor* b2 = Tensor(1, 128);
+    set_name(b2, "b2");
+    add_param(b2);
+
+
+    tensor* w3 = Tensor(128, 10);
+    set_name(w3, "w3");
+    add_param(w3);
+
+    tensor* b3 = Tensor(1, 10);
+    set_name(b3, "b3");
+    add_param(b3);
+}
 
 tensor* forward(tensor* input) {
     int B = input->shape[0];
@@ -109,12 +175,12 @@ float accuracy(tensor* log_probs, tensor* label){
     for (int b=0; b<B; b++){
         (pred->data[b] == label->data[b]) ? correct++ : 0;
     }
-    float acc = (float)correct / B;
-    printf("accuracy: %f (%i/%i)\n", acc, correct, B);
+    float acc = ((float)correct / B) * 100;
+    // printf("accuracy: %.3f (%i/%i)\n", acc, correct, B);
     return acc;
 };
 
-tensor* train_step(cifar10* batch, int ep_idx) {
+tuple* train_step(cifar10* batch, int ep_idx) {
 
     // *** Net ***
     tensor* logits = forward(batch->input);
@@ -144,83 +210,33 @@ tensor* train_step(cifar10* batch, int ep_idx) {
     // sgd(LR, /* momentum = */ 0.6);
     adam(LR);
 
-    // todo-high: need smt like torch.detach?
-    if (accuracy(log_probs, batch->label) > 0.9){
-        save_all_params();
-    }
-    return loss;
+    float train_loss = COPY_FROM_DEVICE(loss)->data[0];
+    // todo-med: need smt like torch.detach?
+    float train_acc = accuracy(log_probs, batch->label);
+    return get_tuple(train_loss, train_acc);
 }
 
-// todo-low: when define weights (w1, w2, w3) in forward, can use runtime shapes to create these weights.
-// But when creating weights in main (in main fn), needed to hardcode these shapes, copying from train_step.
-// w1 = Tensor(flat->shape[1], 32);
-// w2 = Tensor(relu3->shape[1], 16);
-// w3 = Tensor(relu4->shape[1], 10);
+
+tuple* validation_step(cifar10* batch, int ep_idx) {
+    tensor* logits = forward(batch->input);
+    tensor* log_probs = log_softmax(logits);
+    tensor* loss = NLL(log_probs, batch->label);
+    float val_loss = COPY_FROM_DEVICE(loss)->data[0];
+    float val_acc = accuracy(log_probs, batch->label);
+    return get_tuple(val_loss, val_acc);
+}
+
 int main(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
     set_backend_device();
-
-    fclose(fopen("./generated/log.txt", "w"));
-
+    flush_io_buffers();
+    log_print_macros();
 
     // *** Init ***
-
-    int C = 3;
-    int F = 6;
-    int F2 = 16;
-    int HH1 = 7;
-    int WW1 = 7;
-
-    int HH2 = 6;
-    int WW2 = 6;
-
-
-    tensor* kernel1 = Tensor(F, C, HH1, WW1);
-    set_name(kernel1, "kernel1");
-    add_param(kernel1);
-
-    tensor* bias_kernel1 = Tensor(F, 1);
-    set_name(bias_kernel1, "bias_kernel1");
-    add_param(bias_kernel1);
-
-
-    tensor* kernel2 = Tensor(F2, F, HH2, WW2);
-    set_name(kernel2, "kernel2");
-    add_param(kernel2);
-
-    tensor* bias_kernel2 = Tensor(F2, 1);
-    set_name(bias_kernel2, "bias_kernel2");
-    add_param(bias_kernel2);
-
-
-    tensor* w1 = Tensor(F2*4*4, 128);
-    set_name(w1, "w1");
-    add_param(w1);
-
-    tensor* b1 = Tensor(1, 128);
-    set_name(b1, "b1");
-    add_param(b1);
-
-
-    tensor* w2 = Tensor(128, 64);
-    set_name(w2, "w2");
-    add_param(w2);
-
-    tensor* b2 = Tensor(1, 64);
-    set_name(b2, "b2");
-    add_param(b2);
-
-
-    tensor* w3 = Tensor(64, 10);
-    set_name(w3, "w3");
-    add_param(w3);
-
-    tensor* b3 = Tensor(1, 10);
-    set_name(b3, "b3");
-    add_param(b3);
-
+    init();
+    print_num_params();
 
     // todo-low: change add_param to accept array of all prams "add_param({kernel1, bias_kernel1, kernel2, bias_kernel2, w1, w2, w3})"?
 
@@ -232,38 +248,66 @@ int main(void) {
     // So moved prints and "get_cifar10" after initializing the tensors -- this way tensors will get initialized to
     // the same values regardless of wether there are prints or not
 
-    // load_all_params();
-
     cifar10* dataset = get_cifar10();
+    cifar10* val_batch = get_validation_cifar10();
     int gc_until = GC_IDX;
 
+
     // *** Train ***
-    print_num_params();
+
+    // note: equivalent to drop_last=True -- drops the last non-full batch
+    int steps_per_ep = N_SAMPLES / BATCH_SIZE;
 
     for (int ep_idx=0; ep_idx<NUM_EP; ep_idx++) {
-        cifar10* batch = sample_batch(dataset, BATCH_SIZE, /* is_random = */ false);
-        // passes loss sanity check -- 10 classes, if model is random (predicting each cls equally)
-        // log(0.1) = -2.3
-        tensor* loss = train_step(batch, ep_idx);
-        printf("ep: %i; loss: %f;\n\n", ep_idx, COPY_FROM_DEVICE(loss)->data[0]);
 
-        free_all_tensors(gc_until);
+        float mean_train_loss = 0; // mean_val_loss = 0;
+        for (int step_idx=0; step_idx<steps_per_ep; step_idx++){
+
+            // todo-high: I believe this fn is deterministic across the runs? Since I'm using rand() inside tha fn, the initial PRRNG state is the same across different runs
+            cifar10* train_batch = sample_batch(dataset, BATCH_SIZE, /* is_random = */ IS_STOCHASTIC);
+            tuple* train_metrics = train_step(train_batch, ep_idx);
+            free_all_tensors(gc_until);
+
+            // passes loss sanity check -- 10 classes, if model is
+            // random (predicting each cls equally) log(0.1) = -2.3
+            float train_loss = train_metrics->item_1;
+            float train_acc = train_metrics->item_2;
+            mean_train_loss += train_loss / steps_per_ep;
+
+            log_print("ep: %i (%i/%i); loss: %.3f; accuracy: %.3f\n", ep_idx, step_idx, steps_per_ep, train_loss, train_acc);
+            save_loss("train_loss", train_loss);
+        }
+
+        // if (acc > 0.9){
+        if (ep_idx % SAVE_EVERY == 0){
+            tuple* val_metrics = validation_step(val_batch, ep_idx);
+            free_all_tensors(gc_until);
+
+            float val_loss = val_metrics->item_1;
+            float val_acc = val_metrics->item_2;
+            // mean_val_loss += val_loss / steps_per_ep;
+
+            save_loss("val_loss", val_loss);
+
+            // todo-high: incorrect to save based on test acc
+            char prefix[25];
+            // todo-low: mv snprintf inside save_all_params?
+            snprintf(prefix, sizeof(char) * 25, "ep%i_valacc%.3f", ep_idx, val_acc);
+            save_all_params(prefix);
+
+            log_print("**************** validation ****************\n");
+            log_print("ep: %i; val loss: %.3f; val accuracy: %.3f\n", ep_idx, val_loss, val_acc);
+            log_print("********************************************\n");
+
+        }
+
+        log_print("ep: %i; mean train loss: %.3f\n", ep_idx, mean_train_loss);
+        log_print("\n\n\n");
+
+        // int total_step = ep_idx * steps_per_ep + step_idx;
     }
-
-    // lprint(params.w3->grad);
-    // lprint(params.w2->grad);
-    // lprint(params.w1->grad);
-    // lprint(params.kernel2->grad);
-    // lprint(params.bias_kernel2->grad);
-    // lprint(params.kernel1->grad);
-    // lprint(params.bias_kernel1->grad);
-
-    // lprint(kernel1);
-    // lprint(kernel2);
-    // lprint(w1);
-    // lprint(w2);
-    // lprint(w3);
 
     cudaDeviceReset();
     return 0;
 }
+
