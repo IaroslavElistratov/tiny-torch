@@ -10,10 +10,13 @@
 
 ```sh
 rm generated/*
-# define and train Conv-Net
+# define Conv-Net and train on GPU
+# (you can change DEVICE macro to run on CPU instead)
 nvcc models/conv_net.cu && ./a.out
-# visualize model graph
+# optionally, visualize model graph
 cat generated/graph.txt | dot -Tsvg -o generated/conv_net.svg
+# optionally, run the generated test code
+python generated/codegen.py
 ```
 
 ## MLP
@@ -22,8 +25,26 @@ cat generated/graph.txt | dot -Tsvg -o generated/conv_net.svg
 
 ```sh
 rm generated/*
-# define and train MLP
+# define MLP and train on CPU 
+# (you can change DEVICE macro to run on GPU instead)
 nvcc models/mlp.cu && ./a.out
-# visualize model graph
+# optionally, visualize model graph
 cat generated/graph.txt | dot -Tsvg -o generated/mlp.svg
+# optionally, run the generated test code
+python generated/codegen.py 
+```
+
+<!-- ## Miscellaneous commands -->
+## Setup commands
+
+```sh
+# setup evn to run the generated test code
+conda create -n tiny_torch_tests python=3.11 && conda activate tiny_torch_tests
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+```
+
+```sh
+# download data
+wget https://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz -P ../data
+tar -xvzf ../data/cifar-10-binary.tar.gz
 ```
