@@ -1,4 +1,6 @@
-void checkCudaErrors(cudaError_t err);
+// placeholder macro, actual definition in backends/cuda/move_data
+#define checkCudaErrors
+
 
 // todo-high:
 //  for cpu backend, the number of tensors created, quickly reaches MAX_GC: e.g. 5,041,911 for BS=128

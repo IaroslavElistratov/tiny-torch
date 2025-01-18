@@ -3,13 +3,28 @@
 // keep in mind that there's an asymmetry between copy_to_device (which
 // actually overwrites t->data), and copy_to_host (which returns a new tensor)
 
-inline void checkCudaErrors(cudaError_t err) {
-    // todo: exit from program everywhere in case of error
+// this wrapper macro is needed to pass __FILE__, __LINE__ to the fn,
+// because macro (unlike fn) gets expanded at the call sight
+#define checkCudaErrors(ans) {_checkCudaErrors((ans), __FILE__, __LINE__);}
+inline void _checkCudaErrors(cudaError_t err, const char *file, int line) {
     if (err != cudaSuccess){
-        printf("[cuda malloc/memcopy] error: %s\n",  cudaGetErrorString(err));
+        fprintf(stderr,"[checkCudaErrors] error: %s %s %d\n", cudaGetErrorString(err), file, line);
         exit(1);
     }
 }
+
+// #define checkCudaErrors(msg) \
+//     do{\
+//         cudaError_t __err = cudaGetLastError(); \
+//         if (__err != cudaSuccess) { \
+//             fprintf(stderr, "Fatal error: %s (%s at %s:%d)\n", \
+//                 msg, cudaGetErrorString(__err), \
+//                 __FILE__, __LINE__); \
+//             fprintf(stderr, "*** FAILED - ABORTING ***\n"); \
+//             exit(1); \
+//         } \
+//     } while (0)
+
 
 void set_backend_cuda(void);
 
