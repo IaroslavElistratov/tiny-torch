@@ -1,8 +1,13 @@
+#include <math.h>
+
+
 #include "nn.h"
 #include "init.cpp"
 #include "param.cpp"
 #include "autograd.cpp"
-#include "gc.cpp"
+#if !defined (PYTHON_API)
+    #include "gc.cpp"
+#endif
 
 // todo-now: assert callback func pointers are not NULL, before calling them
 

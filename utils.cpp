@@ -43,22 +43,24 @@ void log_print(const char* format, ...) {
     fclose(file);
 }
 
+#if !defined (PYTHON_API)
+    // todo: only define this if not compiling for python
+    void log_print_macros(void){
+        // size of the training job
+        log_print("N_SAMPLES: %i\n", N_SAMPLES);
+        log_print("BATCH_SIZE: %i\n", BATCH_SIZE);
+        log_print("NUM_EP: %i\n", NUM_EP);
 
-void log_print_macros(void){
-    // size of the training job
-    log_print("N_SAMPLES: %i\n", N_SAMPLES);
-    log_print("BATCH_SIZE: %i\n", BATCH_SIZE);
-    log_print("NUM_EP: %i\n", NUM_EP);
+        // optimization related
+        log_print("IS_LOAD: %i\n", IS_LOAD);
+        log_print("IS_STOCHASTIC: %i\n", IS_STOCHASTIC);
+        log_print("LR: %f\n", LR);
 
-    // optimization related
-    log_print("IS_LOAD: %i\n", IS_LOAD);
-    log_print("IS_STOCHASTIC: %i\n", IS_STOCHASTIC);
-    log_print("LR: %f\n", LR);
-
-    // misc
-    log_print("SAVE_EVERY: %i\n", SAVE_EVERY);
-    log_print("DEVICE: %i\n", DEVICE);
-}
+        // misc
+        log_print("SAVE_EVERY: %i\n", SAVE_EVERY);
+        log_print("DEVICE: %i\n", DEVICE);
+    }
+#endif
 
 void flush_io_buffers(void){
     mkdir("./generated", 0755);

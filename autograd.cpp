@@ -1,5 +1,8 @@
-#include <deque> // deque from standard template library (STL)
+#if !defined (PYTHON_API)
+    #include <deque> // deque from standard template library (STL)
+#endif
 #include "nn.h"
+
 
 #define IS_DEBUG_AG false
 #define IS_DEBUG_BRANCHES false

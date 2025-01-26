@@ -16,9 +16,10 @@ void uniform_init(tensor* t) {
 }
 
 
-
-// Mersenne Twister
-#include <random>
+#if !defined (PYTHON_API)
+    // Mersenne Twister
+    #include <random>
+#endif
 // Seed C++ generator
 std::mt19937 mt(std::random_device{}());
 // Something like the Box-Muller method
