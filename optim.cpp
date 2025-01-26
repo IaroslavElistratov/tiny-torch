@@ -1,5 +1,6 @@
-
 void adam(float learning_rate) {
+    using namespace tiny_torch;
+
     param* temp = param_head;
 
     while (temp){

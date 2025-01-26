@@ -11,7 +11,9 @@
 //   - write local derivatives, for each input
 
 
-// todo-now: temporarily commented out ops which don't yet have CUDA impl, so that compilation doesn't fail bc linker can't find _k expected by these ops
+
+namespace tiny_torch
+{
 
 tensor* add(tensor* a, tensor* b) {
     a->num_uses++;
@@ -300,4 +302,6 @@ tensor* batched_maxpool(tensor* input) {
     t->op_type = 12;
     t->grad_fn = bwd_batched_maxpool_k;
     return t;
+}
+
 }

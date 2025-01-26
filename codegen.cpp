@@ -1,5 +1,5 @@
+#include <stdio.h> // structure declaration called FILE
 #include "nn.h"
-
 
 // todo-med: rm cprint[s] and re-use lprint[s] funcs -- modify a global pointer to whatever filenme a lprint should write to, set this pointer to "test.py" before calling lprint then set it back to "log.txt"
 
@@ -11,8 +11,7 @@ extern void (*COPY_TO_DEVICE)(tensor*);
 extern tensor* (*COPY_FROM_DEVICE)(tensor*);
 
 // extern bool IS_CODEGEN;
-#include <stdio.h> // structure declaration called FILE
-FILE *fopen(char *name, char *mode);
+// FILE *fopen(char *name, char *mode);
 
 // to print "longest decimal approximation" use FLT_DIG from <float.h> header.
 //  FLT_DIG: Represents the number of decimal digits of precision for the float type. This is

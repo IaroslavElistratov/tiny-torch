@@ -22,7 +22,7 @@ There is another file, called batches.meta.txt. This is an ASCII file that maps 
 
 // book, chapter 7.5 file access:
 // fp is a pointer to a FILE, and fopen returns a pointer to a FILE
-FILE *fopen(char *name, char *mode);
+// FILE *fopen(char *name, char *mode);
 
 // getc returns the next character from a file; it needs the file pointer to tell it which file.
 // it returns EOF for end of file or error

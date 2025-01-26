@@ -33,6 +33,7 @@
 #include "../codegen.cpp"
 #include "../serialization.cpp"
 
+using namespace tiny_torch;
 
 /*
 https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html

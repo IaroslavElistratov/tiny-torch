@@ -1,6 +1,14 @@
 #include "nn.h"
 
 tensor* log_softmax(tensor* logits){
+    // placing "using namespace" inside a fn limits its scope to that fn;
+    // If I instead placed "using namespace tiny_torch" at the beginning of
+    // this file, it would also set the namespace in the user facing files
+    // (in models/), because this file is included by the user facing files
+    // -- limiting the namespace to this fn allows user files to have a choice
+    // whether or not to set the default namespace to tiny_torch
+    using namespace tiny_torch;
+
     // min-max trick for numerical stability, python: "logits -= np.max(logits, axis=1, keepdims=True)"
     int n_repeats = logits->shape[1];
     tensor* maxes = repeat(batched_reduce_max(logits), /*axis = */ 1, /*num_repeats = */ n_repeats);
@@ -32,6 +40,8 @@ tensor* log_softmax(tensor* logits){
 
 // expects log probabilities (output of LOGsoftmax) as input
 tensor* NLL(tensor* log_probs, tensor* label){
+    using namespace tiny_torch;
+
     int B = label->shape[0];
     set_name(label, "label"); // sprint(label);
     tensor* se = select(log_probs, label);      // (B, 1)

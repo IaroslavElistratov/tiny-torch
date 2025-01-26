@@ -1,7 +1,8 @@
 #include <iostream> // todo: use C only
 
 #define DEVICE CPU
-
+#define NUM_EP 1
+#define LR 0.02
 
 #include "../nn.h"
 #include "../tensor.cpp"
@@ -12,8 +13,7 @@
 #include "../optim.cpp"
 #include "../codegen.cpp"
 
-#define NUM_EP 1
-#define LR 0.02
+using namespace tiny_torch;
 
 
 float train_step(tensor* x, tensor* w1, tensor* w2)
