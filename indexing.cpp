@@ -41,32 +41,12 @@ int index_4d(tensor* t, int o, int x, int y, int z){
     return t->stride[0]*o + t->stride[1]*x + t->stride[2]*y + t->stride[3]*z;
 }
 
-// most of the logic here unpacks varying number of args so that idx_Nd can be called
-int index(tensor* t, ...){
-    va_list args;
-    va_start(args, t);
 
-    int idx;
-    int s0 = va_arg(args, int);
-    int s1 = va_arg(args, int);
-
-    if (t->num_dims==2){
-        idx = index_2d(t, s0, s1);
-    } else if (t->num_dims==3){
-        int s2 = va_arg(args, int);
-        idx = index_3d(t, s0, s1, s2);
-    } else if (t->num_dims==4){
-        int s2 = va_arg(args, int);
-        int s3 = va_arg(args, int);
-        idx = index_4d(t, s0, s1, s2, s3);
-    } else {
-        printf("[index] unexpected t->num_dims: %i\n", t->num_dims);
-        sprint(t);
-        exit(1);
-    }
-    va_end(args);
-    return idx;
-}
+// comment: unlike my regular VA_NARGS -- this does -1
+// #define VA_NARGS_IMPL_MINUS1(_0, _1, _2, _3, _4, N, ...) N
+// #define VA_NARGS_MINUS1(...) VA_NARGS_IMPL_MINUS1(__VA_ARGS__, 4, 3, 2, 1, 0)
+// #define index(t, ...) CONCAT(index_, CONCAT(VA_NARGS_MINUS1(__VA_ARGS__), d))(t, __VA_ARGS__)
+#define index(t, ...) CONCAT(index_, CONCAT(VA_NARGS(__VA_ARGS__), d))(t, __VA_ARGS__)
 
 
 // todo: name it "contigify"
