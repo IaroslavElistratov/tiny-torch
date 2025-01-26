@@ -157,7 +157,7 @@ param* load_param(FILE* f){
 }
 
 
-void save_all_params(const char* prefix, int ep_idx){
+void save_all_params(const char* prefix, int ep_idx, float learning_rate){
 
     char path[50];
     snprintf(path, sizeof(char) * 50, "./generated/checkpoints/%s.dat", prefix);
@@ -176,7 +176,6 @@ void save_all_params(const char* prefix, int ep_idx){
     int num_params = count_params();
     fwrite(&num_params, sizeof(int), 1, f);
 
-    float learning_rate = LR;
     fwrite(&learning_rate, sizeof(float), 1, f);
 
     fwrite(&ep_idx, sizeof(int), 1, f);

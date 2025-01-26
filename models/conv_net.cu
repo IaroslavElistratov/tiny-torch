@@ -301,7 +301,7 @@ int main(void) {
             char prefix[25];
             // todo-low: mv snprintf inside save_all_params?
             snprintf(prefix, sizeof(char) * 25, "ep%i_valacc%.3f", ep_idx, val_acc);
-            save_all_params(prefix, ep_idx);
+            save_all_params(prefix, ep_idx, LR);
 
             log_print("**************** validation ****************\n");
             log_print("ep: %i; val loss: %.3f; val accuracy: %.3f\n", ep_idx, val_loss, val_acc);
