@@ -2,7 +2,7 @@
 
 
 // %6.1f describes number at least six characters wide, with 1 digit after the decimal point
-// printf("%8.4f, ", t->data[i]);
+// printf("%12.8f, ", t->data[i]);
 
 void sprint_2d(tensor* t){
     printf("\n%s:\n", t->name);
@@ -44,7 +44,7 @@ void print_2d(tensor* t){
         printf("[");
         for (int zi=0; zi<z; zi++){
             int idx = index(t_copy, yi, zi);
-            printf("%8.4f, ", t_copy->data[idx]);
+            printf("%12.8f, ", t_copy->data[idx]);
         }
         printf("],\n");
     }
@@ -64,7 +64,7 @@ void print_3d(tensor* t){
             printf("[");
             for (int zi=0; zi<z; zi++){
                 int idx = index(t_copy, xi, yi, zi);
-                printf("%8.4f, ", t_copy->data[idx]);
+                printf("%12.8f, ", t_copy->data[idx]);
             }
             printf("],\n");
         }
@@ -88,7 +88,7 @@ void print_4d(tensor* t){
                 printf("[");
                 for (int zi=0; zi<z; zi++){
                     int idx = index(t_copy, oi, xi, yi, zi);
-                    printf("%8.4f, ", t_copy->data[idx]);
+                    printf("%12.8f, ", t_copy->data[idx]);
                 }
                 printf("],\n");
             }
@@ -172,10 +172,10 @@ void lprint_2d(tensor* t){
     int z = t->shape[1];
 
     for (int yi=0; yi<y; yi++){
-        fprintf(f, "[");
+        fprintf(f, "    [");
         for (int zi=0; zi<z; zi++){
             int idx = index(t_copy, yi, zi);
-            fprintf(f, "%8.4f, ", t_copy->data[idx]);
+            fprintf(f, "%12.8f, ", t_copy->data[idx]);
         }
         fprintf(f, "],\n");
     }
@@ -199,10 +199,10 @@ void lprint_3d(tensor* t){
 
     for (int xi=0; xi<x; xi++){
         for (int yi=0; yi<y; yi++){
-            fprintf(f, "[");
+            fprintf(f, "    [");
             for (int zi=0; zi<z; zi++){
                 int idx = index(t_copy, xi, yi, zi);
-                fprintf(f, "%8.4f, ", t_copy->data[idx]);
+                fprintf(f, "%12.8f, ", t_copy->data[idx]);
             }
             fprintf(f, "],\n");
         }
@@ -230,10 +230,10 @@ void lprint_4d(tensor* t){
     for (int oi=0; oi<o; oi++){
         for (int xi=0; xi<x; xi++){
             for (int yi=0; yi<y; yi++){
-                fprintf(f, "[");
+                fprintf(f, "    [");
                 for (int zi=0; zi<z; zi++){
                     int idx = index(t_copy, oi, xi, yi, zi);
-                    fprintf(f, "%8.4f, ", t_copy->data[idx]);
+                    fprintf(f, "%12.8f, ", t_copy->data[idx]);
                 }
                 fprintf(f, "],\n");
             }

@@ -71,16 +71,18 @@ tensor* add_k(tensor* a, tensor* b) {
     return add_k_(a, b, out);
 }
 
-
-tensor* sub_k(tensor* a, tensor* b) {
+tensor* sub_k_(tensor* a, tensor* b, tensor* out) {
     assert_binary_elementwise(a, b);
-    tensor* out = TensorLike(a);
     for (int i=0; i<out->size; i++){
         out->data[i] = a->data[i] - b->data[i];
     }
     return out;
 }
 
+tensor* sub_k(tensor* a, tensor* b) {
+    tensor* out = TensorLike(a);
+    return sub_k_(a, b, out);
+}
 
 tensor* mul_k_(tensor* a, tensor* b, tensor* out) {
     assert_binary_elementwise(a, b);
@@ -155,28 +157,51 @@ tensor* div_k(tensor* a, tensor* b) {
 }
 
 
-tensor* repeat_k(tensor* a, int num_repeats) {
+tensor* repeat_k(tensor* a, int axis, int num_repeats) {
     assert_input(a, 2);
-    if (a->shape[1]!=1){
+    if (axis != 0 && axis != 1){
+        printf("[repeat] Unexpected axis\n");
+        exit(1);
+    }
+    if (a->shape[axis] != 1){
         printf("[repeat] Shape error\n");
         exit(1);
     }
 
-    int B = a->shape[0];
-    tensor* out = Tensor(B, num_repeats);
+    tensor* out;
 
-    // 1 1 1
-    // 2 2 2
-    // 3 ...
-    for (int b=0; b<B; b++){
-        // points to the first element of the current b
-        float* curr_a = a->data + b;
-        // here indexing includes multiplying by "out->stride[0]" bc
-        // out is a 2d tensor (for curr_a adding "out->stride[0]" is
-        // not needed bc curr_a is (B, 1))
-        float* curr_out = out->data + (b * out->stride[0]);
-        for (int i=0; i<num_repeats; i++){
-            *(curr_out+i) = *(curr_a);
+    // a.shape (1, N)
+    if (axis==0){
+        int N = a->shape[1];
+        out = Tensor(num_repeats, N);
+
+        for (int b=0; b<num_repeats; b++){
+            // points to the first element of the current b
+            float* curr_out = out->data + (b * out->stride[0]);
+            for (int i=0; i<N; i++){
+                // for curr_a multiplying by "a->stride[0]" is not needed bc curr_a is (1, N)
+                *(curr_out+i) = *(a->data+i);
+            }
+        }
+
+    // a.shape (B, 1)
+    } else if (axis==1){
+        int B = a->shape[0];
+        out = Tensor(B, num_repeats);
+
+        // 1 1 1
+        // 2 2 2
+        // 3 ...
+        for (int b=0; b<B; b++){
+            // points to the first element of the current b
+            float* curr_a = a->data + b;
+            // here indexing includes multiplying by "out->stride[0]" bc
+            // out is a 2d tensor (for curr_a multiplying by "a->stride[0]" is
+            // not needed bc curr_a is (B, 1))
+            float* curr_out = out->data + (b * out->stride[0]);
+            for (int i=0; i<num_repeats; i++){
+                *(curr_out+i) = *(curr_a);
+            }
         }
     }
     return out;
@@ -231,6 +256,14 @@ void select_set_(tensor* a, tensor* idx, int value) {
 
 //    unary
 
+tensor* sqrt_k(tensor* a) {
+    assert_input(a, -1);
+    tensor* out = TensorLike(a);
+    for (int i=0; i<out->size; i++){
+        out->data[i] = (float)sqrt(a->data[i]);
+    }
+    return out;
+}
 
 tensor* pow_k(tensor* a, int exponent) {
     // supports n-dim input but must be contiguous
@@ -292,7 +325,6 @@ void relu_bwd(tensor* upstream, tensor* out) {
     }
 
     a->grad = mul_k(local, upstream);
-    // free(local);
 }
 
 
@@ -416,7 +448,7 @@ tensor* batched_matmul_k(tensor* a, tensor* b) {
 
         // comment: problem is out[i] is float, not Tensor
         //  curr_out is a scratch throw away tensor, needed bc matmul_k_ expects a Tensor struct for the output argument
-        // todo: find a proper fix to the issue above: creating these throw away tensors creates memory leaks -- at least need to free them
+        // todo-now: find a proper fix to the issue above: creating these throw away tensors creates memory leaks -- at least need to free them
         tensor* curr_out = TensorNoData(N, D);
         curr_out->data = out->data + (i * out->stride[0]);
 

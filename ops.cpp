@@ -85,12 +85,14 @@ tensor* div(tensor* a, tensor* b) {
     return t;
 }
 
-tensor* repeat(tensor* a, int num_repeats) {
+tensor* repeat(tensor* a, int axis, int num_repeats) {
     a->num_uses++;
-    tensor* t = repeat_k(a, num_repeats);
+    tensor* t = repeat_k(a, axis, num_repeats);
     t->is_leaf = false;
     t->num_inputs = 1;
     t->inputs[0] = a;
+    t->non_grad_inputs[0] = axis;
+    t->non_grad_inputs[1] = num_repeats;
     t->op_type = 18;
     t->grad_fn = repeat_bwd;
     return t;
@@ -117,6 +119,7 @@ tensor* pow(tensor* a, int exponent) {
     //  so here even if this op has two inputs, it really has one, for the purpose of the autograd
     t->num_inputs = 1;
     t->inputs[0] = a;
+    t->non_grad_inputs[0] = exponent;
     t->op_type = 4;
     t->grad_fn = pow_bwd;
     return t;
@@ -247,27 +250,31 @@ tensor* batched_reduce_max(tensor* a) {
     return t;
 }
 
-tensor* conv(tensor* input, tensor* kernel) {
+tensor* conv(tensor* input, tensor* kernel, tensor* bias) {
     input->num_uses++;
     kernel->num_uses++;
-    tensor* t = conv_k(input, kernel);
+    bias->num_uses++;
+    tensor* t = conv_k(input, kernel, bias);
     t->is_leaf = false;
-    t->num_inputs = 2;
+    t->num_inputs = 3;
     t->inputs[0] = input;
     t->inputs[1] = kernel;
+    t->inputs[2] = bias;
     t->op_type = 9;
     t->grad_fn = bwd_conv_k;
     return t;
 }
 
-tensor* batched_conv(tensor* input, tensor* kernel) {
+tensor* batched_conv(tensor* input, tensor* kernel, tensor* bias) {
     input->num_uses++;
     kernel->num_uses++;
-    tensor* t = batched_conv_k(input, kernel);
+    bias->num_uses++;
+    tensor* t = batched_conv_k(input, kernel, bias);
     t->is_leaf = false;
-    t->num_inputs = 2;
+    t->num_inputs = 3;
     t->inputs[0] = input;
     t->inputs[1] = kernel;
+    t->inputs[2] = bias;
     t->op_type = 10;
     t->grad_fn = bwd_batched_conv_k;
     return t;

@@ -1,9 +1,7 @@
 #include <iostream> // todo: use C only
 #include <stdio.h> // structure declaration called FILE
+#include <string.h> // memcopy
 
-using namespace std;
-
-#define N_SAMPLES 1000 // 10000
 
 
 /*
@@ -35,17 +33,68 @@ struct cifar10 {
     tensor* label;
 };
 
-// todo-now: doublecheck that logic here is correct
-cifar10* get_cifar10(){
-    set_backend_cpu();
 
+void read_file(tensor*, tensor*, const char *);
+
+// made them global variables to persist between executions
+// of read_file, and to avoid passing them as output of this fn
+int byte_idx=0, img_idx=0, tensor_data_idx=0;
+
+cifar10* get_cifar10(void){
+
+    if (N_SAMPLES > 50000) {
+        printf("[cifar] N_SAMPLES cannot be greater than 50,000\n");
+        exit(1);
+    }
+
+    // reset global variables, in case get_validation_batch
+    // was called before the current function
+    byte_idx=0, img_idx=0, tensor_data_idx=0;
+
+    set_backend_cpu();
     tensor* input = EmptyTensor(N_SAMPLES, 3, 32, 32);
     set_name(input, "input");
     tensor* label = EmptyTensor(N_SAMPLES, 1);
     set_name(label, "label");
 
+    int num_per_file = 10000;
+
+    // ceil: if divides without remainder no need to read one more file
+    int num_files = N_SAMPLES / num_per_file + (N_SAMPLES % num_per_file != 0);
+    // int num_files = ceil(N_SAMPLES, num_per_file);
+
+    // maximum 5 batches
+    num_files = min(5, num_files);
+
+    for (int file_idx=1; file_idx<=num_files; file_idx++){
+        // todo: determine automatically
+        char file_name[46];
+        snprintf(file_name, sizeof(char) * 46, "../data/cifar-10-batches-bin/data_batch_%i.bin", file_idx);
+
+        read_file(input, label, file_name);
+    }
+
+    // pack into a single structure to be returned by the function
+    cifar10* dataset = (cifar10*)checkMallocErrors(malloc(sizeof(cifar10)));
+    dataset->input = input;
+    dataset->label = label;
+
+    sprint(dataset->input);
+    sprint(dataset->label);
+
+    set_backend_device();
+    // note: the dataset is stored on the host, each batch is separately copied to device
+    return dataset;
+}
+
+void read_file(tensor* input, tensor* label, const char* file_name){
+
+    printf("file_name = %s\n", file_name);
+
     FILE *fp;
-    if ((fp = fopen("../data/cifar-10-batches-bin/data_batch_1.bin", "rb")) == NULL) {
+    // casting to const char bc mode ("rb") is const char -- and
+    // fopen doesn't have overload for args: char, const char
+    if (!(fp = fopen((file_name), "rb"))) {
         printf("[cifar] Error: can't access file\n");
         exit(1);
     }
@@ -55,8 +104,8 @@ cifar10* get_cifar10(){
     //      - not the same as byte_idx -- byte_idx is larger bc it was also advanced for each label byte (associated with each img)
     //      - "data->data[byte_idx] = c/255." is incorrect, as it grows larger than "10000*3*32*32", bc it contains counts for labels
     //        as well (which my tensor* data has no space for), so need separate idxs for byte_idx and img_idx
-    int c, byte_idx=0, img_idx=0, tensor_data_idx = 0;
 
+    int c;
     while ((c = getc(fp)) != EOF){
 
         if (img_idx > N_SAMPLES){
@@ -73,9 +122,24 @@ cifar10* get_cifar10(){
                 printf("\n[cifar10] ERR!");
                 exit(1);
             }
-            // c is in range 0-255
-            // printf("%f\n", c/255.);
-            input->data[tensor_data_idx] = c/255.;
+
+            // note: chose the first normalization below bc
+            // empirically it led to lower loss values
+
+            // standardizing to range: -0.5:0.5:
+            //   originally c is in range 0:255 -- transform into
+            //   range 0:1, and then shift into range -0.5:0.5
+            float value = (c / 255.) - 0.5;
+            // printf("%f\n", value);
+
+            // // standardizing to mean 0 and a std 1:
+            // float mean[] = {125.306, 122.950, 113.865};
+            // float std[] = {62.993, 62.088, 66.704};
+            // // which of the 3 channels this value belongs to
+            // int idx = (tensor_data_idx % 3072) / 1024;
+            // float value = (c - mean[idx]) / std[idx];
+
+            input->data[tensor_data_idx] = value;
             tensor_data_idx++;
         }
         byte_idx++;
@@ -86,14 +150,72 @@ cifar10* get_cifar10(){
 
     printf("\n[cifar] byte_idx: %i\n", byte_idx); // 30730000
     printf("\n[cifar] img_idx: %i\n", img_idx); // 10000
+}
 
-    // pack into a single structure to be returned by the function
-    cifar10* dataset = (cifar10*)checkMallocErrors(malloc(sizeof(cifar10)));
-    dataset->input = input;
-    dataset->label = label;
+
+cifar10* sample_batch(cifar10* dataset, int batch_size, bool is_random){
+    if (batch_size > N_SAMPLES){
+        printf("[get_batch] error: saw batch_size larger than num samples in the dataset\n");
+        exit(1);
+    }
+
+    set_backend_cpu();
+    tensor* x = EmptyTensor(batch_size, 3, 32, 32);
+    set_name(x, "x");
+    tensor* y = EmptyTensor(batch_size, 1);
+    set_name(y, "y");
+
+    for (int i=0; i<batch_size; i++){
+        float* curr_x = x->data + i*x->stride[0];
+        float* curr_y = y->data + i*y->stride[0];
+
+        int idx;
+        if (is_random){
+            idx = (int)rand() % N_SAMPLES;
+        } else {
+            idx = i;
+        }
+
+        // select x, y at idx form the dataset
+        float* sampled_x = dataset->input->data + idx * dataset->input->stride[0];
+        int size_of_x = dataset->input->size / N_SAMPLES;
+        memcpy(curr_x, sampled_x, size_of_x * sizeof(float));
+
+        float* sampled_y = dataset->label->data + idx * dataset->label->stride[0];
+        int size_of_y = dataset->label->size / N_SAMPLES;
+        memcpy(curr_y, sampled_y, size_of_y * sizeof(float));
+    }
+
+    cifar10* batch = (cifar10*)checkMallocErrors(malloc(sizeof(cifar10)));
+    batch->input = x;
+    batch->label = y;
 
     set_backend_device();
-    COPY_TO_DEVICE(dataset->input);
-    COPY_TO_DEVICE(dataset->label);
-    return dataset;
+    COPY_TO_DEVICE(batch->input);
+    COPY_TO_DEVICE(batch->label);
+    return batch;
+}
+
+
+cifar10* get_validation_cifar10(void){
+
+    set_backend_cpu();
+    tensor* input = EmptyTensor(10000, 3, 32, 32);
+    set_name(input, "val_input");
+    tensor* label = EmptyTensor(10000, 1);
+    set_name(label, "val_label");
+
+    // reset global variables, they were incremented by
+    // "get_cifar10" fn, assuming it ran before this fn
+    byte_idx=0, img_idx=0, tensor_data_idx=0;
+    read_file(input, label, "../data/cifar-10-batches-bin/test_batch.bin");
+
+    cifar10* batch = (cifar10*)checkMallocErrors(malloc(sizeof(cifar10)));
+    batch->input = input;
+    batch->label = label;
+
+    set_backend_device();
+    COPY_TO_DEVICE(batch->input);
+    COPY_TO_DEVICE(batch->label);
+    return batch;
 }

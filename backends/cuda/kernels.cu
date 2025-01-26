@@ -4,7 +4,7 @@
 
 void assert_device(tensor* a){
     if (a->device!=CUDA){
-        printf("[assert_device] Error: expected device cuda\n");
+        printf("[assert_device] Error: expected device cuda. t->name: %s\n", a->name);
         exit(1);
     }
 }
@@ -88,6 +88,11 @@ __global__ void SubKernel(float* a, float* b, float* out, int size){
 tensor* sub_k(tensor* a, tensor* b){
     if (CUDA_DEBUG) printf("[sub_k]\n");
     return _launch_binary_elementwise(SubKernel, a, b, NULL);
+}
+
+tensor* sub_k_(tensor* a, tensor* b, tensor* c){
+    if (CUDA_DEBUG) printf("[sub_k_]\n");
+    return _launch_binary_elementwise(SubKernel, a, b, c);
 }
 
 
@@ -236,9 +241,11 @@ tensor* _launch_unary_elementwise(UnaryKernel kernel, tensor* a){
 }
 
 
+
+__device__ int pow_exponent;
+
 __global__ void PowKernel(float* a, float* out, int size){
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int pow_exponent = 2;
     if (idx<size){
         out[idx] = (float)pow(a[idx], pow_exponent);
     }
@@ -246,14 +253,24 @@ __global__ void PowKernel(float* a, float* out, int size){
 
 tensor* pow_k(tensor* a, int exponent){
     if (CUDA_DEBUG) printf("[pow_k]\n");
-    // cpu's pow_k expects exponent as arg, but here because of standardized _launch_unary_elementwise interface I hardcode it
-    // todo: pass it via global argument
-    // pow_exponent = exponent;
-    if (exponent!=2){
-        printf("[cuda pow_k] currently this kernel only supports exponent=2\n");
-        exit(1);
-    }
+    // cpu's pow_k expects exponent as arg, but here because of standardized
+    // _launch_unary_elementwise interface -- passing it via global
+    cudaMemcpyToSymbol(pow_exponent, &exponent, sizeof(int));
     return _launch_unary_elementwise(PowKernel, a);
+}
+
+
+
+__global__ void SqrtKernel(float* a, float* out, int size){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx<size){
+        out[idx] = (float)sqrt(a[idx]);
+    }
+}
+
+tensor* sqrt_k(tensor* a){
+    if (CUDA_DEBUG) printf("[sqrt_k]\n");
+    return _launch_unary_elementwise(SqrtKernel, a);
 }
 
 
@@ -321,7 +338,6 @@ void relu_bwd(tensor* upstream, tensor* out) {
     tensor* a = out->inputs[0];
     tensor* local = _launch_unary_elementwise(ReluBwdKernel, a);
     a->grad = mul_k(local, upstream);
-    // free(local);
 }
 
 
@@ -366,7 +382,7 @@ tensor* transpose_k(tensor* a){
 
 
 // a(B, 1) -> out(B, N)
-__global__ void RepeatKernel(float* a, float* out, int num_repeats, int B){
+__global__ void RepeatDim1Kernel(float* a, float* out, int num_repeats, int B){
     // (block idx * num threads per block) + thread idx
     int b = blockIdx.x * blockDim.x + threadIdx.x;
     // this is repeat_idx (0-num_repeats) that this thread represents
@@ -392,27 +408,70 @@ __global__ void RepeatKernel(float* a, float* out, int num_repeats, int B){
 //     }
 // }
 
-tensor* repeat_k(tensor* a, int num_repeats){
+
+// a(1, N) -> out(B, N)
+__global__ void RepeatDim0Kernel(float* a, float* out, int num_repeats, int N){
+    // (block idx * num threads per block) + thread idx
+    int b = blockIdx.x * blockDim.x + threadIdx.x;
+    // this is repeat_idx (0-num_repeats) that this thread represents
+    int i = blockIdx.y; // * blockDim.y + threadIdx.y;
+    if (b<num_repeats && i<N){
+        out[b*N + i] = a[i];
+    }
+}
+
+
+
+tensor* repeat_k(tensor* a, int axis, int num_repeats){
     if (CUDA_DEBUG) printf("[repeat_k]\n");
     assert_input(a, 2);
-    if (a->shape[1]!=1){
+    if (axis != 0 && axis != 1){
+        printf("[CUDA RepeatKernel] Unexpected axis\n");
+        exit(1);
+    }
+    if (a->shape[axis] != 1){
         printf("[CUDA RepeatKernel] Shape error\n");
         exit(1);
     }
 
-    int B = a->shape[0];
-    tensor* out = Tensor(B, num_repeats);
+    tensor* out;
 
-    float num_threads = (float)NUM_THREADS;
-    dim3 dimGrid(ceil(B/num_threads), num_repeats, 1);
-    dim3 dimBlock(num_threads, 1, 1);
+    // a.shape (1, N)
+    if (axis==0){
 
-    if (CUDA_DEBUG){
-        printf("[cuda RepeatKernel] grid: (%f, 1, 1)\n", ceil(B/num_threads));
-        printf("[cuda RepeatKernel] block: (%f, 1, 1)\n", num_threads);
+        int N = a->shape[1];
+        out = Tensor(num_repeats, N);
+
+        float num_threads = (float)NUM_THREADS;
+        dim3 dimGrid(ceil(num_repeats/num_threads), N, 1);
+        dim3 dimBlock(num_threads, 1, 1);
+
+        if (CUDA_DEBUG){
+            printf("[cuda RepeatKernel] grid: (%f, %i, 1)\n", ceil(num_repeats/num_threads), N);
+            printf("[cuda RepeatKernel] block: (%f, 1, 1)\n", num_threads);
+        }
+
+        RepeatDim0Kernel<<<dimGrid, dimBlock>>>(a->data, out->data, num_repeats, N);
+
+
+    // a.shape (B, 1)
+    } else if (axis==1){
+
+        int B = a->shape[0];
+        out = Tensor(B, num_repeats);
+
+        float num_threads = (float)NUM_THREADS;
+        dim3 dimGrid(ceil(B/num_threads), num_repeats, 1);
+        dim3 dimBlock(num_threads, 1, 1);
+
+        if (CUDA_DEBUG){
+            printf("[cuda RepeatKernel] grid: (%f, %i, 1)\n", ceil(B/num_threads), num_repeats);
+            printf("[cuda RepeatKernel] block: (%f, 1, 1)\n", num_threads);
+        }
+
+        RepeatDim1Kernel<<<dimGrid, dimBlock>>>(a->data, out->data, num_repeats, B);
+
     }
-
-    RepeatKernel<<<dimGrid, dimBlock>>>(a->data, out->data, num_repeats, B);
     return out;
 }
 

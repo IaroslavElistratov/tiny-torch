@@ -1,6 +1,8 @@
 #include "nn.h"
+#include "init.cpp"
+#include "param.cpp"
 #include "autograd.cpp"
-
+#include "gc.cpp"
 
 // todo-now: assert callback func pointers are not NULL, before calling them
 
@@ -36,7 +38,7 @@ tensor* TensorNoData2d(int y, int z)
     // bc it's unknown at this moment, bc depends on whatever ops is
     // being called on that tensor), num_uses is 1nown from the start
     // -- it's 0 for all ops
-    t->num_uses = 0;
+    t->num_uses = t->_num_uses = 0;
     t->name = random_chars(3);
 
     t->grad_fn = NULL;
@@ -46,6 +48,12 @@ tensor* TensorNoData2d(int y, int z)
     // But it would be repetitive to set the same attr
     // (t->backward) in every op, so set it here
     t->backward = backward;
+
+
+    // todo-high: here and in the other constructors, set the below fields to NULL?
+    // t->scratch_space;
+    // t->inputs;
+    // t->non_grad_inputs;
 
     return t;
 }
@@ -70,7 +78,7 @@ tensor* TensorNoData3d(int x, int y, int z)
 
     t->is_leaf = true;
     t->num_inputs = -1;
-    t->num_uses = 0;
+    t->num_uses = t->_num_uses = 0;
     t->name = random_chars(3);
 
     t->grad_fn = NULL;
@@ -102,7 +110,7 @@ tensor* TensorNoData4d(int o, int x, int y, int z)
     // for autograd engine:
     t->is_leaf = true;
     t->num_inputs = -1;
-    t->num_uses = 0;
+    t->num_uses = t->_num_uses = 0;
     t->name = random_chars(3);
 
     t->grad_fn = NULL;
@@ -119,6 +127,7 @@ tensor* EmptyTensor2d(int s1, int s2)
 {
     tensor* t = TensorNoData2d(s1, s2);
     t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
+    add_to_gc(t);
     t->device = CPU;
     return t;
 }
@@ -127,6 +136,7 @@ tensor* EmptyTensor3d(int x, int y, int z)
 {
     tensor* t = TensorNoData3d(x, y, z);
     t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
+    add_to_gc(t);
     t->device = CPU;
     return t;
 }
@@ -135,6 +145,7 @@ tensor* EmptyTensor4d(int o, int x, int y, int z)
 {
     tensor* t = TensorNoData4d(o, x, y, z);
     t->data = (float*)checkMallocErrors(malloc(sizeof(float) * t->size));
+    add_to_gc(t);
     t->device = CPU;
     return t;
 }
@@ -143,7 +154,7 @@ tensor* EmptyTensor4d(int o, int x, int y, int z)
 tensor* Tensor2d(int s1, int s2)
 {
     tensor* t = EmptyTensor2d(s1, s2);
-    GetRandomFloat(t->data, t->size);
+    normal_init(t);
     // todo-low: directly initialize random floats on gpu (avoid initializing on cpu, and then moving)
     COPY_TO_DEVICE(t);
     return t;
@@ -152,7 +163,7 @@ tensor* Tensor2d(int s1, int s2)
 tensor* Tensor3d(int s1, int s2, int s3)
 {
     tensor* t = EmptyTensor3d(s1, s2, s3);
-    GetRandomFloat(t->data, t->size);
+    normal_init(t);
     COPY_TO_DEVICE(t);
     return t;
 }
@@ -160,7 +171,7 @@ tensor* Tensor3d(int s1, int s2, int s3)
 tensor* Tensor4d(int s1, int s2, int s3, int s4)
 {
     tensor* t = EmptyTensor4d(s1, s2, s3, s4);
-    GetRandomFloat(t->data, t->size);
+    normal_init(t);
     COPY_TO_DEVICE(t);
     return t;
 }

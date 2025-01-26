@@ -1,5 +1,4 @@
 #include <iostream> // todo: use C only
-using namespace std;
 
 #define DEVICE CUDA
 
@@ -22,7 +21,7 @@ using namespace std;
 
 
 // todo-now: bug in reduce_sum_bwd
-int main() {
+int main(void) {
     srand(123);
     set_backend_device();
 
@@ -42,7 +41,7 @@ int main() {
     return 0;
 }
 
-int test_batched_reduce() {
+int test_batched_reduce(void) {
     srand(123);
     set_backend_device();
 
@@ -70,7 +69,76 @@ int test_batched_reduce() {
     return 0;
 }
 
-int test_select() {
+int test_repeat_axis(void) {
+    srand(123);
+    set_backend_device();
+
+    tensor* b1 = Tensor(1, 2);
+    set_name(b1, "b1");
+    add_param(b1);
+
+    tensor* b = repeat(b1, /*axis = */ 0, /*num_repeats = */ 16);
+    // tensor* b = transpose(b1);
+
+
+    save_num_uses(b);
+    b->backward(b);
+    generate_test(b);
+
+    printf("GC_IDX: %i\n", GC_IDX);
+    free_all_tensors();
+    return 0;
+}
+
+int test_repeat_axis_bwd(void) {
+    // random num generator init, must be called once
+    // srand(time(NULL));
+    srand(123);
+    set_backend_device();
+
+    fclose(fopen("./generated/log.txt", "w"));
+
+
+    tensor* a = Tensor(1, 4);    // (B, N)
+    set_name(a, "a");
+    add_param(a);
+    tensor* b = repeat(a, 0, 3); // (3, 8)
+    set_name(b, "b");
+    print(b);
+
+    save_num_uses(b);
+    b->backward(b);
+    generate_test(b);
+    return 0;
+}
+
+int test_conv(void) {
+    srand(123);
+    set_backend_device();
+
+    int H = 4, W = 4, C = 3, F = 5, K = 2;
+
+    tensor* x = Tensor(C, H, W);
+    set_name(x, "x"); print(x);
+
+    tensor* kernels = Tensor(F, C, K, K);
+    set_name(kernels, "kernels"); print(kernels);
+
+    tensor* bias = Tensor(F, 1);
+    set_name(bias, "bias"); print(bias);
+
+    tensor* out = conv(x, kernels, bias);
+    set_name(out, "out"); print(out);
+
+    // tensor* out_flat = batched_flatten(out);
+    // set_name(out_flat, "out_flat"); sprint(out_flat);
+    // print(out_flat);
+
+    out->backward(out);
+    return 0;
+}
+
+int test_select(void) {
     srand(123);
     set_backend_device();
 
@@ -98,7 +166,7 @@ int test_select() {
 
 
 // [test copied from tests.cpp]
-int test_flatten() {
+int test_flatten(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -131,7 +199,7 @@ int test_flatten() {
     return 0;
 }
 
-int test_repeat() {
+int test_repeat(void) {
     srand(123);
     set_backend_device();
 
@@ -151,7 +219,7 @@ int test_repeat() {
     return 0;
 }
 
-int test_backends(){
+int test_backends(void){
     srand(123);
 
     int N = 16, M = 8;
@@ -166,7 +234,7 @@ int test_backends(){
     return 0;
 }
 
-int test_bmm() {
+int test_bmm(void) {
     srand(123);
 
     int B=3, N = 2, M = 8, D = 4;
@@ -186,7 +254,7 @@ int test_bmm() {
     return 0;
 }
 
-int test_conv() {
+int test_conv(void) {
     srand(123);
 
     int H = 4, W = 4, C = 3, F = 5, K = 2;
@@ -206,7 +274,7 @@ int test_conv() {
     return 0;
 }
 
-int test_batched_conv() {
+int test_batched_conv(void) {
     srand(123);
 
     // int B = 3000, H = 128, W = 128, C = 3, F = 5, K = 2;
@@ -227,7 +295,7 @@ int test_batched_conv() {
     return 0;
 }
 
-int test_pool() {
+int test_pool(void) {
     srand(123);
 
     int H = 4, W = 4, C = 3, K = 2;
@@ -244,7 +312,7 @@ int test_pool() {
     return 0;
 }
 
-int test_batched_pool() {
+int test_batched_pool(void) {
     srand(123);
 
     int B = 2, H = 4, W = 4, C = 3, K = 2;
@@ -261,7 +329,7 @@ int test_batched_pool() {
     return 0;
 }
 
-int test_simple_ops() {
+int test_simple_ops(void) {
     srand(123);
 
     int N = 2, M = 8, D = 4;
@@ -308,3 +376,38 @@ int test_simple_ops() {
 
     return 0;
 }
+
+// int main(void){
+//     srand(123);
+//     set_backend_device();
+
+//     tensor* log_probs = Tensor(10000, 10);
+//     tensor* label = Tensor(10000, 1);
+//     tensor* se = select(log_probs, label);      // (B, 1)
+//     checkCudaErrors(cudaDeviceSynchronize());
+//     set_name(se, "se"); // sprint(se);
+//     sprint(se);
+// }
+
+
+// cifar10* dataset = get_cifar10();
+// cifar10* train_batch = sample_batch(dataset, BATCH_SIZE, /* is_random = */ IS_STOCHASTIC);
+// cifar10* val_batch = get_validation_cifar10();
+// // int gc_until = GC_IDX;
+// sprint(val_batch->input);
+// sprint(val_batch->label);
+
+// // sanity check: run on dataset
+// tensor* logits = forward(train_batch->input);
+// checkCudaErrors(cudaDeviceSynchronize());
+// tensor* log_probs = log_softmax(logits);
+// checkCudaErrors(cudaDeviceSynchronize());
+// tensor* loss = NLL(log_probs, train_batch->label);
+
+// logits = forward(val_batch->input);
+// checkCudaErrors(cudaDeviceSynchronize());
+// log_probs = log_softmax(logits);
+// checkCudaErrors(cudaDeviceSynchronize());
+// loss = NLL(log_probs, val_batch->label);
+
+// free_all_tensors(gc_until);

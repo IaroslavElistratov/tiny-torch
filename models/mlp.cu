@@ -1,5 +1,4 @@
 #include <iostream> // todo: use C only
-using namespace std;
 
 #define DEVICE CPU
 
@@ -10,50 +9,44 @@ using namespace std;
 #include "../composite_ops.cpp"
 #include "../cifar10.cpp"
 #include "../print.cpp"
+#include "../optim.cpp"
+#include "../codegen.cpp"
 
-
-#define NUM_EP 10
+#define NUM_EP 1
 #define LR 0.02
-
-
-void sgd(tensor* w) {
-    tensor* w_local = COPY_FROM_DEVICE(w);
-    tensor* w_grad_local = COPY_FROM_DEVICE(w->grad);
-
-    for (int i=0; i<w->size; i++)
-        w_local->data[i] -= w_grad_local->data[i] * LR;
-
-    COPY_TO_DEVICE(w_local);
-    w->data = w_local->data;
-}
 
 
 float train_step(tensor* x, tensor* w1, tensor* w2)
 {
-    // *** FWD ***
+    // *** Net ***
 
     // x(N, M) @ w1(M, D) = out1(N, D)
     tensor* out1 = matmul(x, w1);
-    set_name(out1, "matmul_1"); // print(out1);
+    set_name(out1, "matmul_1");
 
     // out2(N, D)
     tensor* out2 = relu(out1);
-    set_name(out2, "relu"); // print(out2);
+    set_name(out2, "relu");
 
     // out2(N, D) @ w2(D, O) = out3(N, O)
     tensor* out3 = matmul(out2, w2);
-    set_name(out3, "matmul_2"); // print(out3);
+    set_name(out3, "matmul_2");
 
-    // loss
+    // *** Loss fn ***
     tensor* y = TensorLikeFill(out3, 0.5); // dummy label
     tensor* loss = reduce_sum(pow(sub(y, out3), 2));
 
+    // *** Zero-out grads ***
+    zero_grads();
+
     // *** Backward ***
+    save_num_uses(loss);
     loss->backward(loss);
 
+    generate_test(loss);
+
     // *** Optim Step ***
-    sgd(w1);
-    sgd(w2);
+    sgd(LR);
 
     graphviz(loss);
 
@@ -61,7 +54,7 @@ float train_step(tensor* x, tensor* w1, tensor* w2)
 }
 
 
-int main() {
+int main(void) {
     // random num generator init, must be called once
     // srand(time(NULL));
     srand(123);
@@ -78,9 +71,11 @@ int main() {
 
     tensor* w1 = Tensor(M, D);
     set_name(w1, "w1"); print(w1);
+    add_param(w1);
 
     tensor* w2 = Tensor(D, O);
     set_name(w2, "w2"); print(w2);
+    add_param(w2);
 
     // *** Train ***
     for (int ep_idx=0; ep_idx<NUM_EP; ep_idx++) {

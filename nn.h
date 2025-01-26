@@ -2,8 +2,10 @@
 #ifndef NN_H_INCLUDED
 #define NN_H_INCLUDED
 
-#define MAX_INPUTS 2
+#define MAX_RANK 4
+#define MAX_INPUTS 3
 #define MAX_TENSOR_NAME 20 // unique for each tensor
+#define MAX_SCRATCH_SPACE 1
 
 // todo: avoid needing to manually sync increment op_type, NUM_OPS, VIS_COLORS when adding a new op
 //  - use graphviz's pastel19 or set312 color scheme ?
@@ -15,7 +17,7 @@ const char* VIS_COLORS[] = {"darkolivegreen1", "lightsalmon1", "skyblue1", "plum
 // tensor and its fn's are used in both ops.cpp and main.cpp
 struct tensor {
     float* data;
-    int shape[4];
+    int shape[MAX_RANK];
     int device;
 
     // https://arxiv.org/pdf/1102.1523
@@ -25,7 +27,7 @@ struct tensor {
     // (10, 1), in other words: proceed one byte to
     // get to the next column and ten bytes to locate
     // the next row.
-    int stride[4];
+    int stride[MAX_RANK];
 
     // rank
     int num_dims;
@@ -42,11 +44,14 @@ struct tensor {
 
     int num_inputs;
     tensor* inputs[MAX_INPUTS];
+    // question-now: malloc memory for this?
+    int non_grad_inputs[MAX_INPUTS];
     int num_uses; // for the AG engine: num outputs of the this tensor left to call their out->grad_fn, before calling grad_fn on the current tensor
+    int _num_uses;
 
     // to store data recorded in fwd and used in bwd (wt needing to recompute it in bwd)
     // e.g. in relu, reduce_max, maxpool: idxs recorded during forward _k and used in its corresponding _bwd fn
-    tensor* scratch_space[1];
+    tensor* scratch_space[MAX_SCRATCH_SPACE];
 
     char* name;
     // use char as small int
@@ -73,7 +78,8 @@ struct tensor {
 #define CUDA_DEBUG false
 #define DATA_COPY_DEBUG false
 
-void GetRandomFloat(float*, int);
+void uniform_init(tensor*);
+void kaiming_normal_init(tensor*);
 void set_name(tensor*, const char*);
 char* random_chars(int);
 
@@ -85,5 +91,28 @@ void print(tensor*);
 void lprint(tensor*);
 void cuda_lprint(tensor*);
 void sprint(tensor* t);
+
+struct param {
+    tensor* value;
+    // sgd:
+    tensor* velocity;
+    // adam:
+    int t;
+    float beta1;
+    float beta2;
+    float epsilon;
+    tensor* first_moment;
+    tensor* second_moment;
+
+    param* next;
+};
+
+struct tuple {
+    float item_1;
+    float item_2;
+};
+
+
+tuple* get_tuple(float val1, float val2);
 
 #endif

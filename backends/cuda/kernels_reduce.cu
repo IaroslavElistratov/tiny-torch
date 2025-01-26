@@ -322,6 +322,7 @@ tensor* _launch_reduction_kernel(int op_idx, tensor* input, bool is_batched){
     // maybe a better solution is to launch 2nd kernel to do the work?
     value* out_host = (value*)checkMallocErrors(malloc(size));
     checkCudaErrors(cudaMemcpy(out_host, out_device, size, cudaMemcpyDeviceToHost));
+    cudaFree(out_device);
 
     tensor* scratch = COPY_FROM_DEVICE(TensorLike(out));
     out = COPY_FROM_DEVICE(out);

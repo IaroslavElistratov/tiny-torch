@@ -31,7 +31,7 @@ void backward(tensor* loss){
     loss->num_uses = 0;
     loss->grad = TensorLikeFill(loss, 1.0);
 
-    deque <tensor*> ready;
+    std::deque <tensor*> ready;
     ready.push_front(loss);
     while (ready.size() > 0) {
         tensor* t = ready.back(); ready.pop_back();
@@ -68,6 +68,9 @@ void backward(tensor* loss){
         tensor* upstream = t->grad;
         // step once for the op -- propagates grad wrt all inputs of the op
         t->grad_fn(upstream, t);
+
+        if (IS_DEBUG_AG)
+            printf("[autograd engine] ran %s backward fn\n", t->name);
 
         for (int i=0; i<t->num_inputs; i++){
             tensor* inp = t->inputs[i];
