@@ -14,7 +14,7 @@ struct __align__(8) value { // CUDA specific syntax needed to that this struct c
     int idx;
 };
 
-__device__ value max(value a, value b){
+__device__ value max_value(value a, value b){
     return (a.val > b.val) ? a : b;
 }
 
@@ -23,7 +23,7 @@ __device__ value max(value a, value b){
 // the ReductionKernel to work polymorphically (op_fns, atomic_fns) for
 // any reduction op (so that _launch_reduction_kernel can be re-used for:
 // reduce_max_k, reduce_sum_k, etc)
-__device__ value add(value a, value b){
+__device__ value add_value(value a, value b){
     // ues -1 as an invalid idx
     return value{a.val + b.val, -1};
 }
@@ -73,7 +73,7 @@ __device__ value atomicAddValue(value* address, value val) {
 
         // has semantics of undoing modification to val if update failed
         // (update can fail because observed value was != assumed value)
-        sum = add(old, val);
+        sum = add_value(old, val);
 
         atomic_t* address_ull = (atomic_t*)address;
         atomic_t assumed_ull = *(atomic_t*)&old;
@@ -107,7 +107,7 @@ Resulted in err below, likely because the function pointers passed were allocate
 */
 typedef value (*OpFn)(value, value);
 typedef value (*AtomicFn)(value *, value);
-__device__ OpFn op_fns[2] = {max, add};
+__device__ OpFn op_fns[2] = {max_value, add_value};
 __device__ AtomicFn atomic_fns[2] = {atomicMaxValue, atomicAddValue};
 
 
