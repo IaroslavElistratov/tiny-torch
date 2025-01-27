@@ -67,9 +67,9 @@ cifar10* get_cifar10(void){
     num_files = min(5, num_files);
 
     for (int file_idx=1; file_idx<=num_files; file_idx++){
-        // todo: determine automatically
-        char file_name[46];
-        snprintf(file_name, sizeof(char) * 46, "../data/cifar-10-batches-bin/data_batch_%i.bin", file_idx);
+        // todo: determine size of file_name array automatically
+        char file_name[60];
+        snprintf(file_name, sizeof(char) * 60, "%s/data/data_batch_%i.bin", getenv("HOME"), file_idx);
 
         read_file(input, label, file_name);
     }
@@ -208,7 +208,9 @@ cifar10* get_validation_cifar10(void){
     // reset global variables, they were incremented by
     // "get_cifar10" fn, assuming it ran before this fn
     byte_idx=0, img_idx=0, tensor_data_idx=0;
-    read_file(input, label, "../data/cifar-10-batches-bin/test_batch.bin");
+    char file_name[60];
+    snprintf(file_name, sizeof(char) * 60, "%s/data/test_batch.bin", getenv("HOME"));
+    read_file(input, label, file_name);
 
     cifar10* batch = (cifar10*)checkMallocErrors(malloc(sizeof(cifar10)));
     batch->input = input;
