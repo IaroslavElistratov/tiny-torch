@@ -74,7 +74,7 @@ tensor* matmul(tensor* a, tensor* b) {
     return t;
 }
 
-tensor* div(tensor* a, tensor* b) {
+tensor* tinytorch_div(tensor* a, tensor* b) {
     a->num_uses++;
     b->num_uses++;
     tensor* t = div_k(a, b);
@@ -100,7 +100,7 @@ tensor* repeat(tensor* a, int axis, int num_repeats) {
     return t;
 }
 
-tensor* select(tensor* a, tensor* idx) {
+tensor* tinytorch_select(tensor* a, tensor* idx) {
     a->num_uses++;
     idx->num_uses++;
     tensor* t = select_k(a, idx);
@@ -113,7 +113,7 @@ tensor* select(tensor* a, tensor* idx) {
     return t;
 }
 
-tensor* pow(tensor* a, int exponent) {
+tensor* tinytorch_pow(tensor* a, int exponent) {
     a->num_uses++;
     tensor* t = pow_k(a, exponent);
     t->is_leaf = false;
@@ -160,8 +160,7 @@ tensor* neg(tensor* a) {
     return t;
 }
 
-// todo: does it conflict with C's math.exp ?
-tensor* exp(tensor* a) {
+tensor* tinytorch_exp(tensor* a) {
     a->num_uses++;
     tensor* t = exp_k(a);
     t->is_leaf = false;
@@ -172,7 +171,7 @@ tensor* exp(tensor* a) {
     return t;
 }
 
-tensor* log(tensor* a) {
+tensor* tinytorch_log(tensor* a) {
     a->num_uses++;
     tensor* t = log_k(a);
     t->is_leaf = false;
@@ -303,5 +302,30 @@ tensor* batched_maxpool(tensor* input) {
     t->grad_fn = bwd_batched_maxpool_k;
     return t;
 }
+
+
+// these will be called from C++ (name mangling will ensure
+// these overloads are not conflicting with similarly named math.h fns)
+#if !defined (PYTHON_API)
+    tensor* div(tensor* a, tensor* b){
+        return tinytorch_div(a, b);
+    }
+
+    tensor* select(tensor* t, tensor* idx){
+        return tinytorch_select(t, idx);
+    }
+
+    tensor* pow(tensor* t, int power){
+        return tinytorch_pow(t, power);
+    }
+
+    tensor* exp(tensor* t){
+        return tinytorch_exp(t);
+    }
+
+    tensor* log(tensor* t){
+        return tinytorch_log(t);
+    }
+#endif
 
 }

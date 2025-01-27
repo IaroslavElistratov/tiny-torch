@@ -246,9 +246,9 @@ class TensorScalarFill(Tensor):
 # add = lib.add
 # sub = lib.sub
 # mul = lib.mul
-# div = lib.div
+# div = lib.tinytorch_div
 # neg = lib.neg
-# pow = lib.pow
+# pow = lib.tinytorch_pow
 
 # todo-now: implement unary and binary op decorators: abstract much of the below into the decorator
 def add(t1, t2):
@@ -265,22 +265,22 @@ def mul(t1, t2):
     return Tensor._from_c_tensor(lib.mul(t1.c_tensor, t2.c_tensor))
 
 def div(t1, t2):
-    return Tensor._from_c_tensor(lib.div(t1.c_tensor, t2.c_tensor))
+    return Tensor._from_c_tensor(lib.tinytorch_div(t1.c_tensor, t2.c_tensor))
 
 def neg(t1):
     return Tensor._from_c_tensor(lib.neg(t1.c_tensor))
 
 def pow(t1, power):
-    return Tensor._from_c_tensor(lib.pow(t1.c_tensor, power))
+    return Tensor._from_c_tensor(lib.tinytorch_pow(t1.c_tensor, power))
 
 
 
 # cannot overload these:
 
-# log = lib.log
-# exp = lib.exp
+# log = lib.tinytorch_log
+# exp = lib.tinytorch_exp
 # repeat = lib.repeat
-# select = lib.select
+# select = lib.tinytorch_select
 # relu = lib.relu
 # transpose = lib.transpose
 # batched_flatten = lib.batched_flatten
@@ -302,11 +302,11 @@ def pow(t1, power):
 
 
 def log(t1):
-    return Tensor._from_c_tensor(lib.log(t1.c_tensor))
+    return Tensor._from_c_tensor(lib.tinytorch_log(t1.c_tensor))
 
 
 def exp(t1):
-    return Tensor._from_c_tensor(lib.exp(t1.c_tensor))
+    return Tensor._from_c_tensor(lib.tinytorch_exp(t1.c_tensor))
 
 
 def relu(t1):
@@ -359,10 +359,10 @@ def batched_reduce_max(t1):
     return Tensor._from_c_tensor(lib.batched_reduce_max(t1.c_tensor))
 
 
-lib.select.argtypes = [ctypes.c_int, ctypes.c_int]
+lib.tinytorch_select.argtypes = [ctypes.c_int, ctypes.c_int]
 
 def select(input, idx):
-    return Tensor._from_c_tensor(lib.select(input.c_tensor, idx.c_tensor))
+    return Tensor._from_c_tensor(lib.tinytorch_select(input.c_tensor, idx.c_tensor))
 
 
 
